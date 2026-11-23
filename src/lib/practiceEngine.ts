@@ -401,6 +401,12 @@ export class PracticeEngine {
         const coached = this.usedCoach
         this.stopAll()
         this.hooks.solved(hit.trim(), coached)
+        return
+      }
+      // Finished hearing something else: show what was heard, keep listening.
+      if (event.results[event.results.length - 1]?.isFinal) {
+        const prompt = this.mode === 'spanish' && this.item.spanish ? `Say "${this.item.spanish.en}" in Spanish!` : `Say "${this.item.target}"!`
+        this.hooks.feedback(prompt, `Heard “${top}”. Try again, still listening…`, 'listening')
       }
     }
     r.onerror = (e) => {

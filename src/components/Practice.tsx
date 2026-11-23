@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { PracticeEngine, type MicState, type Pace, type Tone } from '../lib/practiceEngine'
 import { MAX_LEVEL, stageName } from '../lib/curriculum'
-import { activeLevel, bestLevel, endRound, newMilestone, pickRound, solveWord, type PracticeItem } from '../lib/progress'
+import { activeLevel, bestLevel, CHALLENGE_JUMP, CHALLENGE_PASS, CHALLENGE_SIZE, endRound, newMilestone, pickChallenge, pickRound, ROUND_SIZE, solveWord, type PracticeItem } from '../lib/progress'
 import { playChime } from '../lib/sfx'
 import { moveSticker } from '../lib/stickers'
 import { recognitionSupported } from '../lib/speech'
@@ -48,12 +48,16 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const [logOpen, setLogOpen] = useState(false)
   const [logLines, setLogLines] = useState<string[]>([])
   const [confetti, setConfetti] = useState<ConfettiPiece[]>([])
-  const [roundNote, setRoundNote] = useState<{ clean: number; attempts: number; movedDownTo: number | null } | null>(null)
+  const [roundNote, setRoundNote] = useState<{ clean: number; attempts: number; movedDownTo: number | null; note?: string } | null>(null)
+  const [challenge, setChallenge] = useState<number | null>(null)
+  const challengeRef = useRef<number | null>(null)
   // This round's results: words said without help vs. all words tried (skips and give-ups count as tried).
   const cleanRef = useRef(0)
   const attemptsRef = useRef(0)
   const levelUpPending = useRef(false)
   const lastRoundRef = useRef<{ clean: number; attempts: number } | null>(null)
+  // Stars earned since the last Round Complete screen; brisk readers only stop every 10.
+  const starsSinceStop = useRef(0)
   const paceRef = useRef<Pace>(paceFor(learner, null))
 
   const learnerRef = useRef(learner)
@@ -101,14 +105,16 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     else setFeedback({ title: 'Say the word out loud!', sub: `Press ${isMac ? 'Return' : 'Enter'} or tap Listen Now`, tone: 'neutral' })
   }, [])
 
-  const startRound = useCallback((opts: { autoBegin: boolean; welcome?: boolean }) => {
+  const startRound = useCallback((opts: { autoBegin: boolean; welcome?: boolean; challengeLevel?: number | null }) => {
     paceRef.current = paceFor(learnerRef.current, lastRoundRef.current)
     setRoundDone(false)
     setRoundNote(null)
     cleanRef.current = 0
     attemptsRef.current = 0
     levelUpPending.current = false
-    const items = pickRound(learnerRef.current)
+    challengeRef.current = opts.challengeLevel ?? null
+    setChallenge(challengeRef.current)
+    const items = challengeRef.current ? pickChallenge(learnerRef.current, challengeRef.current) : pickRound(learnerRef.current)
     roundRef.current = items
     setRound(items)
     loadWord(0, { autoBegin: opts.autoBegin })
@@ -118,32 +124,68 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     }
   }, [loadWord])
 
+  /** Perfect round: say so, then start a short challenge a few levels up. */
+  const startChallenge = useCallback((target: number, headline: string) => {
+    setConfetti(makeConfetti(26))
+    setFeedback({ title: headline, sub: `Challenge: ${CHALLENGE_SIZE} items from Level ${target}. Get ${CHALLENGE_PASS} to jump ahead!`, tone: 'success' })
+    log('CHALLENGE', `to L${target}`)
+    advanceTimer.current = setTimeout(() => startRound({ autoBegin: true, challengeLevel: target }), 1800)
+  }, [log, startRound])
+
   const finishRound = useCallback(() => {
     engineRef.current?.stopAll()
-    setRoundDone(true)
-    const r = endRound(learnerRef.current, cleanRef.current, attemptsRef.current)
-    if (r.movedDownTo) {
+    const clean = cleanRef.current
+    const attempts = attemptsRef.current
+    const wasChallenge = challengeRef.current
+    const r = endRound(learnerRef.current, clean, attempts, { challengeLevel: wasChallenge })
+    lastRoundRef.current = { clean, attempts }
+    if (r.learner !== learnerRef.current) {
       learnerRef.current = r.learner
       onChange(r.learner)
-      log('MOVED_DOWN', `to L${r.movedDownTo} clean=${cleanRef.current}/${attemptsRef.current}`)
+      starsSinceStop.current += r.bonus ?? 0
     }
-    setRoundNote({ clean: cleanRef.current, attempts: attemptsRef.current, movedDownTo: r.movedDownTo })
-    lastRoundRef.current = { clean: cleanRef.current, attempts: attemptsRef.current }
+    if (r.challengeAt) {
+      startChallenge(r.challengeAt, `Perfect round! Up to Level ${r.movedUpTo}${r.bonus ? ` +${r.bonus} ⭐` : ''}`)
+      return
+    }
+    let note = ''
+    if (r.challenge === 'passed') {
+      setConfetti(makeConfetti(30))
+      note = `Challenge passed! Jumped to Level ${r.movedUpTo}${r.bonus ? ` +${r.bonus} ⭐` : ''}`
+    } else if (r.challenge === 'missed') {
+      note = `Good try! ${clean} of ${attempts}. Keep going at Level ${activeLevel(learnerRef.current)}.`
+    }
+    if (r.movedDownTo) log('MOVED_DOWN', `to L${r.movedDownTo} clean=${clean}/${attempts}`)
+    // Readers flying through: roll straight into the next round until 10 new stars are earned.
+    if (paceRef.current === 'brisk' && !r.movedDownTo && starsSinceStop.current < 10) {
+      setFeedback({ title: note || `Round done: ${clean} of ${attempts} ⭐`, sub: 'Next round starting…', tone: 'success' })
+      log('ROUND_CONTINUE', `clean=${clean}/${attempts} starsSinceStop=${starsSinceStop.current}`)
+      advanceTimer.current = setTimeout(() => startRound({ autoBegin: true }), note ? 1800 : 900)
+      return
+    }
+    starsSinceStop.current = 0
+    setRoundDone(true)
+    setRoundNote({ clean, attempts, movedDownTo: r.movedDownTo, note })
     const l = learnerRef.current
     if (l.spendable_stars > 0) setShop(`🎉 Round complete! Spend your ${l.spendable_stars} ⭐ or tap Keep Reading.`)
-  }, [log, onChange])
+  }, [log, onChange, startRound, startChallenge])
 
   const advance = useCallback((afterCoach: boolean) => {
     if (shopRef.current) return
-    // Just moved up a level: start a fresh round of the new level's words.
+    // Just moved up a level by mastering it.
     if (levelUpPending.current) {
-      startRound({ autoBegin: true })
+      const perfect = attemptsRef.current >= ROUND_SIZE && cleanRef.current === attemptsRef.current
+      const now = activeLevel(learnerRef.current)
+      const target = Math.min(now - 1 + CHALLENGE_JUMP, MAX_LEVEL)
+      lastRoundRef.current = { clean: cleanRef.current, attempts: attemptsRef.current }
+      if (perfect && target > now) startChallenge(target, `Perfect round! Up to Level ${now}`)
+      else startRound({ autoBegin: true })
       return
     }
     const next = indexRef.current + 1
     if (next < roundRef.current.length) loadWord(next, { autoBegin: true, promptType: afterCoach ? 'gentle_callout' : 'quick_listen' })
     else finishRound()
-  }, [loadWord, finishRound, startRound])
+  }, [loadWord, finishRound, startRound, startChallenge])
 
   const handleSolved = useCallback((heard: string, coached: boolean) => {
     const it = roundRef.current[indexRef.current]
@@ -151,9 +193,10 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     solvedRef.current = true
     onActivity()
     const before = learnerRef.current
-    const r = solveWord(before, it, coached)
+    const r = solveWord(before, it, coached, { challenge: Boolean(challengeRef.current) })
     attemptsRef.current += 1
     if (!coached) cleanRef.current += 1
+    starsSinceStop.current += r.learner.lifetime_stars - before.lifetime_stars
     if (r.leveledUpTo) levelUpPending.current = true
     learnerRef.current = r.learner
     onChange(r.learner)
@@ -319,6 +362,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
             <div className="flex items-center gap-2" title="Master every word in a level to move up">
               <span className="rounded-xl bg-indigo-600 px-3 py-1 font-kids text-sm font-bold text-white shadow-sm">Level {level} <span className="font-sans text-xs font-semibold opacity-80">of {MAX_LEVEL}</span></span>
               <span className="rounded-xl bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">{stageName(level, learner.mode)}</span>
+              {challenge && <span className="rounded-xl bg-fuchsia-600 px-2.5 py-1 text-xs font-bold text-white">🚀 Challenge: Level {challenge}</span>}
             </div>
             <span className="text-xs font-bold text-indigo-700">Word {Math.min(index + 1, round.length || 1)} of {round.length || 10}</span>
           </div>
@@ -407,6 +451,9 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
               <p className="mt-2 text-sm font-semibold text-slate-700">
                 {roundNote.clean} of {roundNote.attempts} {spanish ? 'said' : 'read'} without help
               </p>
+            )}
+            {roundNote?.note && (
+              <p className="mt-2 rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-3 py-2 text-sm font-semibold text-fuchsia-900">{roundNote.note}</p>
             )}
             {roundNote?.movedDownTo && (
               <p className="mt-2 rounded-2xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">

@@ -40,7 +40,7 @@ describe('progress', () => {
     const items = levelItems(1, 'reading')
     const l: Learner = { ...base, mastered: { '1': items.slice(0, items.length - 2).map((i) => i.key) } }
     expect(unmasteredItems(l)).toHaveLength(2)
-    expect(pickRound(l)).toHaveLength(2)
+    expect(pickRound(l)).toHaveLength(10) // 2 new + 8 review
     const all: Learner = { ...base, mastered: { '1': items.map((i) => i.key) } }
     expect(pickRound(all)).toHaveLength(10)
   })
@@ -71,5 +71,45 @@ describe('moving down after a rough round', () => {
     const r = solveWord(l, items[0], false)
     expect(r.leveledUpTo).toBe(12)
     expect(r.bonus).toBe(0)
+  })
+})
+
+describe('full rounds and the fast lane', () => {
+  it('always fills a round to 10, reviewing mastered words when few are left', () => {
+    const items = levelItems(1, 'reading')
+    const l: Learner = { ...base, mastered: { '1': items.slice(0, items.length - 2).map((i) => i.key) } }
+    const round = pickRound(l)
+    expect(round).toHaveLength(10)
+    const fresh = items.slice(-2).map((i) => i.key)
+    expect(round.slice(0, 2).map((i) => i.key).sort()).toEqual(fresh.sort())
+  })
+  it('a perfect round moves up a level and offers a challenge 3 levels up', () => {
+    const l: Learner = { ...base, reading_level: 20, reading_best: 20 }
+    const r = endRound(l, 10, 10)
+    expect(r.movedUpTo).toBe(21)
+    expect(r.learner.reading_level).toBe(21)
+    expect(r.bonus).toBe(100)
+    expect(r.challengeAt).toBe(23)
+  })
+  it('passing a challenge jumps ahead; missing it keeps the earned level', () => {
+    const l: Learner = { ...base, reading_level: 21, reading_best: 21 }
+    const pass = endRound(l, 4, 5, { challengeLevel: 23 })
+    expect(pass.challenge).toBe('passed')
+    expect(pass.learner.reading_level).toBe(23)
+    expect(pass.learner.reading_best).toBe(23)
+    const miss = endRound(l, 3, 5, { challengeLevel: 23 })
+    expect(miss.challenge).toBe('missed')
+    expect(miss.learner.reading_level).toBe(21)
+    expect(miss.movedDownTo).toBeNull()
+  })
+  it('challenge items earn stars but never count toward mastery', () => {
+    const r = solveWord({ ...base, reading_level: 21 }, levelItems(23, 'reading')[0], false, { challenge: true })
+    expect(r.learner.lifetime_stars).toBe(1)
+    expect(r.learner.mastered).toEqual({})
+  })
+  it('no challenge past level 100', () => {
+    const r = endRound({ ...base, reading_level: 99, reading_best: 99 }, 10, 10)
+    expect(r.movedUpTo).toBe(100)
+    expect(r.challengeAt).toBeNull()
   })
 })

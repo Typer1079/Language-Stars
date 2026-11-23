@@ -1,5 +1,42 @@
 import { HOMOPHONE_VARIANTS } from './wordBanks'
 
+/**
+ * Extra sound-alikes for the short CVC words in Reading Level 2, where speech-to-text most often
+ * writes a different real word ("hen" -> "hand", "pen" -> "pin", "sun" -> "son").
+ */
+const SHORT_WORD_SOUNDALIKES: Record<string, string[]> = {
+  bat: ['bad', 'bet', 'but', 'pat', 'bath', 'batt'],
+  cat: ['cut', 'cap', 'kat', 'kit', 'cad', 'caught'],
+  dog: ['dug', 'doug', 'dock', 'dawg', 'dogs'],
+  sun: ['son', 'sum', 'some', 'sunny', 'sung'],
+  pig: ['big', 'peg', 'pick', 'pigs'],
+  hop: ['hope', 'hip', 'hot', 'hub', 'hops', 'hap'],
+  map: ['mop', 'mapp', 'nap', 'mob', 'mat'],
+  pen: ['pin', 'pan', 'penn', 'ben', 'pain', 'pens', 'pend'],
+  cup: ['cop', 'cap', 'cub', 'cups'],
+  red: ['read', 'rid', 'rad', 'wed', 'ret'],
+  box: ['bucks', 'backs', 'bots', 'books', 'bok'],
+  fan: ['van', 'fun', 'fin', 'phan', 'fans'],
+  jet: ['jeff', 'get', 'yet', 'jett', 'jets', 'chet'],
+  mug: ['mag', 'mud', 'mog', 'mugs', 'mook'],
+  van: ['fan', 'von', 'vin', 'ben', 'vans'],
+  fox: ['fax', 'folks', 'socks', 'fogs', 'fawks'],
+  hen: ['hand', 'ken', 'then', 'when', 'ten', 'hem', 'henn', 'hin', 'hun', 'hens'],
+  jam: ['jim', 'gem', 'jamb', 'jem', 'cham', 'jams'],
+  bed: ['bad', 'bid', 'bet', 'bread', 'bud', 'beds'],
+  top: ['stop', 'tap', 'tops', 'tub', 'tip', 'taup'],
+}
+
+/** Consonant outline of a word ("hand" -> "hnd"), used to forgive vowel slips in short words. */
+function consonants(w: string): string {
+  return w
+    .replace(/ph/g, 'f')
+    .replace(/ck|[cq]/g, 'k')
+    .replace(/x/g, 'ks')
+    .replace(/[aeiouy']/g, '')
+    .replace(/(.)\1+/g, '$1')
+}
+
 function fold(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
@@ -72,14 +109,19 @@ export function isWordMatch(transcript: string, targetWord: string, variants?: s
 
   const tokens = cleaned.split(/\s+/)
   const joined = tokens.join('')
-  const list = variants?.length ? variants.map(fold) : HOMOPHONE_VARIANTS[target] ?? [target]
+  const list = variants?.length ? variants.map(fold) : [...(HOMOPHONE_VARIANTS[target] ?? [target]), ...(SHORT_WORD_SOUNDALIKES[target] ?? [])]
 
   if (tokens.includes(target) || joined === target || cleaned.includes(target)) return true
   for (const v of list) {
-    if (tokens.includes(v) || joined === v || cleaned.includes(v)) return true
+    if (tokens.includes(v) || joined === v || (v.length >= 4 && cleaned.includes(v))) return true
   }
   for (const tok of tokens) {
     if (target.length >= 3 && editDistance(tok, target) <= 1) return true
+  }
+  // Short single words: same consonants, any vowel ("hen" / "hin" / "hand").
+  if (!variants?.length && !target.includes(' ') && target.length >= 3 && target.length <= 5) {
+    const key = consonants(target)
+    if (key.length >= 2 && tokens.some((tok) => tok.length <= target.length + 1 && consonants(tok).startsWith(key))) return true
   }
   if (target.includes(' ')) return isPhraseMatch(transcript, targetWord)
   return false

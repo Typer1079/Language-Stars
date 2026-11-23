@@ -46,11 +46,25 @@ export function shuffle<T>(arr: T[], rand: () => number = Math.random): T[] {
 }
 
 /** Up to 10 words the reader hasn't mastered yet; the whole level again once all are mastered. */
+/**
+ * A round is always 10 items when the level has them: words not yet mastered first,
+ * topped up with already-mastered words from the same level as review.
+ */
 export function pickRound(l: Learner, rand: () => number = Math.random): PracticeItem[] {
   const level = activeLevel(l)
-  let pool = unmasteredItems(l, level)
-  if (pool.length === 0) pool = levelItems(level, l.mode)
-  return shuffle(pool, rand).slice(0, ROUND_SIZE)
+  const fresh = shuffle(unmasteredItems(l, level), rand)
+  const freshKeys = new Set(fresh.map((i) => i.key))
+  const review = shuffle(levelItems(level, l.mode).filter((i) => !freshKeys.has(i.key)), rand)
+  return [...fresh, ...review].slice(0, ROUND_SIZE)
+}
+
+/** Challenge rounds: a short test a few levels up, offered after a perfect round. */
+export const CHALLENGE_JUMP = 3
+export const CHALLENGE_SIZE = 5
+export const CHALLENGE_PASS = 4
+
+export function pickChallenge(l: Learner, level: number, rand: () => number = Math.random): PracticeItem[] {
+  return shuffle(levelItems(level, l.mode), rand).slice(0, CHALLENGE_SIZE)
 }
 
 export function setLevel(l: Learner, level: number): Learner {
@@ -86,9 +100,10 @@ export interface SolveResult {
  * A word was said correctly: +1 star. Words said without the coach's help count as mastered.
  * Mastering every word in a level moves up a level with a bonus of (level x 5) stars.
  */
-export function solveWord(l: Learner, item: PracticeItem, coached: boolean): SolveResult {
+export function solveWord(l: Learner, item: PracticeItem, coached: boolean, opts: { challenge?: boolean } = {}): SolveResult {
   let next: Learner = { ...l, lifetime_stars: l.lifetime_stars + 1, spendable_stars: l.spendable_stars + 1 }
-  if (coached) return { learner: next, leveledUpTo: null, bonus: 0 }
+  // Challenge items belong to a higher level: they earn a star but don't count toward this level.
+  if (coached || opts.challenge) return { learner: next, leveledUpTo: null, bonus: 0 }
 
   const level = activeLevel(l)
   const key = masteryKey(level, l.mode)
@@ -114,6 +129,24 @@ export const MIN_ROUND_FOR_MOVE_DOWN = 5
 export interface RoundResult {
   learner: Learner
   movedDownTo: number | null
+  /** Moved up a level (perfect round) or jumped ahead (challenge passed). */
+  movedUpTo?: number | null
+  bonus?: number
+  /** After a perfect round: try a short challenge at this level next. */
+  challengeAt?: number | null
+  challenge?: 'passed' | 'missed' | null
+}
+
+function withBonus(l: Learner, bonus: number): Learner {
+  return bonus ? { ...l, lifetime_stars: l.lifetime_stars + bonus, spendable_stars: l.spendable_stars + bonus } : l
+}
+
+/** Moves up to `to` (clearing finished levels' lists); bonus only when it's a new best level. */
+function moveUp(l: Learner, to: number): { learner: Learner; bonus: number } {
+  const from = activeLevel(l)
+  const bonus = to > bestLevel(l) ? (to - 1) * 5 : 0
+  const mastered = clearMastered(l, to - 1, true)
+  return { learner: withBonus(setLevel({ ...l, mastered }, to), bonus), bonus: from === to ? 0 : bonus }
 }
 
 /**
@@ -121,8 +154,26 @@ export interface RoundResult {
  * stuck yet, so step back one level to practice it again. The reader climbs back up the same
  * way as before, by mastering every item in that level. Stars are never taken away.
  */
-export function endRound(l: Learner, clean: number, attempts: number): RoundResult {
+export function endRound(l: Learner, clean: number, attempts: number, opts: { challengeLevel?: number | null } = {}): RoundResult {
   const level = activeLevel(l)
+  const top = maxLevel(l.mode)
+
+  // Result of a challenge round.
+  if (opts.challengeLevel) {
+    if (clean >= CHALLENGE_PASS && opts.challengeLevel > level) {
+      const up = moveUp(l, opts.challengeLevel)
+      return { learner: up.learner, movedDownTo: null, movedUpTo: opts.challengeLevel, bonus: up.bonus, challenge: 'passed' }
+    }
+    return { learner: l, movedDownTo: null, challenge: 'missed' }
+  }
+
+  // Perfect full round with no coach help: move up now, then offer a challenge a few levels higher.
+  if (attempts >= ROUND_SIZE && clean === attempts && level < top) {
+    const up = moveUp(l, level + 1)
+    const target = Math.min(level + CHALLENGE_JUMP, top)
+    return { learner: up.learner, movedDownTo: null, movedUpTo: level + 1, bonus: up.bonus, challengeAt: target > level + 1 ? target : null }
+  }
+
   if (attempts < MIN_ROUND_FOR_MOVE_DOWN || level <= 1 || clean / attempts >= MOVE_DOWN_BELOW) return { learner: l, movedDownTo: null }
   const lower = level - 1
   const mastered = clearMastered(l, lower, false)
