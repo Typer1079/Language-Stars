@@ -1,5 +1,6 @@
 import type { Learner, Mode } from './types'
-import { SPANISH_WORD_BANKS, WORD_BANKS, type SpanishEntry } from './wordBanks'
+import { MAX_LEVEL, READING_LEVELS, SPANISH_LEVELS } from './curriculum'
+import type { SpanishEntry } from './wordBanks'
 
 /** One word to practice. `target` is what the reader must say out loud. */
 export interface PracticeItem {
@@ -11,8 +12,8 @@ export interface PracticeItem {
 
 export const ROUND_SIZE = 10
 
-export function maxLevel(mode: Mode): number {
-  return mode === 'spanish' ? Math.max(...Object.keys(SPANISH_WORD_BANKS).map(Number)) : Math.max(...Object.keys(WORD_BANKS).map(Number))
+export function maxLevel(_mode?: Mode): number {
+  return MAX_LEVEL
 }
 
 export function activeLevel(l: Pick<Learner, 'mode' | 'reading_level' | 'spanish_level'>): number {
@@ -25,9 +26,9 @@ export function masteryKey(level: number, mode: Mode): string {
 
 export function levelItems(level: number, mode: Mode): PracticeItem[] {
   if (mode === 'spanish') {
-    return (SPANISH_WORD_BANKS[level] ?? SPANISH_WORD_BANKS[1]).map((e) => ({ key: e.en.toLowerCase(), target: e.es, spanish: e }))
+    return (SPANISH_LEVELS[level] ?? SPANISH_LEVELS[1]).map((e) => ({ key: e.en.toLowerCase(), target: e.es, spanish: e }))
   }
-  return (WORD_BANKS[level] ?? WORD_BANKS[1]).map((w) => ({ key: w.toLowerCase(), target: w }))
+  return (READING_LEVELS[level] ?? READING_LEVELS[1]).map((w) => ({ key: w.toLowerCase(), target: w }))
 }
 
 export function unmasteredItems(l: Learner, level = activeLevel(l)): PracticeItem[] {
@@ -54,7 +55,25 @@ export function pickRound(l: Learner, rand: () => number = Math.random): Practic
 
 export function setLevel(l: Learner, level: number): Learner {
   const lvl = Math.min(Math.max(1, Math.round(level) || 1), maxLevel(l.mode))
-  return l.mode === 'spanish' ? { ...l, spanish_level: lvl } : { ...l, reading_level: lvl }
+  return l.mode === 'spanish'
+    ? { ...l, spanish_level: lvl, spanish_best: Math.max(l.spanish_best ?? 1, lvl) }
+    : { ...l, reading_level: lvl, reading_best: Math.max(l.reading_best ?? 1, lvl) }
+}
+
+export function bestLevel(l: Pick<Learner, 'mode' | 'reading_best' | 'spanish_best' | 'reading_level' | 'spanish_level'>): number {
+  return l.mode === 'spanish' ? Math.max(l.spanish_best ?? 1, l.spanish_level) : Math.max(l.reading_best ?? 1, l.reading_level)
+}
+
+/** Removes this mode's mastered lists for levels at or above `fromLevel` (or at or below, with `below`). */
+function clearMastered(l: Learner, level: number, below: boolean): Record<string, string[]> {
+  const spanish = l.mode === 'spanish'
+  return Object.fromEntries(
+    Object.entries(l.mastered).filter(([k]) => {
+      if (k.endsWith('_es') !== spanish) return true
+      const n = parseInt(k, 10)
+      return below ? n > level : n < level
+    }),
+  )
 }
 
 export interface SolveResult {
@@ -77,11 +96,37 @@ export function solveWord(l: Learner, item: PracticeItem, coached: boolean): Sol
   if (!list.includes(item.key)) next = { ...next, mastered: { ...next.mastered, [key]: [...list, item.key] } }
 
   if (unmasteredItems(next, level).length === 0 && level < maxLevel(l.mode)) {
-    const bonus = level * 5
-    next = setLevel({ ...next, lifetime_stars: next.lifetime_stars + bonus, spendable_stars: next.spendable_stars + bonus }, level + 1)
+    // Bonus only for reaching a new high, so dropping back and re-climbing doesn't pay twice.
+    const bonus = level + 1 > bestLevel(l) ? level * 5 : 0
+    // Finished levels don't need their word lists any more; keep the record small.
+    const mastered = clearMastered(next, level, true)
+    next = setLevel({ ...next, mastered, lifetime_stars: next.lifetime_stars + bonus, spendable_stars: next.spendable_stars + bonus }, level + 1)
     return { learner: next, leveledUpTo: level + 1, bonus }
   }
   return { learner: next, leveledUpTo: null, bonus: 0 }
+}
+
+/** A round with fewer than 40% of its words said without help (coach or Skip) moves down a level. */
+export const MOVE_DOWN_BELOW = 0.4
+/** Rounds shorter than this don't count (e.g. only two words were left in a level). */
+export const MIN_ROUND_FOR_MOVE_DOWN = 5
+
+export interface RoundResult {
+  learner: Learner
+  movedDownTo: number | null
+}
+
+/**
+ * End of a round: a rough round (lots of skips or coach help) means some of this level hasn't
+ * stuck yet, so step back one level to practice it again. The reader climbs back up the same
+ * way as before, by mastering every item in that level. Stars are never taken away.
+ */
+export function endRound(l: Learner, clean: number, attempts: number): RoundResult {
+  const level = activeLevel(l)
+  if (attempts < MIN_ROUND_FOR_MOVE_DOWN || level <= 1 || clean / attempts >= MOVE_DOWN_BELOW) return { learner: l, movedDownTo: null }
+  const lower = level - 1
+  const mastered = clearMastered(l, lower, false)
+  return { learner: setLevel({ ...l, mastered }, lower), movedDownTo: lower }
 }
 
 /** Lifetime-star milestones that open the sticker shop. */

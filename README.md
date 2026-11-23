@@ -17,10 +17,14 @@ Live site: `https://typer1079.github.io/Language-Stars/`
   stored.
 - Progress (stars, levels, mastered words, stickers and their positions) saves to the database
   automatically and follows the reader to any device.
-- Reading mode: letter tiles with phonics hints, speech recognition with sound-alike tolerance,
-  AI Coach (sound it out), automatic level-up with `level × 5` bonus stars.
-- Spanish mode: English prompt, Spanish answer hidden until **Shift** (or the coach), example
-  phrase with translation, Spanish voice for the Spanish words.
+- **100 levels in each mode**, growing from single words (Levels 1–15) to phrases and then full
+  sentences. A reader moves up by mastering every item in their level (bonus `level × 5` stars the
+  first time they reach a new level) and moves down one level after a rough round (fewer than 4 of
+  10 said without help). Stars are never taken away.
+- Reading mode: letter tiles with phonics hints for words, word tiles for phrases and sentences,
+  speech recognition with sound-alike tolerance, AI Coach (sound it out / read it together).
+- Spanish mode: English prompt, Spanish answer hidden until **Shift** (or the coach); listens until
+  the phrase is said correctly or **Skip** is pressed; the coach speaks only when asked.
 - Sticker shop: packs by age group and style, drag stickers anywhere, grow (+1⭐, +2⭐, +3⭐ …),
   sell back for everything spent.
 - Keyboard: **Return/Enter** = listen, **Space** = AI Coach, **Shift** = reveal Spanish word.

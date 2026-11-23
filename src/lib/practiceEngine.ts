@@ -156,15 +156,23 @@ export class PracticeEngine {
       const { en, es, phraseEs, phraseEn } = item.spanish
       this.hooks.revealSpanish()
       this.hooks.showPhrase()
-      this.hooks.feedback(`Spanish Coach: "${es}"`, `"${phraseEs}" (${phraseEn})`, 'coach')
-      const intro: VoiceSegment[] = [
-        { text: `In Spanish, ${en} is`, lang: 'en-US' },
-        { text: es, lang: 'es-ES' },
-        { text: 'For example:', lang: 'en-US' },
-        { text: phraseEs, lang: 'es-ES' },
-        { text: `which means: ${phraseEn} Your turn, ${callout}. Say`, lang: 'en-US' },
-        { text: es, lang: 'es-ES' },
-      ]
+      this.hooks.feedback(`Spanish Coach: "${es}"`, phraseEs ? `"${phraseEs}" (${phraseEn})` : `“${en}”`, 'coach')
+      const intro: VoiceSegment[] = phraseEs
+        ? [
+            { text: `In Spanish, ${en} is`, lang: 'en-US' },
+            { text: es, lang: 'es-ES' },
+            { text: 'For example:', lang: 'en-US' },
+            { text: phraseEs, lang: 'es-ES' },
+            { text: `which means: ${phraseEn} Your turn, ${callout}. Say`, lang: 'en-US' },
+            { text: es, lang: 'es-ES' },
+          ]
+        : [
+            // Phrases and sentences: say it, then once more for the reader to copy.
+            { text: `In Spanish, ${en} is:`, lang: 'en-US' },
+            { text: es, lang: 'es-ES' },
+            { text: `Your turn, ${callout}. Listen once more:`, lang: 'en-US' },
+            { text: es, lang: 'es-ES' },
+          ]
       // Say it once, then keep listening for as long as it takes (no retries, no auto-advance).
       this.say(intro, () => {
         this.coachingActive = false
@@ -175,6 +183,18 @@ export class PracticeEngine {
     }
 
     const word = item.target
+    if (word.includes(' ')) {
+      // Phrases and sentences: read it together instead of sounding out letters.
+      this.hooks.feedback('AI Coach: let’s read it together', word, 'coach')
+      this.coachSequence(
+        gen,
+        [{ text: `Let's read it together, ${callout}. ${word} Now you try!`, lang: 'en-US' }],
+        [{ text: `Try it again: ${word}`, lang: 'en-US' }],
+        'Next one coming up!',
+        word,
+      )
+      return
+    }
     const letters = word.toLowerCase().split('')
     const shown = letters.map((ch) => PHONICS_SOUNDS[ch] ?? ch).join(' ')
     const spoken = letters.map((ch) => SPOKEN_SOUNDS[ch] ?? ch).join(', ')

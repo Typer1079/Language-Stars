@@ -4,7 +4,7 @@ import type { Learner } from './types'
 
 const l: Learner = {
   id: 'x', display_name: 'T', kind: 'child', age_group: '9+', sticker_style: 'boy', mode: 'reading',
-  reading_level: 1, spanish_level: 1, lifetime_stars: 20, spendable_stars: 10, mastered: {}, stickers: [],
+  reading_level: 1, spanish_level: 1, reading_best: 1, spanish_best: 1, lifetime_stars: 20, spendable_stars: 10, mastered: {}, stickers: [],
 }
 
 describe('stickers', () => {

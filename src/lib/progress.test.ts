@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { levelItems, newMilestone, pickRound, solveWord, unmasteredItems } from './progress'
+import { endRound, levelItems, newMilestone, pickRound, solveWord, unmasteredItems } from './progress'
 import type { Learner } from './types'
 
 const base: Learner = {
   id: 'x', display_name: 'Test', kind: 'child', age_group: '5-6', sticker_style: 'any', mode: 'reading',
-  reading_level: 1, spanish_level: 1, lifetime_stars: 0, spendable_stars: 0, mastered: {}, stickers: [],
+  reading_level: 1, spanish_level: 1, reading_best: 1, spanish_best: 1, lifetime_stars: 0, spendable_stars: 0, mastered: {}, stickers: [],
 }
 
 describe('progress', () => {
@@ -29,12 +29,12 @@ describe('progress', () => {
     expect(r.learner.spanish_level).toBe(3)
     expect(r.learner.lifetime_stars).toBe(11)
   })
-  it('does not level past the top level', () => {
+  it('keeps going past the original five levels', () => {
     const items = levelItems(5, 'reading')
     const l: Learner = { ...base, reading_level: 5, mastered: { '5': items.slice(1).map((i) => i.key) } }
     const r = solveWord(l, items[0], false)
-    expect(r.leveledUpTo).toBeNull()
-    expect(r.learner.reading_level).toBe(5)
+    expect(r.leveledUpTo).toBe(6)
+    expect(r.learner.reading_level).toBe(6)
   })
   it('rounds skip mastered words, then repeat the level when all are mastered', () => {
     const items = levelItems(1, 'reading')
@@ -48,5 +48,28 @@ describe('progress', () => {
     expect(newMilestone(0, 1)).toBe(1)
     expect(newMilestone(4, 6)).toBe(5)
     expect(newMilestone(111, 112)).toBeNull()
+  })
+})
+
+describe('moving down after a rough round', () => {
+  const at = (lvl: number): Learner => ({ ...base, reading_level: lvl, reading_best: lvl, mastered: { [String(lvl)]: ['x'], [String(lvl - 1)]: ['y'], '3_es': ['keep'] } })
+  it('steps down one level when fewer than 4 of 10 were said without help', () => {
+    const r = endRound(at(12), 3, 10)
+    expect(r.movedDownTo).toBe(11)
+    expect(r.learner.reading_level).toBe(11)
+    expect(r.learner.reading_best).toBe(12)
+    expect(r.learner.mastered).toEqual({ '3_es': ['keep'] })
+  })
+  it('stays put on a decent round, a short round, or level 1', () => {
+    expect(endRound(at(12), 4, 10).movedDownTo).toBeNull()
+    expect(endRound(at(12), 0, 4).movedDownTo).toBeNull()
+    expect(endRound({ ...base }, 0, 10).movedDownTo).toBeNull()
+  })
+  it('pays the level-up bonus only for a new best level', () => {
+    const items = levelItems(11, 'reading')
+    const l: Learner = { ...base, reading_level: 11, reading_best: 12, mastered: { '11': items.slice(1).map((i) => i.key) } }
+    const r = solveWord(l, items[0], false)
+    expect(r.leveledUpTo).toBe(12)
+    expect(r.bonus).toBe(0)
   })
 })

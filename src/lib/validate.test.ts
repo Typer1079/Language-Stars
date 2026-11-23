@@ -23,10 +23,10 @@ describe('parseSaveFile', () => {
     expect(o.stickers[0].growCount).toBe(10)
   })
   it('clamps and cleans hostile values', () => {
-    const [d] = parseSaveFile(JSON.stringify({ profiles: [{ name: '<b>Eve</b>\u0000', readingLevel: 99, lifetimeStars: -5, spendableStars: 1e9,
+    const [d] = parseSaveFile(JSON.stringify({ profiles: [{ name: '<b>Eve</b>\u0000', readingLevel: 999, lifetimeStars: -5, spendableStars: 1e9,
       placedStickers: [{ emoji: '<script>', x: 9999 }], masteredWordsByLevel: { evil: ['x'], 1: ['ok', 42] } }] }))
     expect(d.display_name).toBe('bEve/b')
-    expect(d.reading_level).toBe(5)
+    expect(d.reading_level).toBe(100)
     expect(d.lifetime_stars).toBe(0)
     expect(d.spendable_stars).toBe(0)
     expect(d.stickers[0].x).toBe(100)

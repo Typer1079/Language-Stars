@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 import type { Learner, LearnerDraft } from './types'
 
 const COLUMNS =
-  'id, display_name, kind, age_group, sticker_style, mode, reading_level, spanish_level, lifetime_stars, spendable_stars, mastered, stickers, updated_at'
+  'id, display_name, kind, age_group, sticker_style, mode, reading_level, spanish_level, reading_best, spanish_best, lifetime_stars, spendable_stars, mastered, stickers, updated_at'
 
 export async function listLearners(): Promise<Learner[]> {
   const { data, error } = await supabase.from('learners').select(COLUMNS).order('created_at', { ascending: true })

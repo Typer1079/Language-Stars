@@ -28,6 +28,9 @@ export interface Learner {
   mode: Mode
   reading_level: number
   spanish_level: number
+  /** Highest level ever reached; level-up bonuses are only paid for new highs. */
+  reading_best: number
+  spanish_best: number
   lifetime_stars: number
   spendable_stars: number
   /** Mastered words per level: "1".."5" for reading, "1_es".."6_es" for Spanish. */
@@ -47,6 +50,8 @@ export function newLearnerDraft(name: string, kind: LearnerKind, age: AgeGroup, 
     mode: age === 'adult' ? 'spanish' : 'reading',
     reading_level: 1,
     spanish_level: 1,
+    reading_best: 1,
+    spanish_best: 1,
     lifetime_stars: 0,
     spendable_stars: 0,
     mastered: {},
