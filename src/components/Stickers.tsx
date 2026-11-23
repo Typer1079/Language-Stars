@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { buySticker, growCost, growSticker, makeCatalog, sellSticker, sellValue, stickerScale, type CatalogItem } from '../lib/stickers'
 import { playChime } from '../lib/sfx'
 import type { ConfettiPiece } from '../lib/confetti'
@@ -67,6 +67,15 @@ export function StickerShop({ learner, reason, onChange, onClose, onSignOut }: {
   // A new random pack each time the shop opens or "New Pack" is pressed.
   const [catalog, setCatalog] = useState<CatalogItem[]>(() => makeCatalog(learner))
 
+  // Esc or a click outside the shop closes it, the same as Keep Reading.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   const apply = (next: Learner | null) => {
     if (!next) return
     onChange(next)
@@ -74,7 +83,8 @@ export function StickerShop({ learner, reason, onChange, onClose, onSignOut }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="shop-title">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="shop-title"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border-4 border-fuchsia-200 bg-white/95 p-6 shadow-2xl">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>

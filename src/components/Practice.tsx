@@ -369,7 +369,8 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       {shop && <StickerShop learner={learner} reason={shop} onChange={(l) => { learnerRef.current = l; onChange(l) }} onClose={closeShop} onSignOut={onExit} />}
 
       {logOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true"
+          onClick={(e) => { if (e.target === e.currentTarget) setLogOpen(false) }}>
           <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="font-kids text-lg font-bold">📊 Speech & session log</h3>
