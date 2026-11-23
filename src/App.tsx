@@ -27,6 +27,8 @@ export default function App() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
   const [notice, setNotice] = useState('')
+  // Readers chosen before two-step sign-in was set up; added as soon as it succeeds.
+  const [pendingAdd, setPendingAdd] = useState<LearnerDraft[] | null>(null)
 
   const pending = useRef(new Map<string, Learner>())
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -180,6 +182,17 @@ export default function App() {
     }
   }
 
+  /** Profile edits (name, practice type, age group, stickers style) save right away. */
+  async function updateProfile(l: Learner) {
+    try {
+      pending.current.delete(l.id)
+      await saveLearner(l)
+      setLearners((ls) => ls.map((x) => (x.id === l.id ? l : x)))
+    } catch (err) {
+      throw new Error(dbMessage(err))
+    }
+  }
+
   async function importDrafts(ds: LearnerDraft[]) {
     const existing = new Set(learners.map((l) => l.display_name.toLowerCase()))
     const skipped: string[] = []
@@ -197,6 +210,16 @@ export default function App() {
     await checkAal()
     setView('picker')
     await refresh()
+    if (pendingAdd?.length) {
+      const list = pendingAdd
+      setPendingAdd(null)
+      try {
+        await importDrafts(list)
+        setNotice(`Added ${list.map((d) => d.display_name).join(', ')}.`)
+      } catch (err) {
+        setNotice(err instanceof Error ? err.message : 'Couldn’t add the reader.')
+      }
+    }
   }
 
   async function exitPractice() {
@@ -228,7 +251,7 @@ export default function App() {
   if (view === 'mfa-challenge') {
     return <MfaChallenge onDone={afterVerified} onCancel={() => supabase.auth.signOut()} />
   }
-  if (view === 'mfa-enroll') return <MfaEnroll onDone={afterVerified} onCancel={() => setView('picker')} />
+  if (view === 'mfa-enroll') return <MfaEnroll onDone={afterVerified} onCancel={() => { setPendingAdd(null); setView('picker') }} />
 
   const active = learners.find((l) => l.id === activeId)
   if (view === 'practice' && active) {
@@ -263,8 +286,9 @@ export default function App() {
         hasMfa={aal.hasMfa}
         onPick={(l) => { setActiveId(l.id); setView('practice') }}
         onCreate={create}
+        onUpdate={updateProfile}
         onImport={importDrafts}
-        onUnlockKids={() => setView(aal.hasMfa ? 'mfa-challenge' : 'mfa-enroll')}
+        onUnlockKids={(pending) => { setPendingAdd(pending?.length ? pending : null); setView(aal.hasMfa ? 'mfa-challenge' : 'mfa-enroll') }}
         onAccount={() => setView('account')}
       />
     </>

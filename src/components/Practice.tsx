@@ -194,13 +194,6 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     startRound({ autoBegin: true })
   }
 
-  const toggleMode = () => {
-    const next: Learner = { ...learnerRef.current, mode: learnerRef.current.mode === 'spanish' ? 'reading' : 'spanish' }
-    learnerRef.current = next
-    onChange(next)
-    startRound({ autoBegin: true })
-  }
-
   const skip = () => {
     if (anyModal) return
     engineRef.current?.stopAll()
@@ -254,10 +247,10 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
                 className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100">
                 {spanish ? '🇪🇸' : learner.sticker_style === 'girl' ? '👧' : '👦'} Reader: {learner.display_name}
               </button>
-              <button type="button" onClick={toggleMode} title="Switch between Kids Reading and English-to-Spanish"
-                className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800 hover:bg-amber-100">
-                {spanish ? '🇪🇸 EN → ES' : '🧸 Kids Mode'}
-              </button>
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800"
+                title="Change Reading or Spanish with ✏️ Edit on the reader list">
+                {spanish ? '🇪🇸 Spanish' : '📖 Reading'}
+              </span>
               <span className={`text-[11px] font-semibold ${saveStatus === 'saved' ? 'text-emerald-700' : saveStatus === 'saving' ? 'text-slate-500' : 'text-rose-700'}`}>{saveLabel}</span>
             </div>
           </div>

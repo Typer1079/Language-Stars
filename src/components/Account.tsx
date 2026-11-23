@@ -20,7 +20,7 @@ function describe(e: AuditEntry, names: Map<string, string>): string {
   if (e.action === 'learner.create') return `Added ${who}`
   if (e.action === 'learner.delete') return `Deleted a reader`
   const parts: string[] = []
-  const d = e.detail as Record<string, [number, number] | boolean>
+  const d = e.detail as Record<string, [number | string, number | string] | boolean>
   const pair = (k: string, label: string) => {
     const v = d[k]
     if (Array.isArray(v)) parts.push(`${label} ${v[0]} → ${v[1]}`)
@@ -30,6 +30,7 @@ function describe(e: AuditEntry, names: Map<string, string>): string {
   pair('reading_level', 'reading level')
   pair('spanish_level', 'Spanish level')
   pair('stickers', 'stickers')
+  pair('mode', 'practice')
   if (d.profile_edited) parts.push('profile edited')
   return `${who}: ${parts.join(', ') || 'updated'}`
 }
