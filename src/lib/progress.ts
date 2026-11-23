@@ -121,7 +121,7 @@ export function solveWord(l: Learner, item: PracticeItem, coached: boolean, opts
   return { learner: next, leveledUpTo: null, bonus: 0 }
 }
 
-/** A round with fewer than 40% of its words said without help (coach or Skip) moves down a level. */
+/** A round with fewer than 40% of its words said without help (coach or Next) moves down a level. */
 export const MOVE_DOWN_BELOW = 0.4
 /** Rounds shorter than this don't count (e.g. only two words were left in a level). */
 export const MIN_ROUND_FOR_MOVE_DOWN = 5

@@ -1,6 +1,6 @@
 import { isWordMatch } from './match'
 import type { PracticeItem } from './progress'
-import { createRecognition, speakSegments, cancelSpeech, type RecognitionLike, type VoiceSegment } from './speech'
+import { createRecognition, speakSegments, cancelSpeech, IS_IOS, type RecognitionLike, type VoiceSegment } from './speech'
 import type { Mode } from './types'
 import { ENCOURAGING_NICKNAMES, PHONICS_SOUNDS } from './wordBanks'
 
@@ -14,7 +14,7 @@ export type Pace = 'guided' | 'brisk'
 
 // iPhone/iPad can't listen while speaking, so the mic pauses for the coach there.
 // Elsewhere it stays on (the coach's own voice is ignored), which makes the hand-back instant.
-const IOS = typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+const IOS = IS_IOS
 export type MicState = 'idle' | 'listening' | 'warming'
 
 export interface EngineHooks {
@@ -61,6 +61,10 @@ export class PracticeEngine {
 
   private recognition: RecognitionLike | null = null
   private recActive = false
+  /** The browser confirmed the mic is on (onstart fired) for the current session. */
+  private micOn = false
+  private startWatchdog: ReturnType<typeof setTimeout> | undefined
+  private noStartCount = 0
   private seenResults = 0
   private baseline = 0
   private cancelVoice: (() => void) | null = null
@@ -164,6 +168,7 @@ export class PracticeEngine {
   /** Listen Now / Return key. */
   listenNow() {
     if (this.paused || this.solved) return
+    this.noStartCount = 0
     this.stopVoice()
     this.coachingActive = false
     this.listenWindow(this.listenMs, this.onSilence(this.gen))
@@ -345,7 +350,7 @@ export class PracticeEngine {
     this.listening = true
     this.hooks.mic('warming', 'Opening microphone...')
     if (this.mode === 'spanish' && this.item.spanish) {
-      this.hooks.feedback(`Say "${this.item.spanish.en}" in Spanish!`, 'Listening until you say it • Shift shows the word • Space for the coach • Skip to move on', 'listening')
+      this.hooks.feedback(`Say "${this.item.spanish.en}" in Spanish!`, 'Listening until you say it • Shift shows the word • Space for the coach • Next to move on', 'listening')
     } else {
       this.hooks.feedback(`Say "${this.item.target}"!`, 'Listening for the word...', 'listening')
     }
@@ -367,6 +372,9 @@ export class PracticeEngine {
     }
     r.onstart = () => {
       clearTimeout(this.micTimer)
+      clearTimeout(this.startWatchdog)
+      this.micOn = true
+      this.noStartCount = 0
       this.recActive = true
       this.seenResults = 0
       this.baseline = 0
@@ -374,6 +382,8 @@ export class PracticeEngine {
       this.hooks.mic('listening', 'Listening...')
       this.hooks.log('MIC_STARTED', `lang=${r.lang}`)
     }
+    r.onaudiostart = () => this.hooks.log('MIC_AUDIO')
+    r.onnomatch = () => this.hooks.log('MIC_NOMATCH')
     r.onspeechstart = () => {
       if (this.listening && !this.coachSpeaking) this.hooks.mic('listening', 'Hearing voice...')
     }
@@ -414,10 +424,12 @@ export class PracticeEngine {
         this.listening = false
         this.hooks.feedback('Microphone is blocked', 'Allow the microphone for this site in your browser settings, then tap Listen Now.', 'neutral')
       }
-      if (e.error !== 'no-speech' && e.error !== 'aborted') this.hooks.log('MIC_ERR', e.error)
+      this.hooks.log('MIC_ERR', e.error)
     }
     r.onend = () => {
       this.recActive = false
+      this.micOn = false
+      clearTimeout(this.startWatchdog)
       clearTimeout(this.micTimer)
       // The browser ends sessions on its own (silence, time limits); keep listening while it's our turn.
       if (this.listening && !this.coachSpeaking && !this.solved && !this.paused) {
@@ -454,6 +466,23 @@ export class PracticeEngine {
     try {
       r.start()
       this.recActive = true
+      // If the browser never confirms the mic is on (iPhones sometimes need a tap), say so
+      // instead of showing "Listening" while nothing is heard.
+      clearTimeout(this.startWatchdog)
+      this.startWatchdog = setTimeout(() => {
+        if (this.micOn || !this.listening || this.solved || this.paused) return
+        this.noStartCount += 1
+        this.hooks.log('MIC_NO_START', `attempt=${this.noStartCount}`)
+        if (this.noStartCount === 1) {
+          try { r.abort() } catch { /* not running */ }
+          this.recActive = false
+          this.micTimer = setTimeout(() => this.startRecognition(), 200)
+          return
+        }
+        this.listening = false
+        this.hooks.mic('idle', 'Tap to listen')
+        this.hooks.feedback('Tap 🎤 to turn on the microphone', 'The phone needs a tap to start listening.', 'neutral')
+      }, 2500)
     } catch (err) {
       if (err instanceof DOMException && err.name === 'InvalidStateError') {
         // The browser says it's still running from before; treat it as running.

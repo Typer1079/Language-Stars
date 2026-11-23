@@ -354,7 +354,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       <main className="relative z-20 mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center gap-4 px-3 py-3 sm:px-6">
         {!recognitionSupported() && (
           <p className="w-full max-w-2xl rounded-2xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-            This browser can’t listen to speech. Use Chrome, Edge or Safari for the microphone. The AI Coach and Skip still work.
+            This browser can’t listen to speech. Use Chrome, Edge or Safari for the microphone. The AI Coach and Next still work.
           </p>
         )}
         <div className="flex w-full max-w-2xl flex-col gap-2 rounded-2xl border border-indigo-100 bg-white/90 p-3 shadow-sm backdrop-blur-sm">
@@ -437,7 +437,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
               className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-600 px-5 py-3.5 font-kids text-base font-bold text-white shadow-md transition hover:from-indigo-600 hover:to-blue-700 active:scale-95 sm:text-lg">
               🎧 AI Coach <span className="rounded-full bg-black/15 px-2 py-0.5 font-sans text-xs">Space</span>
             </button>
-            <button type="button" onClick={skip} className="rounded-2xl bg-slate-100 px-4 py-3.5 text-sm font-bold text-slate-700 transition hover:bg-slate-200">Skip ➡️</button>
+            <button type="button" onClick={skip} className="rounded-2xl bg-slate-100 px-4 py-3.5 text-sm font-bold text-slate-700 transition hover:bg-slate-200">Next ➡️</button>
           </div>
         </section>
       </main>

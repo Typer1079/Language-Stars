@@ -13,6 +13,8 @@ interface RecognitionLike {
   maxAlternatives: number
   onstart: (() => void) | null
   onspeechstart: (() => void) | null
+  onaudiostart?: (() => void) | null
+  onnomatch?: (() => void) | null
   onresult: ((e: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }> }) => void) | null
   onerror: ((e: { error: string }) => void) | null
   onend: (() => void) | null
@@ -22,6 +24,11 @@ interface RecognitionLike {
 }
 
 type RecognitionCtor = new () => RecognitionLike
+
+/** iPhone / iPad (including iPads that report as a Mac). */
+export const IS_IOS =
+  typeof navigator !== 'undefined' &&
+  (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
 
 export function recognitionSupported(): boolean {
   const w = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor }
@@ -33,7 +40,9 @@ export function createRecognition(): RecognitionLike | null {
   const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition
   if (!Ctor) return null
   const r = new Ctor()
-  r.continuous = true
+  // iPhone/iPad Safari is unreliable in continuous mode (it can stop returning results after the
+  // first one), so there each utterance is its own short session and the app restarts it.
+  r.continuous = !IS_IOS
   r.interimResults = true
   // Ask for several guesses: short words like "sun" often come back as "son" first.
   r.maxAlternatives = 5

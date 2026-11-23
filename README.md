@@ -28,7 +28,7 @@ Live site: `https://typer1079.github.io/Language-Stars/`
 - Reading mode: letter tiles with phonics hints for words, word tiles for phrases and sentences,
   speech recognition with sound-alike tolerance, AI Coach (sound it out / read it together).
 - Spanish mode: English prompt, Spanish answer hidden until **Shift** (or the coach); listens until
-  the phrase is said correctly or **Skip** is pressed; the coach speaks only when asked.
+  the phrase is said correctly or **Next** is pressed; the coach speaks only when asked.
 - Sticker shop: packs by age group and style, drag stickers anywhere, grow (+1⭐, +2⭐, +3⭐ …),
   sell back for everything spent.
 - Keyboard: **Return/Enter** = listen, **Space** = AI Coach, **Shift** = reveal Spanish word.
