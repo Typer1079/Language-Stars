@@ -58,6 +58,21 @@ export class PracticeEngine {
     this.hooks = hooks
   }
 
+  /**
+   * Reading mode brings in the coach automatically and moves on after a few tries.
+   * Spanish mode keeps listening until the word is said correctly or Skip is pressed;
+   * the coach only speaks when asked (AI Coach button / Space).
+   */
+  private get autoCoach(): boolean {
+    return this.mode !== 'spanish'
+  }
+
+  /** What happens when a listening window ends without the word (reading mode only). */
+  private onSilence(gen: number): (() => void) | undefined {
+    if (!this.autoCoach) return undefined
+    return () => gen === this.gen && !this.solved && !this.paused && this.coach()
+  }
+
   get isCoaching(): boolean {
     return this.coachingActive || this.coachSpeaking
   }
@@ -80,7 +95,7 @@ export class PracticeEngine {
   /** Coming back from the sticker shop: listen again, then coach. */
   resume() {
     this.paused = false
-    if (!this.solved) this.listenWindow(5000, () => this.coach())
+    if (!this.solved) this.listenWindow(5000, this.onSilence(this.gen))
   }
 
   welcome() {
@@ -94,7 +109,7 @@ export class PracticeEngine {
       : `Let's read together, ${this.name}! Try the word on the screen!`
     this.say([{ text, lang: 'en-US' }], () => {
       if (gen !== this.gen || this.solved) return
-      this.listenWindow(LISTEN_MS, () => gen === this.gen && this.coach())
+      this.listenWindow(LISTEN_MS, this.onSilence(gen))
     })
   }
 
@@ -103,7 +118,7 @@ export class PracticeEngine {
     this.stopAll()
     this.gen = gen
     if (promptType === 'quick_listen') {
-      this.listenWindow(LISTEN_MS, () => gen === this.gen && !this.solved && this.coach())
+      this.listenWindow(LISTEN_MS, this.onSilence(gen))
       return
     }
     const callout = this.callout()
@@ -113,7 +128,7 @@ export class PracticeEngine {
         : `Your turn, ${callout}!`
     this.say([{ text: line, lang: 'en-US' }], () => {
       if (gen !== this.gen || this.solved) return
-      this.listenWindow(LISTEN_MS, () => gen === this.gen && !this.solved && this.coach())
+      this.listenWindow(LISTEN_MS, this.onSilence(gen))
     })
   }
 
@@ -122,7 +137,7 @@ export class PracticeEngine {
     if (this.paused || this.solved) return
     this.stopVoice()
     this.coachingActive = false
-    this.listenWindow(LISTEN_MS, () => !this.solved && !this.paused && this.coach())
+    this.listenWindow(LISTEN_MS, this.onSilence(this.gen))
   }
 
   /** AI Coach / Space key. */
@@ -150,12 +165,12 @@ export class PracticeEngine {
         { text: `which means: ${phraseEn} Your turn, ${callout}. Say`, lang: 'en-US' },
         { text: es, lang: 'es-ES' },
       ]
-      const retry: VoiceSegment[] = [
-        { text: 'Try', lang: 'en-US' },
-        { text: es, lang: 'es-ES' },
-        { text: `one more time, ${callout}!`, lang: 'en-US' },
-      ]
-      this.coachSequence(gen, intro, retry, 'Let’s move to the next word!', `"${en}" is "${es}"`)
+      // Say it once, then keep listening for as long as it takes (no retries, no auto-advance).
+      this.say(intro, () => {
+        this.coachingActive = false
+        if (gen !== this.gen || this.solved) return
+        this.listenWindow(LISTEN_MS)
+      })
       return
     }
 
@@ -272,7 +287,7 @@ export class PracticeEngine {
     this.listening = true
     this.hooks.mic('warming', 'Opening microphone...')
     if (this.mode === 'spanish' && this.item.spanish) {
-      this.hooks.feedback(`Say "${this.item.spanish.en}" in Spanish!`, 'Press Shift to reveal the Spanish word • Listening...', 'listening')
+      this.hooks.feedback(`Say "${this.item.spanish.en}" in Spanish!`, 'Listening until you say it • Shift shows the word • Space for the coach • Skip to move on', 'listening')
     } else {
       this.hooks.feedback(`Say "${this.item.target}"!`, 'Listening for the word...', 'listening')
     }
