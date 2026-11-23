@@ -53,7 +53,7 @@
       position: fixed;
       inset: 0;
       pointer-events: none;
-      z-index: 55;
+      z-index: 35;
       overflow: hidden;
     }
     .placed-sticker {
@@ -1541,12 +1541,18 @@
             Play ▶
           </button>
         `;
-        card.querySelector('[data-pick-id]').addEventListener('click', () => {
+        const pickThisReader = (e) => {
+          if (e) e.stopPropagation();
           selectProfileById(prof.id);
           nameModal.classList.add('hidden');
           startNewRound({ autoBegin: false });
           speakWelcomeAndStartFirstWord();
-        });
+        };
+        card.style.cursor = 'pointer';
+        card.setAttribute('role', 'button');
+        card.title = `Play as ${prof.name}`;
+        card.addEventListener('click', pickThisReader);
+        card.querySelector('[data-pick-id]').addEventListener('click', pickThisReader);
         savedProfilesList.appendChild(card);
       });
     }
