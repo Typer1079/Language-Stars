@@ -1,1 +1,18 @@
+node_modules
+dist
+dist-ssr
+*.local
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Local save files with family progress: never commit
+*save*.json
+read-aloud-stars-import.json
