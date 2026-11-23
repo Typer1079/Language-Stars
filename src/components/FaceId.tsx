@@ -16,7 +16,7 @@ type Msg = { kind: 'error' | 'info'; text: string } | null
 
 function resultMessage(r: Awaited<ReturnType<typeof setUpFaceId>>): Msg {
   if (r.signIn && r.secondStep) return { kind: 'info', text: 'Face ID is set up. Next time, tap “Sign in with Face ID”, and use Face ID again for the second step.' }
-  if (r.signIn) return { kind: 'info', text: `Face ID sign-in is set up. ${r.error && !wasCancelled(r.error) ? faceIdMessage(r.error, 'setup') : 'The second step will still use your 6-digit code.'}` }
+  if (r.signIn) return { kind: 'info', text: 'Face ID sign-in is set up. Next time, tap “Sign in with Face ID”: one tap opens everything, kids’ profiles included.' }
   if (r.error && !wasCancelled(r.error)) return { kind: 'error', text: faceIdMessage(r.error, 'setup') }
   return null
 }
@@ -51,7 +51,7 @@ export function FaceIdOffer() {
   return (
     <div className="card mt-4 space-y-2 border-sky-200 bg-sky-50">
       <p className="font-semibold">Sign in with Face ID next time?</p>
-      <p className="text-sm text-slate-600">Saves a passkey in Apple Passwords: no password or code to type, and it works in the Home Screen app. Face ID asks twice during setup.</p>
+      <p className="text-sm text-slate-600">Saves a passkey in Apple Passwords: no password or code to type, and it works in the Home Screen app.</p>
       {message && <p className={`text-sm ${message.kind === 'error' ? 'text-rose-700' : 'text-emerald-700'}`}>{message.text}</p>}
       <div className="flex gap-2">
         <button type="button" className="btn-secondary flex-1" onClick={() => { dismissOffer(); setShow(false) }}>Not now</button>
@@ -73,7 +73,7 @@ interface FactorRow {
 function describeSignIn(methods: string[]): string {
   if (methods.some((m) => m === 'passkey' || m === 'webauthn')) return 'Face ID'
   const parts = [methods.includes('password') ? 'password' : '', methods.includes('mfa/webauthn') ? 'Face ID' : '', methods.includes('totp') || methods.includes('mfa/totp') ? 'authenticator code' : '']
-  return parts.filter(Boolean).join(' + ') || 'password'
+  return parts.filter(Boolean).join(' + ') || methods.join(' + ') || 'password'
 }
 
 /**

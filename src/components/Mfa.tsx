@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { faceIdMessage, faceIdSupported, hasFaceIdFactor, setUpFaceId, verifyWithFaceId, wasCancelled } from '../lib/faceid'
+import { faceIdMessage, faceIdSupported, hasFaceIdFactor, setUpFaceId, signInWithFaceId, verifyWithFaceId, wasCancelled } from '../lib/faceid'
 import { supabase } from '../lib/supabase'
 
 // Two-step sign-in with an authenticator app (NIST 800-53 IA-2(1), IA-2(2)).
@@ -99,6 +99,7 @@ export function MfaEnroll({ onDone, onCancel, mode = 'choose' }: { onDone: () =>
   const [useApp, setUseApp] = useState(mode === 'totp' || !faceIdSupported())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [finish, setFinish] = useState(false)
 
   async function faceId() {
     setBusy(true)
@@ -106,8 +107,32 @@ export function MfaEnroll({ onDone, onCancel, mode = 'choose' }: { onDone: () =>
     const r = await setUpFaceId()
     setBusy(false)
     if (r.secondStep) return onDone()
+    if (r.signIn) return setFinish(true)
     if (r.error && !wasCancelled(r.error)) setError(faceIdMessage(r.error, 'setup'))
-    else if (r.signIn) setError('Face ID sign-in is set up, but the second step couldn’t be turned on. Use an authenticator app for now.')
+  }
+
+  // Passkey saved: one Face ID sign-in turns this session into a strong one.
+  async function finishSignIn() {
+    setBusy(true)
+    setError('')
+    const { error: e } = await signInWithFaceId()
+    setBusy(false)
+    if (!e) return onDone()
+    if (!wasCancelled(e as { code?: string; name?: string })) setError(faceIdMessage(e as { code?: string; message?: string }, 'signin'))
+  }
+
+  if (finish) {
+    return (
+      <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-8">
+        <h1 className="font-kids text-2xl font-bold">Face ID is saved ✓</h1>
+        <p className="mt-1 text-sm text-slate-600">One last tap: sign in with Face ID now to unlock kids’ profiles. From now on, that one tap is all you need.</p>
+        <button type="button" className="btn-primary mt-6 w-full py-4 text-base" disabled={busy} onClick={finishSignIn}>
+          {busy ? 'Waiting for Face ID…' : 'Sign in with Face ID'}
+        </button>
+        {error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        <button type="button" className="mt-5 text-sm text-slate-600 underline" onClick={() => setUseApp(true)}>Use an authenticator app instead</button>
+      </div>
+    )
   }
 
   if (useApp) return <TotpEnroll onDone={onDone} onCancel={mode === 'totp' ? onCancel : () => setUseApp(false)} />
@@ -116,8 +141,7 @@ export function MfaEnroll({ onDone, onCancel, mode = 'choose' }: { onDone: () =>
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-8">
       <h1 className="font-kids text-2xl font-bold">Protect kids’ profiles</h1>
       <p className="mt-1 text-sm text-slate-600">
-        Kids’ profiles need a second step after your password. Face ID is the quickest: it’s saved in Apple Passwords and syncs to your other Apple devices.
-        Face ID will ask twice while it sets up.
+        Kids’ profiles need a strong sign-in. Face ID is the quickest: it’s saved in Apple Passwords, syncs to your other Apple devices, and needs no codes.
       </p>
       <button type="button" className="btn-primary mt-6 w-full py-4 text-base" disabled={busy} onClick={faceId}>
         {busy ? 'Waiting for Face ID…' : 'Use Face ID (recommended)'}

@@ -103,8 +103,13 @@ export async function setUpFaceId(): Promise<{ signIn: boolean; secondStep: bool
   // Remove a half-finished WebAuthn factor from an earlier attempt, then add one for this device.
   const { data: list } = await supabase.auth.mfa.listFactors()
   for (const f of list?.all ?? []) if (f.factor_type === 'webauthn' && f.status === 'unverified') await supabase.auth.mfa.unenroll({ factorId: f.id })
+  // Face ID as a separate second step needs WebAuthn MFA in Supabase, which not every project
+  // offers. It's optional: signing in with the passkey already unlocks kids' profiles.
   const mfa = await supabase.auth.mfa.webauthn.register({ friendlyName: `Face ID – ${deviceName()}`, webauthn: {} })
-  if (mfa.error) return { signIn, secondStep, error: mfa.error as AnyError }
+  if (mfa.error) {
+    if (wasCancelled(mfa.error as AnyError)) return { signIn, secondStep, error: mfa.error as AnyError }
+    return { signIn, secondStep, error: null }
+  }
   secondStep = true
   return { signIn, secondStep, error: null }
 }
