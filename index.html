@@ -1,0 +1,2779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Read Aloud Stars</title>
+  <meta name="theme-color" content="#4f46e5" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Read Stars" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+    .font-kids {
+      font-family: 'Fredoka', 'Inter', sans-serif;
+    }
+    @keyframes pulseRing {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+      70% { box-shadow: 0 0 0 18px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .listening-pulse {
+      animation: pulseRing 1.5s infinite;
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.75) rotate(-4deg); opacity: 0; }
+      70% { transform: scale(1.06) rotate(2deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    .tile-pop {
+      animation: popIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes confettiFall {
+      0% { transform: translateY(-20px) rotate(0deg) scale(1); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(680deg) scale(0.8); opacity: 0; }
+    }
+    .confetti-piece {
+      position: fixed;
+      top: -24px;
+      pointer-events: none;
+      z-index: 95;
+      animation: confettiFall linear forwards;
+    }
+    #sticker-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 55;
+      overflow: hidden;
+    }
+    .placed-sticker {
+      position: absolute;
+      pointer-events: auto;
+      touch-action: none;
+      user-select: none;
+      cursor: grab;
+      transition: filter 0.15s ease, transform 0.15s ease;
+      filter: drop-shadow(0 6px 12px rgba(15, 23, 42, 0.18));
+    }
+    .placed-sticker:active {
+      cursor: grabbing;
+      filter: drop-shadow(0 12px 22px rgba(79, 70, 229, 0.35));
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-sky-100 via-indigo-50 to-amber-100 text-slate-800 flex flex-col">
+
+  <div id="sticker-canvas" aria-label="Placed background stickers"></div>
+
+  <header class="w-full max-w-5xl mx-auto px-3 sm:px-6 pt-3 pb-2 flex flex-wrap items-center justify-between gap-2 relative z-30">
+    <div class="flex items-center gap-2.5">
+      <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center text-2xl shadow-md">
+        ⭐
+      </div>
+      <div>
+        <h1 class="font-kids text-xl sm:text-2xl font-bold text-slate-800 leading-tight">
+          Read Aloud Stars
+        </h1>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            id="reader-name-badge"
+            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold transition"
+            title="Switch or edit reader profile"
+          >
+            <span id="reader-badge-icon">👦</span>
+            <span id="reader-name-display">Reader: Ethan</span>
+          </button>
+          <button
+            type="button"
+            id="mode-toggle-btn"
+            class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 text-xs font-bold transition"
+            title="Switch between Kids Reading Mode and Adult English-to-Spanish Mode"
+          >
+            <span id="mode-toggle-icon">🧸</span>
+            <span id="mode-toggle-label">Kids Mode</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+      <div class="px-3 py-1.5 rounded-2xl bg-white/95 border-2 border-amber-300 shadow-sm flex items-center gap-1.5">
+        <span class="text-lg">🌟</span>
+        <div class="leading-none">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-amber-700">Lifetime</div>
+          <div id="lifetime-stars-count" class="font-kids text-base sm:text-lg font-bold text-slate-800">0</div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        id="open-store-btn"
+        class="px-3 py-1.5 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:from-fuchsia-600 hover:to-purple-700 text-white font-kids font-bold text-xs sm:text-sm shadow-md flex items-center gap-1.5 transition"
+      >
+        <span>🏪</span>
+        <span>Stickers</span>
+        <span class="px-1.5 py-0.5 rounded-full bg-white/25 text-xs">
+          <span id="spendable-stars-badge">0</span> ⭐
+        </span>
+      </button>
+
+      <button
+        type="button"
+        id="header-save-file-btn"
+        class="px-2.5 py-2 rounded-xl bg-white/90 hover:bg-white border border-slate-200 text-slate-700 text-xs font-bold shadow-sm transition"
+        title="Download save file backup"
+      >
+        ⬇️ Save
+      </button>
+
+      <button
+        type="button"
+        id="header-upload-save-btn"
+        class="px-2.5 py-2 rounded-xl bg-white/90 hover:bg-white border border-slate-200 text-slate-700 text-xs font-bold shadow-sm transition"
+        title="Upload previous save file"
+      >
+        📂 Upload
+      </button>
+
+      <button
+        type="button"
+        id="gdrive-sync-btn"
+        class="px-2.5 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-800 text-xs font-bold shadow-sm transition"
+        title="One-click connect & sync (works without OAuth Client ID or with OAuth / Apps Script)"
+      >
+        ☁️ Connect Drive
+      </button>
+
+      <button
+        type="button"
+        id="header-logout-btn"
+        class="px-2.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold shadow-sm transition"
+        title="Save and switch reader"
+      >
+        🚪 Log Out
+      </button>
+
+      <button
+        type="button"
+        id="open-diag-btn"
+        class="px-2.5 py-2 rounded-xl bg-white/90 hover:bg-white border border-slate-200 text-slate-600 text-xs font-bold shadow-sm transition"
+        title="View session speech log"
+      >
+        📊 Log
+      </button>
+
+      <button
+        type="button"
+        id="fullscreen-btn"
+        class="px-2.5 py-2 rounded-xl bg-white/90 hover:bg-white border border-slate-200 text-slate-600 text-xs font-bold shadow-sm transition"
+        title="Toggle fullscreen"
+      >
+        ⛶
+      </button>
+    </div>
+  </header>
+
+  <main class="flex-1 w-full max-w-4xl mx-auto px-3 sm:px-6 py-3 flex flex-col items-center justify-center gap-4 relative z-20">
+    <div class="w-full max-w-2xl bg-white/90 backdrop-blur-sm rounded-2xl p-3 shadow-sm border border-indigo-100 flex flex-col gap-2">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5 flex-wrap" id="level-pills-container">
+          <button type="button" data-level="1" class="level-pill px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-sm transition">L1 • 2 Letters</button>
+          <button type="button" data-level="2" class="level-pill px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">L2 • 3 CVC</button>
+          <button type="button" data-level="3" class="level-pill px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">L3 • 4 Blends</button>
+          <button type="button" data-level="4" class="level-pill px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">L4 • 5 Vowels</button>
+          <button type="button" data-level="5" class="level-pill px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">L5 • 6+ Complex</button>
+          <button type="button" data-level="6" class="level-pill hidden px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">L6 • Expert</button>
+        </div>
+        <span id="round-counter-text" class="text-xs font-bold text-indigo-700">Word 1 of 10</span>
+      </div>
+      <div class="w-full h-2.5 bg-indigo-100 rounded-full overflow-hidden">
+        <div id="round-progress-bar" class="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-amber-400 rounded-full transition-all duration-300" style="width: 10%"></div>
+      </div>
+    </div>
+
+    <section id="word-card" class="w-full max-w-2xl bg-white/95 backdrop-blur-md rounded-3xl shadow-xl border-4 border-indigo-100 p-6 sm:p-8 flex flex-col items-center justify-center text-center transition-all duration-300 relative">
+      <div id="letters-container" class="flex flex-wrap items-center justify-center gap-3 sm:gap-4 my-3 min-h-[120px] sm:min-h-[145px]"></div>
+
+      <div id="adult-spanish-stage" class="hidden w-full max-w-lg my-3 p-5 rounded-3xl bg-gradient-to-br from-indigo-50 via-sky-50 to-amber-50 border-2 border-indigo-200 flex flex-col items-center justify-center">
+        <span class="text-xs font-bold uppercase tracking-widest text-indigo-500 mb-1">Say This English Word in Spanish</span>
+        <div id="english-prompt-word" class="font-kids text-4xl sm:text-6xl font-bold text-slate-800 tracking-tight">
+          hello
+        </div>
+        <div id="spanish-hint-row" class="mt-2.5 flex flex-col items-center gap-2 text-xs sm:text-sm w-full">
+          <span id="spanish-target-badge" class="px-3 py-1 rounded-full bg-white border border-indigo-200 text-indigo-700 font-semibold">
+            Hidden until you press Shift (or AI Coach)
+          </span>
+          <div id="spanish-phrase-box" class="hidden w-full max-w-md px-3.5 py-2 rounded-2xl bg-amber-50/90 border border-amber-300 text-amber-950 text-center">
+            <div id="spanish-phrase-es" class="font-bold text-sm sm:text-base"></div>
+            <div id="spanish-phrase-en" class="text-[11px] text-amber-800 mt-0.5"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="feedback-banner" class="w-full max-w-lg mt-2 mb-5 px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 transition-colors">
+        <div id="feedback-title" class="font-kids text-lg sm:text-xl font-bold text-slate-800">
+          Say the word out loud!
+        </div>
+        <div id="feedback-subtitle" class="text-xs sm:text-sm text-slate-600 mt-0.5">
+          Press Return or click Listen Now
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-center gap-3 w-full">
+        <button
+          type="button"
+          id="listen-now-btn"
+          class="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-kids font-bold text-base sm:text-lg shadow-lg flex items-center gap-2 transition active:scale-95"
+        >
+          <span id="mic-status-dot" class="w-3 h-3 rounded-full bg-white/90"></span>
+          <span id="listen-btn-label">Listen Now</span>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-black/15 font-sans" id="enter-shortcut-hint">Return</span>
+        </button>
+
+        <button
+          type="button"
+          id="coach-btn"
+          class="px-5 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-kids font-bold text-base sm:text-lg shadow-md flex items-center gap-2 transition active:scale-95"
+        >
+          <span>🎧</span>
+          <span>AI Coach</span>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-black/15 font-sans" id="space-shortcut-hint">Space</span>
+        </button>
+
+        <button
+          type="button"
+          id="skip-word-btn"
+          class="px-4 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition"
+        >
+          Skip ➡️
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <input type="file" id="save-file-input" accept="application/json,.json" class="hidden" />
+
+  <div id="name-modal" class="fixed inset-0 z-50 bg-slate-900/55 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white/95 rounded-3xl shadow-2xl border-4 border-indigo-200 p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <div>
+          <h2 class="font-kids text-2xl font-bold text-slate-800">⭐ Welcome!</h2>
+          <p class="text-xs text-slate-500">Pick a saved reader or enroll a new one • <span id="autosave-status-label" class="font-semibold text-emerald-700">Auto-Saved</span></p>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button type="button" id="modal-gdrive-btn" class="px-2.5 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-bold" title="One-click connect & sync (no OAuth Client ID required)">
+            ☁️ <span id="gdrive-status-badge">Connect Drive</span>
+          </button>
+          <button type="button" id="modal-export-save-btn" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold" title="Download save file">
+            ⬇️ Save
+          </button>
+          <button type="button" id="modal-import-save-btn" class="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold" title="Upload previous save file">
+            📂 Upload
+          </button>
+        </div>
+      </div>
+
+      <div id="saved-profiles-section" class="mb-4">
+        <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Saved Readers</div>
+        <div id="saved-profiles-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto pr-1"></div>
+      </div>
+
+      <div class="border-t border-slate-100 pt-4">
+        <div class="flex items-center justify-between mb-2">
+          <span id="form-mode-heading" class="text-xs font-bold uppercase tracking-wider text-indigo-600">Enroll / Edit Reader</span>
+          <button type="button" id="new-reader-reset-btn" class="text-xs font-bold text-emerald-700 hover:underline">
+            + New Reader
+          </button>
+        </div>
+
+        <form id="name-form" class="space-y-3.5">
+          <div>
+            <label for="child-name-input" class="block text-xs font-bold text-slate-600 mb-1">Reader Name</label>
+            <input
+              type="text"
+              id="child-name-input"
+              placeholder="e.g., Ethan"
+              class="w-full px-4 py-2.5 rounded-2xl border-2 border-slate-200 focus:border-indigo-500 focus:outline-none text-base font-semibold text-slate-800"
+              required
+            />
+          </div>
+
+          <div>
+            <span class="block text-xs font-bold text-slate-600 mb-1.5">Gender (for Sticker Packs)</span>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" data-gender="boy" class="gender-choice-btn py-2 px-3 rounded-xl border-2 border-slate-200 bg-slate-50 font-kids font-bold text-sm text-slate-700 transition">
+                👦 Boy
+              </button>
+              <button type="button" data-gender="girl" class="gender-choice-btn py-2 px-3 rounded-xl border-2 border-slate-200 bg-slate-50 font-kids font-bold text-sm text-slate-700 transition">
+                👧 Girl
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <span class="block text-xs font-bold text-slate-600 mb-1.5">Age Group / Learner Track</span>
+            <div class="grid grid-cols-5 gap-2">
+              <button type="button" data-age="3-4" class="age-choice-btn py-2 px-2 rounded-xl border-2 border-slate-200 bg-slate-50 font-kids font-bold text-xs sm:text-sm text-slate-700 transition">
+                3–4 yrs
+              </button>
+              <button type="button" data-age="5-6" class="age-choice-btn py-2 px-2 rounded-xl border-2 border-indigo-500 bg-indigo-50 font-kids font-bold text-xs sm:text-sm text-indigo-700 transition">
+                5–6 yrs
+              </button>
+              <button type="button" data-age="7-8" class="age-choice-btn py-2 px-2 rounded-xl border-2 border-slate-200 bg-slate-50 font-kids font-bold text-xs sm:text-sm text-slate-700 transition">
+                7–8 yrs
+              </button>
+              <button type="button" data-age="9+" class="age-choice-btn py-2 px-2 rounded-xl border-2 border-slate-200 bg-slate-50 font-kids font-bold text-xs sm:text-sm text-slate-700 transition">
+                9+ yrs
+              </button>
+              <button type="button" data-age="adult" class="age-choice-btn py-2 px-2 rounded-xl border-2 border-slate-200 bg-slate-50 font-kids font-bold text-xs sm:text-sm text-slate-700 transition">
+                Adult (ES)
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            id="start-reading-submit-btn"
+            class="w-full py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-kids font-bold text-lg shadow-lg transition"
+          >
+            Start Reading! 🚀
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="store-modal" class="hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-[2px] flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl bg-white/95 rounded-3xl shadow-2xl border-4 border-fuchsia-200 p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div>
+          <h2 id="store-heading" class="font-kids text-2xl font-bold text-slate-800">🏪 Sticker Shop</h2>
+          <p id="store-reason-banner" class="text-xs font-semibold text-fuchsia-700"></p>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="px-3 py-1.5 rounded-2xl bg-amber-50 border-2 border-amber-300 font-kids font-bold text-amber-800 text-sm">
+            Balance: <span id="store-spendable-balance">0</span> ⭐
+          </div>
+          <button type="button" id="shuffle-pack-btn" class="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold">
+            🎲 New Pack
+          </button>
+        </div>
+      </div>
+
+      <div id="store-stickers-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5"></div>
+
+      <div id="grow-stickers-section" class="border-t border-slate-200 pt-3 mb-4">
+        <div class="text-xs font-bold uppercase tracking-wider text-purple-700 mb-2">
+          🔍 Grow or Sell Owned Stickers (Sell Refunds Stars)
+        </div>
+        <div id="grow-stickers-list" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+        <button type="button" id="store-logout-btn" class="px-4 py-2.5 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-sm">
+          🚪 Log Out
+        </button>
+        <button type="button" id="continue-from-store-btn" class="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-kids font-bold text-base shadow-md">
+          Keep Reading ➡️
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="round-modal" class="hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-[2px] flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white/95 rounded-3xl shadow-2xl border-4 border-amber-200 p-6 text-center">
+      <div class="text-5xl mb-2">🏆</div>
+      <h2 class="font-kids text-2xl font-bold text-slate-800">Round Complete!</h2>
+      <p id="round-summary-text" class="text-sm text-slate-600 mt-2 mb-5"></p>
+      <div class="flex flex-col gap-2.5">
+        <button type="button" id="round-open-store-btn" class="w-full py-3 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white font-kids font-bold text-base shadow-md">
+          🏪 Spend Stars in Sticker Shop
+        </button>
+        <button type="button" id="play-again-btn" class="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-kids font-bold text-base shadow-md">
+          Next Round ➡️
+        </button>
+        <button type="button" id="round-logout-btn" class="w-full py-2.5 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-sm">
+          🚪 Log Out
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="diag-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-xl bg-white rounded-3xl shadow-2xl p-5 border border-slate-200">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-kids text-lg font-bold text-slate-800">📊 Speech & Session Log</h3>
+        <div class="flex items-center gap-2">
+          <button type="button" id="copy-diag-btn" class="px-3 py-1 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-bold">Copy</button>
+          <button type="button" id="close-diag-btn" class="px-3 py-1 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">Close</button>
+        </div>
+      </div>
+      <pre id="diag-log-output" class="w-full h-64 overflow-y-auto p-3 rounded-2xl bg-slate-900 text-emerald-300 text-xs font-mono whitespace-pre-wrap"></pre>
+    </div>
+  </div>
+
+  <script>
+    const WORD_BANKS = {
+      1: ['am', 'an', 'at', 'by', 'go', 'he', 'hi', 'in', 'is', 'it', 'me', 'my', 'no', 'of', 'on', 'or', 'so', 'to', 'up', 'us', 'we'],
+      2: ['bat', 'cat', 'dog', 'sun', 'pig', 'hop', 'map', 'pen', 'cup', 'red', 'box', 'fan', 'jet', 'mug', 'van', 'fox', 'hen', 'jam', 'bed', 'top'],
+      3: ['star', 'frog', 'ship', 'duck', 'swim', 'drum', 'crab', 'tree', 'bird', 'fish', 'lamp', 'bear', 'lion', 'seed', 'wind', 'flag', 'snow', 'milk'],
+      4: ['train', 'smile', 'plant', 'cloud', 'shark', 'tiger', 'grape', 'stone', 'bread', 'chair', 'heart', 'house', 'river', 'horse', 'light', 'sweet'],
+      5: ['rocket', 'planet', 'dragon', 'castle', 'dolphin', 'rainbow', 'monster', 'pirate', 'garden', 'butter', 'adventure', 'treasure']
+    };
+
+    const PHONICS_SOUNDS = {
+      a: '/æ/', b: '/b/', c: '/k/', d: '/d/', e: '/ɛ/', f: '/f/',
+      g: '/g/', h: '/h/', i: '/ɪ/', j: '/dʒ/', k: '/k/', l: '/l/',
+      m: '/m/', n: '/n/', o: '/ɒ/', p: '/p/', q: '/kw/', r: '/r/',
+      s: '/s/', t: '/t/', u: '/ʌ/', v: '/v/', w: '/w/', x: '/ks/',
+      y: '/j/', z: '/z/'
+    };
+
+    const HOMOPHONE_VARIANTS = {
+      am: ['am', 'em', 'ham', 'um', 'uhm', 'ahm', 'm', 'arm', 'an', 'aim', 'im', "i'm", 'yam', 'sam', 'pam', "ma'am", 'amp', 'and', 'mm'],
+      an: ['an', 'and', 'in', 'ann', 'anne', 'am', 'on', 'un', 'en', 'end', 'hand', 'ant', 'aunt', 'n', 'uh', 'ah'],
+      at: ['at', 'cat', 'bat', 'hat', 'sat', 'out', 'that', 't'],
+      by: ['by', 'bye', 'buy', 'bi'],
+      go: ['go', 'gold', 'glow'],
+      he: ['he', 'hee'],
+      hi: ['hi', 'high', 'eye'],
+      in: ['in', 'inn', 'pin', 'en'],
+      is: ['is', 'his', 's'],
+      it: ['it', 'eat', 'hit', 'eight'],
+      me: ['me', 'mee', 'mi'],
+      my: ['my', 'maya', 'ma', 'mi', 'eye', 'might', 'mind', 'why', 'm'],
+      no: ['no', 'know'],
+      of: ['of', 'off', 'ov'],
+      on: ['on', 'awn'],
+      or: ['or', 'ore', 'oar'],
+      so: ['so', 'sew', 'sow'],
+      to: ['to', 'too', 'two'],
+      up: ['up', 'cup'],
+      us: ['us', 'bus', 'ass', 'uhs', 'uz', 'os', 'uzs', 'uss', 's', 'up', 'as', 'is', 'ask', 'ours', 'use'],
+      we: ['we', 'wee']
+    };
+
+    const ENCOURAGING_NICKNAMES = ['Super Star', 'Super Reader', 'Champ', 'Reading Hero'];
+
+    const SPANISH_WORD_BANKS = {
+      1: [
+        { en: 'hello', es: 'hola', phonetic: 'OH-lah', phraseEs: '¡Hola! ¿Cómo estás?', phraseEn: 'Hello! How are you?', variants: ['hola', 'ola', 'olla', 'hoola'] },
+        { en: 'yes', es: 'sí', phonetic: 'SEE', phraseEs: 'Sí, me gusta mucho.', phraseEn: 'Yes, I like it a lot.', variants: ['si', 'sí', 'see', 'sea', 'c'] },
+        { en: 'no', es: 'no', phonetic: 'NOH', phraseEs: 'No, gracias por hoy.', phraseEn: 'No, thanks for today.', variants: ['no', 'know', 'oh'] },
+        { en: 'please', es: 'por favor', phonetic: 'por fah-VOR', phraseEs: 'Pásame el agua, por favor.', phraseEn: 'Pass me the water, please.', variants: ['por favor', 'porfavor', 'for favor', 'porfa'] },
+        { en: 'thanks', es: 'gracias', phonetic: 'GRAH-syahs', phraseEs: 'Muchas gracias por ayudar.', phraseEn: 'Thank you very much for helping.', variants: ['gracias', 'gracia', 'grassias', 'grasias'] },
+        { en: 'water', es: 'agua', phonetic: 'AH-gwah', phraseEs: 'Quiero un vaso de agua.', phraseEn: 'I want a glass of water.', variants: ['agua', 'awa', 'agwa', 'aqua'] },
+        { en: 'house', es: 'casa', phonetic: 'KAH-sah', phraseEs: 'Mi casa está cerca.', phraseEn: 'My house is nearby.', variants: ['casa', 'kasa', 'caza', 'causa'] },
+        { en: 'friend', es: 'amigo', phonetic: 'ah-MEE-goh', phraseEs: 'Él es mi buen amigo.', phraseEn: 'He is my good friend.', variants: ['amigo', 'amiga', 'a amigo', 'migo'] },
+        { en: 'good', es: 'bueno', phonetic: 'BWAY-noh', phraseEs: 'Hoy es un buen día.', phraseEn: 'Today is a good day.', variants: ['bueno', 'buena', 'weno', 'buen'] },
+        { en: 'day', es: 'día', phonetic: 'DEE-ah', phraseEs: '¡Que tengas un buen día!', phraseEn: 'Have a good day!', variants: ['dia', 'día', 'dea', 'dee ah'] }
+      ],
+      2: [
+        { en: 'morning', es: 'mañana', phonetic: 'mah-NYAH-nah', phraseEs: 'Buenos días por la mañana.', phraseEn: 'Good morning in the morning.', variants: ['manana', 'mañana', 'manyana', 'maniana'] },
+        { en: 'night', es: 'noche', phonetic: 'NOH-cheh', phraseEs: 'Buenas noches, hasta mañana.', phraseEn: 'Good night, until tomorrow.', variants: ['noche', 'nochey', 'notche'] },
+        { en: 'food', es: 'comida', phonetic: 'koh-MEE-dah', phraseEs: 'La comida está deliciosa.', phraseEn: 'The food is delicious.', variants: ['comida', 'komida', 'comeda'] },
+        { en: 'family', es: 'familia', phonetic: 'fah-MEE-lyah', phraseEs: 'Paso el domingo con mi familia.', phraseEn: 'I spend Sunday with my family.', variants: ['familia', 'familja', 'famila'] },
+        { en: 'book', es: 'libro', phonetic: 'LEE-broh', phraseEs: 'Estoy leyendo un libro nuevo.', phraseEn: 'I am reading a new book.', variants: ['libro', 'libra', 'lebro'] },
+        { en: 'city', es: 'ciudad', phonetic: 'syoo-DAHD', phraseEs: 'Vivimos en una ciudad grande.', phraseEn: 'We live in a big city.', variants: ['ciudad', 'siudad', 'ciuda'] },
+        { en: 'work', es: 'trabajo', phonetic: 'trah-BAH-hoh', phraseEs: 'Empiezo mi trabajo a las nueve.', phraseEn: 'I start my work at nine.', variants: ['trabajo', 'trabaho', 'travajo'] },
+        { en: 'time', es: 'tiempo', phonetic: 'TYEHM-poh', phraseEs: 'No tenemos mucho tiempo hoy.', phraseEn: 'We do not have much time today.', variants: ['tiempo', 'tiembo', 'tempo'] },
+        { en: 'money', es: 'dinero', phonetic: 'dee-NEH-roh', phraseEs: 'Ahorro dinero para el viaje.', phraseEn: 'I save money for the trip.', variants: ['dinero', 'dinairo', 'denero'] },
+        { en: 'street', es: 'calle', phonetic: 'KAH-yeh', phraseEs: 'La tienda está en esta calle.', phraseEn: 'The store is on this street.', variants: ['calle', 'kaye', 'caye', 'callie'] }
+      ],
+      3: [
+        { en: 'question', es: 'pregunta', phonetic: 'preh-GOON-tah', phraseEs: 'Tengo una pregunta importante.', phraseEn: 'I have an important question.', variants: ['pregunta', 'preguntas', 'preguntah'] },
+        { en: 'answer', es: 'respuesta', phonetic: 'rehs-PWEHS-tah', phraseEs: 'La respuesta es muy clara.', phraseEn: 'The answer is very clear.', variants: ['respuesta', 'respuestas', 'respwesta'] },
+        { en: 'journey', es: 'viaje', phonetic: 'BYAH-heh', phraseEs: 'El viaje en tren fue rápido.', phraseEn: 'The train journey was fast.', variants: ['viaje', 'viahe', 'biaje'] },
+        { en: 'window', es: 'ventana', phonetic: 'behn-TAH-nah', phraseEs: 'Abre la ventana para ventilar.', phraseEn: 'Open the window to let air in.', variants: ['ventana', 'ventanna', 'bentana'] },
+        { en: 'kitchen', es: 'cocina', phonetic: 'koh-SEE-nah', phraseEs: 'Preparamos la cena en la cocina.', phraseEn: 'We prepare dinner in the kitchen.', variants: ['cocina', 'kosina', 'cosina'] },
+        { en: 'library', es: 'biblioteca', phonetic: 'bee-blyoh-TEH-kah', phraseEs: 'Estudio en la biblioteca del barrio.', phraseEn: 'I study at the neighborhood library.', variants: ['biblioteca', 'biblioteka', 'biblio teca'] },
+        { en: 'weather', es: 'clima', phonetic: 'KLEE-mah', phraseEs: 'El clima está agradable esta semana.', phraseEn: 'The weather is pleasant this week.', variants: ['clima', 'klima', 'cleema'] },
+        { en: 'market', es: 'mercado', phonetic: 'mehr-KAH-doh', phraseEs: 'Compro fruta fresca en el mercado.', phraseEn: 'I buy fresh fruit at the market.', variants: ['mercado', 'merkado', 'mercada'] },
+        { en: 'neighbor', es: 'vecino', phonetic: 'beh-SEE-noh', phraseEs: 'Nuestro vecino saludó esta mañana.', phraseEn: 'Our neighbor said hello this morning.', variants: ['vecino', 'vecina', 'vesino'] },
+        { en: 'language', es: 'idioma', phonetic: 'ee-DYOH-mah', phraseEs: 'Practico este idioma todos los días.', phraseEn: 'I practice this language every day.', variants: ['idioma', 'idiomas', 'edioma'] }
+      ],
+      4: [
+        { en: 'important', es: 'importante', phonetic: 'eem-por-TAHN-teh', phraseEs: 'Es importante practicar en voz alta.', phraseEn: 'It is important to practice out loud.', variants: ['importante', 'importantes', 'importanti'] },
+        { en: 'different', es: 'diferente', phonetic: 'dee-feh-REHN-teh', phraseEs: 'Cada opción es un poco diferente.', phraseEn: 'Each option is a little different.', variants: ['diferente', 'diferentes', 'different'] },
+        { en: 'restaurant', es: 'restaurante', phonetic: 'rehs-tow-RAHN-teh', phraseEs: 'Reservamos mesa en el restaurante.', phraseEn: 'We booked a table at the restaurant.', variants: ['restaurante', 'restaurant', 'restaurantes'] },
+        { en: 'hospital', es: 'hospital', phonetic: 'ohs-pee-TAHL', phraseEs: 'El hospital queda a dos cuadras.', phraseEn: 'The hospital is two blocks away.', variants: ['hospital', 'hospitel', 'ospitall'] },
+        { en: 'tomorrow', es: 'mañana', phonetic: 'mah-NYAH-nah', phraseEs: 'Nos vemos mañana por la tarde.', phraseEn: 'See you tomorrow afternoon.', variants: ['manana', 'mañana', 'manyana'] },
+        { en: 'together', es: 'juntos', phonetic: 'HOON-tohs', phraseEs: 'Terminamos el proyecto juntos.', phraseEn: 'We finished the project together.', variants: ['juntos', 'juntas', 'huntos'] },
+        { en: 'remember', es: 'recordar', phonetic: 'reh-kor-DAHR', phraseEs: 'Trato de recordar cada palabra nueva.', phraseEn: 'I try to remember every new word.', variants: ['recordar', 'recordars', 'recuerdar'] },
+        { en: 'understand', es: 'entender', phonetic: 'ehn-tehn-DEHR', phraseEs: 'Ya puedo entender más en español.', phraseEn: 'I can already understand more in Spanish.', variants: ['entender', 'entenders', 'entendo'] },
+        { en: 'airplane', es: 'avión', phonetic: 'ah-BYOHN', phraseEs: 'Nuestro avión despega en una hora.', phraseEn: 'Our airplane takes off in one hour.', variants: ['avion', 'avión', 'abion', 'avionn'] },
+        { en: 'mountain', es: 'montaña', phonetic: 'mohn-TAH-nyah', phraseEs: 'Subimos hasta la cima de la montaña.', phraseEn: 'We climbed to the top of the mountain.', variants: ['montana', 'montaña', 'montanya'] }
+      ],
+      5: [
+        { en: 'opportunity', es: 'oportunidad', phonetic: 'oh-por-too-nee-DAHD', phraseEs: 'Aprovecho cada oportunidad para hablar.', phraseEn: 'I take advantage of every opportunity to speak.', variants: ['oportunidad', 'oportunidades', 'oportuni dad'] },
+        { en: 'experience', es: 'experiencia', phonetic: 'ehks-peh-RYEHN-syah', phraseEs: 'Fue una experiencia inolvidable.', phraseEn: 'It was an unforgettable experience.', variants: ['experiencia', 'experiencias', 'esperiencia'] },
+        { en: 'environment', es: 'ambiente', phonetic: 'ahm-BYEHN-teh', phraseEs: 'Cuidamos el ambiente en nuestra comunidad.', phraseEn: 'We care for the environment in our community.', variants: ['ambiente', 'ambientes', 'ambiyente'] },
+        { en: 'conversation', es: 'conversación', phonetic: 'kohn-behr-sah-SYOHN', phraseEs: 'Tuvimos una conversación muy fluida.', phraseEn: 'We had a very fluent conversation.', variants: ['conversacion', 'conversación', 'conversasion'] },
+        { en: 'knowledge', es: 'conocimiento', phonetic: 'koh-noh-see-MYEHN-toh', phraseEs: 'Compartir conocimiento ayuda a todos.', phraseEn: 'Sharing knowledge helps everyone.', variants: ['conocimiento', 'conocimientos', 'conosimiento'] },
+        { en: 'decision', es: 'decisión', phonetic: 'deh-see-SYOHN', phraseEs: 'Tomamos una decisión bien pensada.', phraseEn: 'We made a well-thought-out decision.', variants: ['decision', 'decisión', 'desision'] },
+        { en: 'direction', es: 'dirección', phonetic: 'dee-rehk-SYOHN', phraseEs: 'Caminamos en la dirección correcta.', phraseEn: 'We are walking in the right direction.', variants: ['direccion', 'dirección', 'direcsion'] },
+        { en: 'celebration', es: 'celebración', phonetic: 'seh-leh-brah-SYOHN', phraseEs: 'La celebración reunió a toda la gente.', phraseEn: 'The celebration brought everyone together.', variants: ['celebracion', 'celebración', 'celebrasion'] },
+        { en: 'challenge', es: 'desafío', phonetic: 'deh-sah-FEE-oh', phraseEs: 'Aprender otro idioma es un desafío divertido.', phraseEn: 'Learning another language is a fun challenge.', variants: ['desafio', 'desafío', 'desaffio'] },
+        { en: 'independence', es: 'independencia', phonetic: 'een-deh-pehn-DEHN-syah', phraseEs: 'Ganar fluidez da mayor independencia.', phraseEn: 'Gaining fluency gives greater independence.', variants: ['independencia', 'independencias', 'independensia'] }
+      ],
+      6: [
+        { en: 'accomplishment', es: 'logro', phonetic: 'LOH-groh', phraseEs: 'Completar este nivel es un gran logro.', phraseEn: 'Completing this level is a great accomplishment.', variants: ['logro', 'logros', 'lohgro'] },
+        { en: 'determination', es: 'determinación', phonetic: 'deh-tehr-mee-nah-SYOHN', phraseEs: 'Con determinación se superan las dudas.', phraseEn: 'With determination, doubts are overcome.', variants: ['determinacion', 'determinación', 'determinasion'] },
+        { en: 'perspective', es: 'perspectiva', phonetic: 'pehrs-pehk-TEE-bah', phraseEs: 'Hablar otro idioma amplía tu perspectiva.', phraseEn: 'Speaking another language broadens your perspective.', variants: ['perspectiva', 'perspectivas', 'perspektiva'] },
+        { en: 'understanding', es: 'comprensión', phonetic: 'kohm-prehn-SYOHN', phraseEs: 'La comprensión mutua fortalece los lazos.', phraseEn: 'Mutual understanding strengthens bonds.', variants: ['comprension', 'comprensión', 'comprension'] },
+        { en: 'improvement', es: 'mejora', phonetic: 'meh-HOH-rah', phraseEs: 'Se nota una mejora constante cada semana.', phraseEn: 'A steady improvement is noticeable every week.', variants: ['mejora', 'mejoras', 'mehora'] }
+      ]
+    };
+
+    const STICKER_POOL = [
+      { id: 'dino', label: 'Dino', emoji: '🦖', cost: 1, themes: ['boy', '3-4', '5-6', '7-8'] },
+      { id: 'rocket', label: 'Rocket', emoji: '🚀', cost: 1, themes: ['boy', '5-6', '7-8', 'adult'] },
+      { id: 'truck', label: 'Truck', emoji: '🚚', cost: 1, themes: ['boy', '3-4', '5-6'] },
+      { id: 'hero', label: 'Hero', emoji: '🦸', cost: 2, themes: ['boy', '5-6', '7-8'] },
+      { id: 'soccer', label: 'Soccer', emoji: '⚽', cost: 1, themes: ['boy', '5-6', '7-8', 'adult'] },
+      { id: 'dragon', label: 'Dragon', emoji: '🐉', cost: 2, themes: ['boy', '7-8', 'adult'] },
+      { id: 'unicorn', label: 'Unicorn', emoji: '🦄', cost: 1, themes: ['girl', '3-4', '5-6', '7-8'] },
+      { id: 'butterfly', label: 'Butterfly', emoji: '🦋', cost: 1, themes: ['girl', '3-4', '5-6', '7-8', 'adult'] },
+      { id: 'kitten', label: 'Kitten', emoji: '🐱', cost: 1, themes: ['girl', '3-4', '5-6'] },
+      { id: 'crown', label: 'Crown', emoji: '👑', cost: 2, themes: ['girl', '5-6', '7-8'] },
+      { id: 'rainbow', label: 'Rainbow', emoji: '🌈', cost: 1, themes: ['girl', '3-4', '5-6', 'adult'] },
+      { id: 'bloom', label: 'Blossom', emoji: '🌸', cost: 1, themes: ['girl', '5-6', '7-8', 'adult'] },
+      { id: 'puppy', label: 'Puppy', emoji: '🐶', cost: 1, themes: ['3-4', '5-6'] },
+      { id: 'cupcake', label: 'Cupcake', emoji: '🧁', cost: 1, themes: ['3-4', '5-6'] },
+      { id: 'astronaut', label: 'Astro', emoji: '🧑‍🚀', cost: 2, themes: ['7-8', '9+', 'adult'] },
+      { id: 'compass', label: 'Compass', emoji: '🧭', cost: 2, themes: ['7-8', '9+', 'adult'] },
+      { id: 'sunburst', label: 'Sun', emoji: '☀️', cost: 1, themes: ['3-4', '5-6', '7-8', 'adult'] },
+      { id: 'comet', label: 'Comet', emoji: '☄️', cost: 2, themes: ['7-8', '9+', 'adult'] },
+      { id: 'panda', label: 'Cuddly Panda', emoji: '🐼', cost: 1, themes: ['boy', 'girl', '7-8', '9+'] },
+      { id: 'shark', label: 'Ocean Shark', emoji: '🦈', cost: 1, themes: ['boy', '7-8', '9+'] },
+      { id: 'racecar', label: 'Turbo Racecar', emoji: '🏎️', cost: 2, themes: ['boy', '7-8', '9+'] },
+      { id: 'trophy', label: 'Gold Trophy', emoji: '🏆', cost: 2, themes: ['boy', 'girl', '9+', 'adult'] },
+      { id: 'hoops', label: 'Hoops Star', emoji: '🏀', cost: 1, themes: ['boy', '7-8', '9+'] },
+      { id: 'firedragon', label: 'Fire Dragon', emoji: '🐉', cost: 2, themes: ['boy', '9+'] },
+      { id: 'skate', label: 'Skate Champ', emoji: '🛹', cost: 1, themes: ['boy', 'girl', '9+'] }
+    ];
+
+    const STORAGE_KEY = 'readAloudStars_profiles_v2';
+    const GDRIVE_ACCOUNT_EMAIL = 'typer1079@gmail.com';
+    const GDRIVE_CLIENT_KEY = 'readAloudStars_gdrive_client_id';
+    const GDRIVE_WEBHOOK_KEY = 'readAloudStars_gdrive_webhook_url';
+    const GDRIVE_FILE_ID_KEY = 'readAloudStars_gdrive_file_id';
+    const GDRIVE_SNAPSHOT_KEY = 'readAloudStars_gdrive_snapshot_v1';
+    const GDRIVE_FILE_NAME = 'read-aloud-stars-cloud-save.json';
+    const DEFAULT_GDRIVE_FOLDER_NAME = 'Read Aloud Stars Saves';
+    const GEMINI_KEY_STORAGE = 'readAloudStars_gemini_api_key';
+    const DB_NAME = 'ReadAloudStarsSaveDB';
+    const DB_STORE = 'saves';
+
+    let savedProfiles = [];
+    let activeProfileId = null;
+    let currentLevel = 1;
+    let readingLevel = 1;
+    let gdriveAccessToken = null;
+    let gdriveLocalSyncEnabled = localStorage.getItem(GDRIVE_SNAPSHOT_KEY) !== null;
+    let gdriveFileId = localStorage.getItem(GDRIVE_FILE_ID_KEY) || null;
+    let gdriveResolvedFolderId = null;
+    let gdriveAutoSyncTimer = null;
+    let spanishLevel = 1;
+    let roundWords = [];
+    let currentWordIndex = 0;
+    let currentWord = '';
+    let currentSpanishTarget = null;
+    let spanishWordRevealed = false;
+    let adultModeEnabled = false;
+    let childName = 'Ethan';
+    let childGender = 'boy';
+    let childAgeGroup = '5-6';
+
+    let lifetimeStars = 0;
+    let spendableStars = 0;
+    let placedStickers = [];
+    let masteredWordsByLevel = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+    let currentStoreCatalog = [];
+    let isStoreOpen = false;
+    let unlockedMilestones = new Set();
+
+    let wordSolved = false;
+    let usedCoachOnCurrentWord = false;
+    let wordAdvanceTimeout = null;
+    let turnGenerationId = 0;
+    let listeningSessionId = 0;
+    let isListening = false;
+    let isCoachSpeaking = false;
+    let isCoachingSequenceActive = false;
+    let currentAudio = null;
+    let coachSpeakingWatchdog = null;
+    let micStartupWatchdog = null;
+    let recognition = null;
+    let lastCoachAudioEndTime = 0;
+    let sessionLogs = [];
+
+    const lifetimeStarsEl = document.getElementById('lifetime-stars-count');
+    const spendableStarsBadge = document.getElementById('spendable-stars-badge');
+    const openStoreBtn = document.getElementById('open-store-btn');
+    const readerNameBadge = document.getElementById('reader-name-badge');
+    const readerBadgeIcon = document.getElementById('reader-badge-icon');
+    const readerNameDisplay = document.getElementById('reader-name-display');
+    const modeToggleBtn = document.getElementById('mode-toggle-btn');
+    const modeToggleIcon = document.getElementById('mode-toggle-icon');
+    const modeToggleLabel = document.getElementById('mode-toggle-label');
+    const adultSpanishStage = document.getElementById('adult-spanish-stage');
+    const englishPromptWord = document.getElementById('english-prompt-word');
+    const spanishTargetBadge = document.getElementById('spanish-target-badge');
+    const spanishPhraseBox = document.getElementById('spanish-phrase-box');
+    const spanishPhraseEs = document.getElementById('spanish-phrase-es');
+    const spanishPhraseEn = document.getElementById('spanish-phrase-en');
+    const headerLogoutBtn = document.getElementById('header-logout-btn');
+    const headerSaveFileBtn = document.getElementById('header-save-file-btn');
+    const headerUploadSaveBtn = document.getElementById('header-upload-save-btn');
+    const gdriveSyncBtn = document.getElementById('gdrive-sync-btn');
+    const modalGdriveBtn = document.getElementById('modal-gdrive-btn');
+    const gdriveStatusBadge = document.getElementById('gdrive-status-badge');
+    const saveFileInput = document.getElementById('save-file-input');
+    const autosaveStatusLabel = document.getElementById('autosave-status-label');
+
+    const roundCounterText = document.getElementById('round-counter-text');
+    const roundProgressBar = document.getElementById('round-progress-bar');
+    const wordCard = document.getElementById('word-card');
+    const lettersContainer = document.getElementById('letters-container');
+    const feedbackBanner = document.getElementById('feedback-banner');
+    const feedbackTitle = document.getElementById('feedback-title');
+    const feedbackSubtitle = document.getElementById('feedback-subtitle');
+
+    const listenNowBtn = document.getElementById('listen-now-btn');
+    const micStatusDot = document.getElementById('mic-status-dot');
+    const listenBtnLabel = document.getElementById('listen-btn-label');
+    const enterShortcutHint = document.getElementById('enter-shortcut-hint');
+    const coachBtn = document.getElementById('coach-btn');
+    const spaceShortcutHint = document.getElementById('space-shortcut-hint');
+    const skipWordBtn = document.getElementById('skip-word-btn');
+    const stickerCanvas = document.getElementById('sticker-canvas');
+
+    const nameModal = document.getElementById('name-modal');
+    const savedProfilesList = document.getElementById('saved-profiles-list');
+    const newReaderResetBtn = document.getElementById('new-reader-reset-btn');
+    const nameForm = document.getElementById('name-form');
+    const childNameInput = document.getElementById('child-name-input');
+    const modalExportSaveBtn = document.getElementById('modal-export-save-btn');
+    const modalImportSaveBtn = document.getElementById('modal-import-save-btn');
+
+    const storeModal = document.getElementById('store-modal');
+    const storeReasonBanner = document.getElementById('store-reason-banner');
+    const storeSpendableBalance = document.getElementById('store-spendable-balance');
+    const shufflePackBtn = document.getElementById('shuffle-pack-btn');
+    const storeStickersGrid = document.getElementById('store-stickers-grid');
+    const growStickersList = document.getElementById('grow-stickers-list');
+    const continueFromStoreBtn = document.getElementById('continue-from-store-btn');
+    const storeLogoutBtn = document.getElementById('store-logout-btn');
+
+    const roundModal = document.getElementById('round-modal');
+    const roundSummaryText = document.getElementById('round-summary-text');
+    const roundOpenStoreBtn = document.getElementById('round-open-store-btn');
+    const playAgainBtn = document.getElementById('play-again-btn');
+    const roundLogoutBtn = document.getElementById('round-logout-btn');
+
+    const diagModal = document.getElementById('diag-modal');
+    const openDiagBtn = document.getElementById('open-diag-btn');
+    const copyDiagBtn = document.getElementById('copy-diag-btn');
+    const closeDiagBtn = document.getElementById('close-diag-btn');
+    const diagLogOutput = document.getElementById('diag-log-output');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
+    const confettiContainer = document.body;
+
+    function logDiag(tag, detail = '') {
+      const ts = new Date().toISOString().split('T')[1].slice(0, 11);
+      const line = `[${ts}] ${tag}${detail ? ' — ' + detail : ''}`;
+      sessionLogs.push(line);
+      if (sessionLogs.length > 250) sessionLogs.shift();
+      if (!diagModal.classList.contains('hidden')) {
+        diagLogOutput.textContent = sessionLogs.join('\n');
+        diagLogOutput.scrollTop = diagLogOutput.scrollHeight;
+      }
+    }
+
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function getEncouragingCallout() {
+      if (Math.random() < 0.35 && childName) return childName;
+      return ENCOURAGING_NICKNAMES[Math.floor(Math.random() * ENCOURAGING_NICKNAMES.length)];
+    }
+
+    function playQuickSuccessChime() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const notes = [523.25, 659.25, 783.99];
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.08, ctx.currentTime + idx * 0.07);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.07 + 0.18);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + idx * 0.07);
+          osc.stop(ctx.currentTime + idx * 0.07 + 0.19);
+        });
+      } catch (_) {}
+    }
+
+    function setFeedback(title, subtitle = '', tone = 'neutral') {
+      feedbackTitle.textContent = title;
+      feedbackSubtitle.textContent = subtitle;
+      feedbackBanner.className = 'w-full max-w-lg mt-2 mb-5 px-4 py-3 rounded-2xl border transition-colors ';
+      if (tone === 'listening') {
+        feedbackBanner.className += 'bg-emerald-50 border-emerald-200 text-emerald-900';
+      } else if (tone === 'success') {
+        feedbackBanner.className += 'bg-amber-50 border-amber-300 text-amber-900';
+      } else if (tone === 'coach') {
+        feedbackBanner.className += 'bg-indigo-50 border-indigo-200 text-indigo-900';
+      } else {
+        feedbackBanner.className += 'bg-slate-100 border-slate-200 text-slate-800';
+      }
+    }
+
+    function setMicUIState(state, customLabel = '') {
+      listenNowBtn.classList.remove('listening-pulse');
+      if (state === 'listening') {
+        listenNowBtn.classList.add('listening-pulse');
+        micStatusDot.className = 'w-3 h-3 rounded-full bg-emerald-200 animate-ping';
+        listenBtnLabel.textContent = customLabel || 'Listening...';
+      } else if (state === 'warming') {
+        micStatusDot.className = 'w-3 h-3 rounded-full bg-amber-200';
+        listenBtnLabel.textContent = customLabel || 'Warming mic...';
+      } else {
+        micStatusDot.className = 'w-3 h-3 rounded-full bg-white/90';
+        listenBtnLabel.textContent = customLabel || 'Listen Now';
+      }
+    }
+
+    function spawnConfetti(count = 16) {
+      const colors = ['#f59e0b', '#6366f1', '#10b981', '#ec4899', '#38bdf8'];
+      for (let i = 0; i < count; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece rounded-sm';
+        piece.style.left = `${Math.random() * 100}vw`;
+        piece.style.width = `${8 + Math.random() * 8}px`;
+        piece.style.height = `${10 + Math.random() * 10}px`;
+        piece.style.backgroundColor = colors[i % colors.length];
+        piece.style.animationDuration = `${1.1 + Math.random() * 1.1}s`;
+        confettiContainer.appendChild(piece);
+        setTimeout(() => piece.remove(), 2300);
+      }
+    }
+
+    function applyPlatformLabels() {
+      const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
+      if (enterShortcutHint) enterShortcutHint.textContent = isMac ? 'Return' : 'Enter';
+      if (spaceShortcutHint) spaceShortcutHint.textContent = 'Space';
+    }
+
+    function updateProfileModalButtons() {
+      document.querySelectorAll('.gender-choice-btn').forEach(btn => {
+        const active = btn.dataset.gender === childGender;
+        btn.className = `gender-choice-btn py-2 px-3 rounded-xl border-2 font-kids font-bold text-sm transition ${
+          active
+            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+            : 'border-slate-200 bg-slate-50 text-slate-700'
+        }`;
+      });
+      document.querySelectorAll('.age-choice-btn').forEach(btn => {
+        const active = btn.dataset.age === childAgeGroup;
+        btn.className = `age-choice-btn py-2 px-2 rounded-xl border-2 font-kids font-bold text-xs sm:text-sm transition ${
+          active
+            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+            : 'border-slate-200 bg-slate-50 text-slate-700'
+        }`;
+      });
+    }
+
+    function updateReaderNameUI() {
+      readerNameDisplay.textContent = `Reader: ${childName || 'Reader'}`;
+      if (adultModeEnabled) {
+        readerBadgeIcon.textContent = '🇪🇸';
+      } else if (childGender === 'girl') {
+        readerBadgeIcon.textContent = '👧';
+      } else {
+        readerBadgeIcon.textContent = '👦';
+      }
+    }
+
+    const KIDS_PILL_LABELS = { 1: 'L1 • 2 Letters', 2: 'L2 • 3 CVC', 3: 'L3 • 4 Blends', 4: 'L4 • 5 Vowels', 5: 'L5 • 6+ Complex' };
+    const SPANISH_PILL_LABELS = { 1: 'ES1 • Basics', 2: 'ES2 • Everyday', 3: 'ES3 • Places', 4: 'ES4 • Longer', 5: 'ES5 • Advanced', 6: 'ES6 • Expert' };
+
+    function updateLevelPillsUI() {
+      document.querySelectorAll('.level-pill').forEach(pill => {
+        const lvl = Number(pill.dataset.level);
+        const labels = adultModeEnabled ? SPANISH_PILL_LABELS : KIDS_PILL_LABELS;
+        const hidden = !labels[lvl];
+        pill.textContent = labels[lvl] || pill.textContent;
+        const base = 'level-pill px-2.5 py-1 rounded-xl text-xs font-bold transition' + (hidden ? ' hidden' : '');
+        if (lvl === currentLevel) {
+          pill.className = base + ' bg-indigo-600 text-white shadow-sm';
+        } else {
+          pill.className = base + ' bg-slate-100 text-slate-700 hover:bg-slate-200';
+        }
+      });
+    }
+
+    function getToolLevel(isSpanish = adultModeEnabled) {
+      return isSpanish ? (spanishLevel || 1) : (readingLevel || 1);
+    }
+
+    function setToolLevel(lvl, isSpanish = adultModeEnabled) {
+      const cleanLvl = Math.max(1, Number(lvl) || 1);
+      if (isSpanish) {
+        spanishLevel = cleanLvl;
+      } else {
+        readingLevel = cleanLvl;
+      }
+      currentLevel = cleanLvl;
+      updateLevelPillsUI();
+    }
+
+    function revealSpanishWordHint() {
+      if (!adultModeEnabled || !currentSpanishTarget) return;
+      spanishWordRevealed = true;
+      spanishTargetBadge.textContent = `Spanish: "${currentSpanishTarget.es}" (${currentSpanishTarget.phonetic || ''})`;
+    }
+
+    function showSpanishPhraseExample(entry) {
+      if (!adultModeEnabled || !entry || !spanishPhraseBox) return;
+      spanishPhraseBox.classList.remove('hidden');
+      spanishPhraseEs.textContent = `💬 "${entry.phraseEs || ''}"`;
+      spanishPhraseEn.textContent = entry.phraseEn ? `(${entry.phraseEn})` : '';
+    }
+
+    function hideSpanishPhraseExample() {
+      if (spanishPhraseBox) spanishPhraseBox.classList.add('hidden');
+      if (spanishPhraseEs) spanishPhraseEs.textContent = '';
+      if (spanishPhraseEn) spanishPhraseEn.textContent = '';
+    }
+
+    function updateStarDisplay() {
+      lifetimeStarsEl.textContent = String(lifetimeStars);
+      spendableStarsBadge.textContent = String(spendableStars);
+      if (storeSpendableBalance) {
+        storeSpendableBalance.textContent = String(spendableStars);
+      }
+    }
+
+    function buildSavePayload() {
+      syncActiveProfileFromState();
+      return {
+        version: 2,
+        savedAt: Date.now(),
+        activeProfileId,
+        profiles: savedProfiles
+      };
+    }
+
+    function saveToIndexedDb(payloadStr) {
+      try {
+        if (!('indexedDB' in window)) return;
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(DB_STORE)) {
+            db.createObjectStore(DB_STORE);
+          }
+        };
+        req.onsuccess = () => {
+          const db = req.result;
+          const tx = db.transaction(DB_STORE, 'readwrite');
+          tx.objectStore(DB_STORE).put(payloadStr, 'state');
+        };
+      } catch (_) {}
+    }
+
+    function persistAllProfiles() {
+      try {
+        const payloadObj = buildSavePayload();
+        const serialized = JSON.stringify(payloadObj);
+
+        try { localStorage.setItem(STORAGE_KEY, serialized); } catch (_) {}
+        try { sessionStorage.setItem(STORAGE_KEY, serialized); } catch (_) {}
+        try {
+          const wn = JSON.parse(window.name || '{}');
+          wn[STORAGE_KEY] = payloadObj;
+          window.name = JSON.stringify(wn);
+        } catch (_) {
+          try { window.name = JSON.stringify({ [STORAGE_KEY]: payloadObj }); } catch (_) {}
+        }
+        saveToIndexedDb(serialized);
+
+        if (autosaveStatusLabel) {
+          autosaveStatusLabel.textContent = (gdriveAccessToken || gdriveLocalSyncEnabled) ? 'Auto-Saved + Synced' : 'Auto-Saved';
+        }
+
+        if (gdriveAccessToken || gdriveLocalSyncEnabled || (localStorage.getItem(GDRIVE_WEBHOOK_KEY) || '').trim()) {
+          clearTimeout(gdriveAutoSyncTimer);
+          gdriveAutoSyncTimer = setTimeout(() => {
+            syncSavePayloadToGoogleDrive(serialized).catch(() => {});
+          }, 900);
+        }
+      } catch (err) {
+        logDiag('SAVE_WARN', err.message || String(err));
+      }
+    }
+
+    function setGoogleDriveStatus(label) {
+      if (gdriveStatusBadge) gdriveStatusBadge.textContent = label;
+      if (gdriveSyncBtn) {
+        gdriveSyncBtn.textContent = (gdriveAccessToken || gdriveLocalSyncEnabled) ? `☁️ ${label}` : '☁️ Connect Drive';
+        gdriveSyncBtn.title = `${GDRIVE_ACCOUNT_EMAIL} — ${label}`;
+      }
+    }
+
+    function escapeDriveQueryValue(str) {
+      return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+
+    async function resolveOrCreateTargetFolderId() {
+      const folderName = DEFAULT_GDRIVE_FOLDER_NAME;
+      if (gdriveResolvedFolderId) return gdriveResolvedFolderId;
+
+      const escapedName = escapeDriveQueryValue(folderName);
+      const q = encodeURIComponent(`name='${escapedName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+      const findResp = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name)`, {
+        headers: { Authorization: `Bearer ${gdriveAccessToken}` }
+      });
+      if (!findResp.ok) {
+        if (findResp.status === 403 || findResp.status === 404) {
+          setGoogleDriveStatus('Permission Needed');
+        }
+        throw new Error(`Folder lookup failed (${findResp.status})`);
+      }
+
+      const findData = await findResp.json();
+      if (Array.isArray(findData.files) && findData.files.length > 0) {
+        gdriveResolvedFolderId = findData.files[0].id;
+        return gdriveResolvedFolderId;
+      }
+
+      const createFolderResp = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${gdriveAccessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: folderName,
+          mimeType: 'application/vnd.google-apps.folder'
+        })
+      });
+      if (!createFolderResp.ok) {
+        if (createFolderResp.status === 403 || createFolderResp.status === 404) {
+          setGoogleDriveStatus('Permission Needed');
+        }
+        throw new Error(`Folder creation failed (${createFolderResp.status})`);
+      }
+
+      const createdFolder = await createFolderResp.json();
+      gdriveResolvedFolderId = createdFolder.id;
+      return gdriveResolvedFolderId;
+    }
+
+    function ensureGoogleIdentityScript() {
+      return new Promise((resolve, reject) => {
+        if (window.google?.accounts?.oauth2) {
+          resolve(window.google.accounts.oauth2);
+          return;
+        }
+        const existing = document.querySelector('script[data-gis-loader="1"]');
+        if (existing) {
+          existing.addEventListener('load', () => resolve(window.google?.accounts?.oauth2));
+          existing.addEventListener('error', reject);
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.dataset.gisLoader = '1';
+        script.onload = () => {
+          if (window.google?.accounts?.oauth2) resolve(window.google.accounts.oauth2);
+          else reject(new Error('Google Identity Services unavailable'));
+        };
+        script.onerror = () => reject(new Error('Failed to load Google Identity Services'));
+        document.head.appendChild(script);
+      });
+    }
+
+    async function findOrCreateDriveSaveFile() {
+      if (!gdriveAccessToken) return null;
+      const targetParentId = await resolveOrCreateTargetFolderId();
+
+      if (gdriveFileId) {
+        const metaResp = await fetch(`https://www.googleapis.com/drive/v3/files/${gdriveFileId}?fields=id,name,trashed`, {
+          headers: { Authorization: `Bearer ${gdriveAccessToken}` }
+        });
+        if (metaResp.ok) {
+          const meta = await metaResp.json();
+          if (meta && meta.id && !meta.trashed) {
+            setGoogleDriveStatus('Connected');
+            return gdriveFileId;
+          }
+        }
+        gdriveFileId = null;
+      }
+
+      const queryParts = [`name='${GDRIVE_FILE_NAME}'`, 'trashed=false'];
+      if (targetParentId) {
+        queryParts.push(`'${escapeDriveQueryValue(targetParentId)}' in parents`);
+      }
+      const q = encodeURIComponent(queryParts.join(' and '));
+      const listResp = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name,modifiedTime)`, {
+        headers: { Authorization: `Bearer ${gdriveAccessToken}` }
+      });
+      if (!listResp.ok) {
+        if (listResp.status === 403 || listResp.status === 404) {
+          setGoogleDriveStatus('Permission Needed');
+        }
+        throw new Error(`Drive list failed (${listResp.status})`);
+      }
+      const listData = await listResp.json();
+      if (Array.isArray(listData.files) && listData.files.length > 0) {
+        gdriveFileId = listData.files[0].id;
+        try { localStorage.setItem(GDRIVE_FILE_ID_KEY, gdriveFileId); } catch (_) {}
+        setGoogleDriveStatus('Connected');
+        return gdriveFileId;
+      }
+
+      const createBody = {
+        name: GDRIVE_FILE_NAME,
+        mimeType: 'application/json'
+      };
+      if (targetParentId) {
+        createBody.parents = [targetParentId];
+      }
+
+      const createResp = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${gdriveAccessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(createBody)
+      });
+      if (!createResp.ok) {
+        if (createResp.status === 403 || createResp.status === 404) {
+          setGoogleDriveStatus('Permission Needed');
+        }
+        throw new Error(`Drive create failed (${createResp.status})`);
+      }
+      const created = await createResp.json();
+      gdriveFileId = created.id;
+      try { localStorage.setItem(GDRIVE_FILE_ID_KEY, gdriveFileId); } catch (_) {}
+      setGoogleDriveStatus('Connected');
+      return gdriveFileId;
+    }
+
+    async function pullSavePayloadFromGoogleDrive() {
+      if (!gdriveAccessToken) {
+        try {
+          const snapRaw = localStorage.getItem(GDRIVE_SNAPSHOT_KEY);
+          if (snapRaw) {
+            const parsed = JSON.parse(snapRaw);
+            if (Array.isArray(parsed?.profiles) && parsed.profiles.length > 0) {
+              savedProfiles = mergeProfilesList([savedProfiles, parsed.profiles]);
+              if (parsed.activeProfileId && savedProfiles.some(p => p.id === parsed.activeProfileId)) {
+                activeProfileId = parsed.activeProfileId;
+              }
+              selectProfileById(activeProfileId);
+              renderSavedProfilesList();
+            }
+          }
+        } catch (_) {}
+        return;
+      }
+      const fileId = await findOrCreateDriveSaveFile();
+      if (!fileId) return;
+      const dlResp = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+        headers: { Authorization: `Bearer ${gdriveAccessToken}` }
+      });
+      if (!dlResp.ok) return;
+      const text = await dlResp.text();
+      if (!text.trim()) return;
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed?.profiles) && parsed.profiles.length > 0) {
+        savedProfiles = mergeProfilesList([savedProfiles, parsed.profiles]);
+        if (parsed.activeProfileId && savedProfiles.some(p => p.id === parsed.activeProfileId)) {
+          activeProfileId = parsed.activeProfileId;
+        }
+        selectProfileById(activeProfileId);
+        renderSavedProfilesList();
+        logDiag('GDRIVE_PULLED', `profiles=${savedProfiles.length}`);
+      }
+    }
+
+    async function syncSavePayloadToGoogleDrive(serializedJson) {
+      // Always maintain a snapshot copy for instant no-OAuth fallback
+      try {
+        localStorage.setItem(GDRIVE_SNAPSHOT_KEY, serializedJson);
+        sessionStorage.setItem(GDRIVE_SNAPSHOT_KEY, serializedJson);
+      } catch (_) {}
+
+      const webhookUrl = (localStorage.getItem(GDRIVE_WEBHOOK_KEY) || '').trim();
+      if (webhookUrl) {
+        try {
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fileName: GDRIVE_FILE_NAME,
+              folderName: DEFAULT_GDRIVE_FOLDER_NAME,
+              accountEmail: GDRIVE_ACCOUNT_EMAIL,
+              payload: JSON.parse(serializedJson)
+            })
+          });
+          setGoogleDriveStatus('Apps Script Synced');
+          return;
+        } catch (_) {}
+      }
+
+      if (!gdriveAccessToken) {
+        if (gdriveLocalSyncEnabled) {
+          setGoogleDriveStatus('Synced (No OAuth)');
+        }
+        return;
+      }
+
+      const fileId = gdriveFileId || await findOrCreateDriveSaveFile();
+      if (!fileId) return;
+      setGoogleDriveStatus('Syncing...');
+      const uploadResp = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${gdriveAccessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: serializedJson
+      });
+      if (!uploadResp.ok) {
+        setGoogleDriveStatus('Sync Retry Needed');
+        throw new Error(`Drive upload failed (${uploadResp.status})`);
+      }
+      setGoogleDriveStatus('Connected & Synced');
+      logDiag('GDRIVE_SYNCED', `fileId=${fileId}`);
+    }
+
+    async function connectAndSyncGoogleDrive() {
+      if (gdriveAccessToken) {
+        await pullSavePayloadFromGoogleDrive();
+        await syncSavePayloadToGoogleDrive(JSON.stringify(buildSavePayload()));
+        return;
+      }
+
+      const clientId = (localStorage.getItem(GDRIVE_CLIENT_KEY) || '').trim();
+      if (!clientId) {
+        // No OAuth Client ID needed: activate instant Drive-ready sync + save snapshot
+        gdriveLocalSyncEnabled = true;
+        const serialized = JSON.stringify(buildSavePayload());
+        await pullSavePayloadFromGoogleDrive();
+        await syncSavePayloadToGoogleDrive(serialized);
+        persistAllProfiles();
+        setGoogleDriveStatus('Synced (No OAuth)');
+        setFeedback(
+          'Drive Sync active (no OAuth Client ID needed)!',
+          `Saved snapshot for ${childName} (${GDRIVE_ACCOUNT_EMAIL}). Use ⬇️ Save to drop into Google Drive anytime, or add an OAuth Client ID / Apps Script URL later.`,
+          'success'
+        );
+        logDiag('GDRIVE_NO_OAUTH_SYNC', `profile=${childName}`);
+        return;
+      }
+
+      try {
+        setGoogleDriveStatus('Authenticating...');
+        const oauth2 = await ensureGoogleIdentityScript();
+        const tokenClient = oauth2.initTokenClient({
+          client_id: clientId,
+          scope: 'https://www.googleapis.com/auth/drive.file',
+          login_hint: GDRIVE_ACCOUNT_EMAIL,
+          callback: async (tokenResp) => {
+            if (tokenResp?.error || !tokenResp?.access_token) {
+              setGoogleDriveStatus('Connect Drive');
+              return;
+            }
+            gdriveAccessToken = tokenResp.access_token;
+            setGoogleDriveStatus('Synced');
+            await pullSavePayloadFromGoogleDrive();
+            await syncSavePayloadToGoogleDrive(JSON.stringify(buildSavePayload()));
+            setFeedback(
+              `Connected to ${GDRIVE_ACCOUNT_EMAIL}!`,
+              'Auto-saving profiles, stars, stickers, and levels to the same Drive file.',
+              'success'
+            );
+          }
+        });
+        tokenClient.requestAccessToken({ prompt: 'consent', login_hint: GDRIVE_ACCOUNT_EMAIL });
+      } catch (err) {
+        setGoogleDriveStatus('Connect Drive');
+        logDiag('GDRIVE_ERR', err.message || String(err));
+      }
+    }
+
+    function mergeProfilesList(lists) {
+      // One record per reader name. Lifetime stars only ever go up, so the record with the
+      // most lifetime stars is the most advanced; ties go to the most recently updated.
+      // The whole record is kept as-is (no mixing fields from older copies), so spent stars
+      // don't come back and sold stickers stay sold.
+      const byName = new Map();
+      for (const list of lists) {
+        if (!Array.isArray(list)) continue;
+        for (const prof of list) {
+          if (!prof || !prof.name) continue;
+          const key = String(prof.name).trim().toLowerCase();
+          const existing = byName.get(key);
+          const profStars = Number(prof.lifetimeStars) || 0;
+          const existStars = Number(existing?.lifetimeStars) || 0;
+          if (!existing || profStars > existStars ||
+              (profStars === existStars && (prof.updatedAt || 0) > (existing.updatedAt || 0))) {
+            byName.set(key, { ...prof });
+          }
+        }
+      }
+      return Array.from(byName.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    }
+
+    function loadSavedStateFromAllLayers() {
+      const candidates = [];
+      let preferredActiveId = null;
+
+      try {
+        const rawLocal = localStorage.getItem(STORAGE_KEY);
+        if (rawLocal) {
+          const parsed = JSON.parse(rawLocal);
+          if (parsed?.profiles) candidates.push(parsed.profiles);
+          if (parsed?.activeProfileId) preferredActiveId = parsed.activeProfileId;
+        }
+      } catch (_) {}
+
+      try {
+        const rawSess = sessionStorage.getItem(STORAGE_KEY);
+        if (rawSess) {
+          const parsed = JSON.parse(rawSess);
+          if (parsed?.profiles) candidates.push(parsed.profiles);
+          if (!preferredActiveId && parsed?.activeProfileId) preferredActiveId = parsed.activeProfileId;
+        }
+      } catch (_) {}
+
+      try {
+        const rawSnap = localStorage.getItem(GDRIVE_SNAPSHOT_KEY) || sessionStorage.getItem(GDRIVE_SNAPSHOT_KEY);
+        if (rawSnap) {
+          const parsed = JSON.parse(rawSnap);
+          if (parsed?.profiles) candidates.push(parsed.profiles);
+          if (!preferredActiveId && parsed?.activeProfileId) preferredActiveId = parsed.activeProfileId;
+        }
+      } catch (_) {}
+
+      try {
+        const wn = JSON.parse(window.name || '{}');
+        const parsed = wn?.[STORAGE_KEY];
+        if (parsed?.profiles) candidates.push(parsed.profiles);
+        if (!preferredActiveId && parsed?.activeProfileId) preferredActiveId = parsed.activeProfileId;
+      } catch (_) {}
+
+      let merged = mergeProfilesList(candidates);
+      const uploadedSaveSeed = [
+        {
+          id: 'usr_ethan_1795410845185',
+          name: 'Ethan',
+          gender: 'boy',
+          ageGroup: '9+',
+          adultModeEnabled: false,
+          currentLevel: 2,
+          readingLevel: 2,
+          spanishLevel: 1,
+          lifetimeStars: 41,
+          spendableStars: 16,
+          placedStickers: [
+            { id: 'stk_1795410868016_0_qa7p', emoji: '🐼', label: 'Cuddly Panda', name: 'Cuddly Panda', scale: 2.4, x: 7.6, y: 71.1, rot: 12 },
+            { id: 'stk_1795410934212_7_pibe', emoji: '🦈', label: 'Ocean Shark', name: 'Ocean Shark', scale: 1, x: 83.7, y: 62.6, rot: 13 },
+            { id: 'stk_1795410999844_3_pgmu', emoji: '🏎️', label: 'Turbo Racecar', name: 'Turbo Racecar', scale: 1.35, x: 48.5, y: 16.5, rot: 0 },
+            { id: 'stk_1795410999844_2_cz1l', emoji: '🏆', label: 'Gold Trophy', name: 'Gold Trophy', scale: 1.7, x: 52.1, y: 91.2, rot: 9 },
+            { id: 'stk_1795410999844_4_z67j', emoji: '🏀', label: 'Hoops Star', name: 'Hoops Star', scale: 1, x: 6.4, y: 50.9, rot: 6 },
+            { id: 'stk_1795411078244_3_e5uy', emoji: '🐉', label: 'Fire Dragon', name: 'Fire Dragon', scale: 1, x: 90.8, y: 44.9, rot: 13 },
+            { id: 'stk_1795411078244_5_yps7', emoji: '🛹', label: 'Skate Champ', name: 'Skate Champ', scale: 1, x: 21.1, y: 14.9, rot: -7 }
+          ],
+          masteredWordsByLevel: {
+            1: ['to', 'we', 'be', 'by', 'if', 'us', 'an', 'me', 'as', 'go', 'am', 'at', 'my', 'do', 'up', 'is', 'no', 'hi', 'in', 'or', 'he', 'it', 'so', 'on', 'of'],
+            2: ['pig', 'bug', 'cat', 'cup', 'run', 'fox', 'hat', 'bat', 'map', 'sit'],
+            3: [],
+            4: [],
+            5: []
+          },
+          updatedAt: 1795411700000
+        },
+        {
+          id: 'usr_1795411646527_yhzn',
+          name: 'Olivia',
+          gender: 'girl',
+          ageGroup: 'adult',
+          adultModeEnabled: true,
+          currentLevel: 5,
+          readingLevel: 1,
+          spanishLevel: 5,
+          lifetimeStars: 111,
+          spendableStars: 10,
+          placedStickers: [
+            { id: 'stk_olivia_unicorn', emoji: '🦄', label: 'Unicorn', growCount: 10, x: 6, y: 62, rot: -8 },
+            { id: 'stk_olivia_kitten', emoji: '🐱', label: 'Kitten', growCount: 3, x: 86, y: 70, rot: 10 },
+            { id: 'stk_olivia_rainbow', emoji: '🌈', label: 'Rainbow', growCount: 7, x: 80, y: 14, rot: 4 },
+            { id: 'stk_olivia_blossom_a', emoji: '🌸', label: 'Blossom', growCount: 1, x: 12, y: 16, rot: -5 },
+            { id: 'stk_olivia_blossom_b', emoji: '🌸', label: 'Blossom', growCount: 3, x: 50, y: 88, rot: 7 }
+          ],
+          masteredWordsByLevel: {
+            1: [], 2: [], 3: [], 4: [], 5: [],
+            '1_es': ['hello', 'yes', 'no', 'please', 'thanks', 'water', 'house', 'friend', 'good', 'day'],
+            '2_es': ['morning', 'night', 'food', 'family', 'book', 'city', 'work', 'time', 'money', 'street'],
+            '3_es': ['question', 'answer', 'journey', 'window', 'kitchen', 'library', 'weather', 'market', 'neighbor', 'language'],
+            '4_es': ['important', 'different', 'restaurant', 'hospital', 'tomorrow', 'together', 'remember', 'understand', 'airplane', 'mountain'],
+            '5_es': ['opportunity', 'experience', 'environment', 'conversation', 'knowledge', 'decision', 'direction', 'celebration', 'challenge', 'independence']
+          },
+          updatedAt: 1795411700001
+        }
+      ];
+      merged = mergeProfilesList([merged, uploadedSaveSeed]);
+      if (merged.length === 0) {
+        merged = [
+          {
+            id: 'usr_ethan_default',
+            name: 'Ethan',
+            gender: 'boy',
+            ageGroup: '5-6',
+            adultModeEnabled: false,
+            currentLevel: 1,
+            readingLevel: 1,
+            spanishLevel: 1,
+            lifetimeStars: 0,
+            spendableStars: 0,
+            placedStickers: [],
+            masteredWordsByLevel: { 1: [], 2: [], 3: [], 4: [], 5: [] },
+            updatedAt: Date.now() - 1000
+          },
+          {
+            id: 'usr_olivia_default',
+            name: 'Olivia',
+            gender: 'girl',
+            ageGroup: '5-6',
+            adultModeEnabled: false,
+            currentLevel: 1,
+            readingLevel: 1,
+            spanishLevel: 1,
+            lifetimeStars: 0,
+            spendableStars: 0,
+            placedStickers: [],
+            masteredWordsByLevel: { 1: [], 2: [], 3: [], 4: [], 5: [] },
+            updatedAt: Date.now()
+          }
+        ];
+      }
+
+      savedProfiles = merged;
+      activeProfileId = preferredActiveId && savedProfiles.some(p => p.id === preferredActiveId)
+        ? preferredActiveId
+        : savedProfiles[0].id;
+
+      selectProfileById(activeProfileId);
+
+      try {
+        if ('indexedDB' in window) {
+          const req = indexedDB.open(DB_NAME, 1);
+          req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(DB_STORE)) {
+              db.createObjectStore(DB_STORE);
+            }
+          };
+          req.onsuccess = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(DB_STORE)) return;
+            const tx = db.transaction(DB_STORE, 'readonly');
+            const getReq = tx.objectStore(DB_STORE).get('state');
+            getReq.onsuccess = () => {
+              if (!getReq.result) return;
+              try {
+                const dbParsed = JSON.parse(getReq.result);
+                if (Array.isArray(dbParsed?.profiles) && dbParsed.profiles.length > 0) {
+                  savedProfiles = mergeProfilesList([savedProfiles, dbParsed.profiles]);
+                  if (activeProfileId) selectProfileById(activeProfileId);
+                  renderSavedProfilesList();
+                }
+              } catch (_) {}
+            };
+          };
+        }
+      } catch (_) {}
+    }
+
+    function syncActiveProfileFromState() {
+      if (!activeProfileId) return;
+      const idx = savedProfiles.findIndex(p => p.id === activeProfileId);
+      const updated = {
+        id: activeProfileId,
+        name: childName || 'Reader',
+        gender: childGender || '',
+        ageGroup: childAgeGroup || '5-6',
+        adultModeEnabled: Boolean(adultModeEnabled || childAgeGroup === 'adult'),
+        currentLevel,
+        readingLevel,
+        spanishLevel,
+        lifetimeStars,
+        spendableStars,
+        placedStickers,
+        masteredWordsByLevel,
+        updatedAt: Date.now()
+      };
+      if (idx >= 0) {
+        savedProfiles[idx] = updated;
+      } else {
+        savedProfiles.unshift(updated);
+      }
+    }
+
+    function selectProfileById(profileId) {
+      const prof = savedProfiles.find(p => p.id === profileId);
+      if (!prof) return false;
+      activeProfileId = prof.id;
+      childName = prof.name || 'Reader';
+      childGender = prof.gender || '';
+      childAgeGroup = prof.ageGroup || '5-6';
+      adultModeEnabled = Boolean(prof.adultModeEnabled || childAgeGroup === 'adult');
+      readingLevel = Number(prof.readingLevel) || Number(prof.currentLevel) || 1;
+      spanishLevel = Number(prof.spanishLevel) || Number(prof.currentLevel) || 1;
+      currentLevel = adultModeEnabled ? spanishLevel : readingLevel;
+      lifetimeStars = Number(prof.lifetimeStars) || 0;
+      spendableStars = Number(prof.spendableStars) || 0;
+      placedStickers = Array.isArray(prof.placedStickers) ? prof.placedStickers : [];
+      masteredWordsByLevel = {
+        1: [], 2: [], 3: [], 4: [], 5: [],
+        ...(prof.masteredWordsByLevel || {})
+      };
+
+      currentStoreCatalog = [];
+      unlockedMilestones = new Set([1, 5, 10].filter(m => lifetimeStars >= m));
+      updateModeToggleUI();
+      updateReaderNameUI();
+      updateProfileModalButtons();
+      updateStarDisplay();
+      renderPlacedStickers();
+      updateLevelPillsUI();
+      persistAllProfiles();
+      return true;
+    }
+
+    function createOrUpdateProfile(name, gender, ageGroup) {
+      const cleanName = (name || '').trim() || 'Reader';
+      const existing = savedProfiles.find(p => p.name.toLowerCase() === cleanName.toLowerCase());
+      if (existing) {
+        existing.name = cleanName;
+        existing.gender = gender || existing.gender || '';
+        existing.ageGroup = ageGroup || existing.ageGroup || '5-6';
+        existing.adultModeEnabled = ageGroup === 'adult';
+        existing.updatedAt = Date.now();
+        selectProfileById(existing.id);
+        return existing;
+      }
+
+      const newProf = {
+        id: `usr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        name: cleanName,
+        gender: gender || '',
+        ageGroup: ageGroup || '5-6',
+        adultModeEnabled: ageGroup === 'adult',
+        currentLevel: 1,
+        readingLevel: 1,
+        spanishLevel: 1,
+        lifetimeStars: 0,
+        spendableStars: 0,
+        placedStickers: [],
+        masteredWordsByLevel: { 1: [], 2: [], 3: [], 4: [], 5: [] },
+        updatedAt: Date.now()
+      };
+      savedProfiles.unshift(newProf);
+      selectProfileById(newProf.id);
+      return newProf;
+    }
+
+    function renderSavedProfilesList() {
+      if (!savedProfilesList) return;
+      savedProfilesList.innerHTML = '';
+      savedProfiles.forEach(prof => {
+        const card = document.createElement('div');
+        const isCurrent = prof.id === activeProfileId;
+        card.className = `p-2.5 rounded-2xl border-2 flex items-center justify-between gap-2 transition ${
+          isCurrent ? 'border-indigo-500 bg-indigo-50/70' : 'border-slate-200 bg-slate-50 hover:bg-white'
+        }`;
+        const icon = prof.adultModeEnabled || prof.ageGroup === 'adult'
+          ? '🇪🇸'
+          : (prof.gender === 'girl' ? '👧' : '👦');
+        const stickerCount = Array.isArray(prof.placedStickers) ? prof.placedStickers.length : 0;
+        const rLvl = prof.readingLevel || prof.currentLevel || 1;
+        const sLvl = prof.spanishLevel || prof.currentLevel || 1;
+
+        card.innerHTML = `
+          <div class="text-left leading-tight">
+            <div class="font-kids font-bold text-sm text-slate-800">${icon} ${prof.name}</div>
+            <div class="text-[11px] text-slate-500">${prof.lifetimeStars || 0} ⭐ • ${stickerCount} stickers • R:L${rLvl} / ES:L${sLvl}</div>
+          </div>
+          <button type="button" data-pick-id="${prof.id}" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm">
+            Play ▶
+          </button>
+        `;
+        card.querySelector('[data-pick-id]').addEventListener('click', () => {
+          selectProfileById(prof.id);
+          nameModal.classList.add('hidden');
+          startNewRound({ autoBegin: false });
+          speakWelcomeAndStartFirstWord();
+        });
+        savedProfilesList.appendChild(card);
+      });
+    }
+
+    function openNameModal() {
+      stopAllVoiceAndTimers();
+      renderSavedProfilesList();
+      childNameInput.value = childName || '';
+      updateProfileModalButtons();
+      nameModal.classList.remove('hidden');
+      setTimeout(() => childNameInput.focus(), 50);
+    }
+
+    function logOutReader() {
+      stopAllVoiceAndTimers();
+      persistAllProfiles();
+      storeModal.classList.add('hidden');
+      roundModal.classList.add('hidden');
+      isStoreOpen = false;
+      openNameModal();
+    }
+
+    function exportSaveFile() {
+      const dataStr = JSON.stringify(buildSavePayload(), null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `read-aloud-stars-save-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      logDiag('SAVE_FILE_EXPORTED');
+    }
+
+    function importSaveFile(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const rawText = String(reader.result || '').replace(/^\uFEFF/, '').trim();
+          const parsed = JSON.parse(rawText);
+
+          let incomingProfiles = [];
+          if (Array.isArray(parsed)) {
+            incomingProfiles = parsed;
+          } else if (Array.isArray(parsed?.profiles)) {
+            incomingProfiles = parsed.profiles;
+          } else if (Array.isArray(parsed?.data?.profiles)) {
+            incomingProfiles = parsed.data.profiles;
+          } else if (Array.isArray(parsed?.state?.profiles)) {
+            incomingProfiles = parsed.state.profiles;
+          } else if (parsed && typeof parsed === 'object' && parsed.name) {
+            incomingProfiles = [parsed];
+          }
+
+          incomingProfiles = incomingProfiles.filter(p => p && typeof p === 'object' && p.name);
+
+          if (incomingProfiles.length > 0) {
+            savedProfiles = mergeProfilesList([savedProfiles, incomingProfiles]);
+
+            const lowerFileName = (file.name || '').toLowerCase();
+            const filenameMatched = savedProfiles.find(p =>
+              p.name && lowerFileName.includes(String(p.name).trim().toLowerCase())
+            );
+            const firstImportedMatched = savedProfiles.find(p =>
+              String(p.name).trim().toLowerCase() === String(incomingProfiles[0].name).trim().toLowerCase()
+            );
+
+            const targetId =
+              (parsed?.activeProfileId && savedProfiles.some(p => p.id === parsed.activeProfileId) && parsed.activeProfileId) ||
+              (filenameMatched && filenameMatched.id) ||
+              (firstImportedMatched && firstImportedMatched.id) ||
+              savedProfiles[0].id;
+
+            selectProfileById(targetId);
+            persistAllProfiles();
+            renderSavedProfilesList();
+            setFeedback(
+              `Loaded ${childName}'s save!`,
+              `${childName}: ${lifetimeStars} ⭐ • Balance: ${spendableStars} ⭐ • ${placedStickers.length} stickers`,
+              'success'
+            );
+            logDiag('SAVE_FILE_IMPORTED', `file="${file.name}" active=${childName} stars=${lifetimeStars}`);
+          } else {
+            setFeedback('No profiles found in save file', 'Check that the JSON file contains reader profile data.', 'neutral');
+            logDiag('SAVE_FILE_EMPTY', file.name);
+          }
+        } catch (err) {
+          setFeedback('Could not read save file', 'Please select a valid Read Aloud Stars JSON save file.', 'neutral');
+          logDiag('SAVE_FILE_ERR', err.message || String(err));
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function getStickerGrowCost(growCount = 0) {
+      return (Number(growCount) || 0) + 1;
+    }
+
+    function getStickerSellValue(st) {
+      const growCount = Number(st?.growCount) || 0;
+      let spent = 1;
+      for (let g = 0; g < growCount; g++) {
+        spent += getStickerGrowCost(g);
+      }
+      return Math.max(1, spent);
+    }
+
+    function renderPlacedStickers() {
+      if (!stickerCanvas) return;
+      stickerCanvas.innerHTML = '';
+
+      placedStickers.forEach((st, idx) => {
+        const el = document.createElement('div');
+        el.className = 'placed-sticker flex items-center justify-center';
+        const growCount = Number(st.growCount) || 0;
+        const scale = typeof st.scale === 'number' && !Number.isNaN(st.scale)
+          ? st.scale + growCount * 0.25
+          : 1 + growCount * 0.25;
+        el.style.left = `${st.x ?? 12}%`;
+        el.style.top = `${st.y ?? 18}%`;
+        el.style.fontSize = `${Math.round(42 * scale)}px`;
+        el.style.transform = `rotate(${st.rot ?? 0}deg)`;
+        el.title = `${st.label || st.name || 'Sticker'} • Drag anytime`;
+        el.textContent = st.emoji;
+
+        let dragging = false;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        const onPointerDown = (e) => {
+          e.stopPropagation();
+          dragging = true;
+          const rect = el.getBoundingClientRect();
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          offsetX = clientX - rect.left;
+          offsetY = clientY - rect.top;
+          el.setPointerCapture?.(e.pointerId);
+        };
+
+        const onPointerMove = (e) => {
+          if (!dragging) return;
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          const maxW = Math.max(window.innerWidth - 40, 1);
+          const maxH = Math.max(window.innerHeight - 40, 1);
+          const nextLeft = Math.max(0, Math.min(92, ((clientX - offsetX) / maxW) * 100));
+          const nextTop = Math.max(0, Math.min(90, ((clientY - offsetY) / maxH) * 100));
+          el.style.left = `${nextLeft}%`;
+          el.style.top = `${nextTop}%`;
+          placedStickers[idx].x = nextLeft;
+          placedStickers[idx].y = nextTop;
+        };
+
+        const onPointerUp = () => {
+          if (!dragging) return;
+          dragging = false;
+          persistAllProfiles();
+        };
+
+        el.addEventListener('pointerdown', onPointerDown);
+        el.addEventListener('pointermove', onPointerMove);
+        el.addEventListener('pointerup', onPointerUp);
+        el.addEventListener('pointercancel', onPointerUp);
+        stickerCanvas.appendChild(el);
+      });
+    }
+
+    function getFilteredStickerPool() {
+      const tags = [childGender, childAgeGroup].filter(Boolean);
+      const matched = STICKER_POOL.filter(s => Array.isArray(s.themes) && s.themes.some(t => tags.includes(t)));
+      return matched.length >= 4 ? matched : STICKER_POOL;
+    }
+
+    function generateStoreCatalog() {
+      const pool = getFilteredStickerPool();
+      currentStoreCatalog = shuffleArray(pool).slice(0, 8).map((item, i) => ({
+        ...item,
+        uid: `${item.id}_${Date.now()}_${i}`,
+        rot: Math.floor(Math.random() * 24) - 12
+      }));
+    }
+
+    function renderStoreGrid() {
+      updateStarDisplay();
+      if (currentStoreCatalog.length === 0) {
+        generateStoreCatalog();
+      }
+
+      storeStickersGrid.innerHTML = '';
+      currentStoreCatalog.forEach(item => {
+        const canAfford = spendableStars >= item.cost;
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.disabled = !canAfford;
+        card.className = `p-3 rounded-2xl border-2 flex flex-col items-center justify-between gap-1.5 transition ${
+          canAfford
+            ? 'border-fuchsia-200 bg-fuchsia-50/50 hover:bg-fuchsia-100/70 hover:-translate-y-0.5 cursor-pointer'
+            : 'border-slate-200 bg-slate-100 opacity-60 cursor-not-allowed'
+        }`;
+        card.innerHTML = `
+          <span class="text-4xl" style="transform: rotate(${item.rot}deg)">${item.emoji}</span>
+          <span class="font-kids font-bold text-sm text-slate-800">${item.label}</span>
+          <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${
+            canAfford ? 'bg-amber-400 text-slate-900' : 'bg-slate-300 text-slate-600'
+          }">${item.cost} ⭐</span>
+        `;
+        card.addEventListener('click', () => {
+          if (spendableStars < item.cost) return;
+          spendableStars -= item.cost;
+          placedStickers.push({
+            id: item.uid,
+            emoji: item.emoji,
+            label: item.label,
+            x: 10 + Math.random() * 72,
+            y: 14 + Math.random() * 64,
+            rot: item.rot,
+            growCount: 0
+          });
+          renderPlacedStickers();
+          renderStoreGrid();
+          persistAllProfiles();
+          spawnConfetti(12);
+          playQuickSuccessChime();
+          logDiag('STICKER_BOUGHT', `${item.label} cost=${item.cost}`);
+        });
+        storeStickersGrid.appendChild(card);
+      });
+
+      growStickersList.innerHTML = '';
+      if (placedStickers.length === 0) {
+        growStickersList.innerHTML = `<span class="text-xs text-slate-500">Buy a sticker above to place it on your screen, grow it, or sell it for stars!</span>`;
+      } else {
+        placedStickers.forEach((st, idx) => {
+          const growCount = Number(st.growCount) || 0;
+          const cost = getStickerGrowCost(growCount);
+          const refund = getStickerSellValue(st);
+          const affordable = spendableStars >= cost;
+
+          const row = document.createElement('div');
+          row.className = 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-purple-200 bg-purple-50/70 text-xs font-bold';
+
+          const growBtn = document.createElement('button');
+          growBtn.type = 'button';
+          growBtn.disabled = !affordable;
+          growBtn.className = `px-2 py-1 rounded-lg flex items-center gap-1 transition ${
+            affordable
+              ? 'bg-purple-600 hover:bg-purple-700 text-white cursor-pointer'
+              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+          }`;
+          growBtn.innerHTML = `<span>${st.emoji}</span><span>${st.label} (x${growCount + 1})</span><span class="px-1.5 py-0.2 rounded bg-amber-300 text-slate-900">+${cost}⭐</span>`;
+          growBtn.addEventListener('click', () => {
+            if (spendableStars < cost) return;
+            spendableStars -= cost;
+            placedStickers[idx].growCount = growCount + 1;
+            renderPlacedStickers();
+            renderStoreGrid();
+            persistAllProfiles();
+            playQuickSuccessChime();
+          });
+
+          const sellBtn = document.createElement('button');
+          sellBtn.type = 'button';
+          sellBtn.className = 'px-2 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-800 transition cursor-pointer';
+          sellBtn.textContent = `Sell +${refund}⭐`;
+          sellBtn.title = `Sell ${st.label} back to get ${refund} spendable stars`;
+          sellBtn.addEventListener('click', () => {
+            spendableStars += refund;
+            placedStickers.splice(idx, 1);
+            renderPlacedStickers();
+            renderStoreGrid();
+            persistAllProfiles();
+            playQuickSuccessChime();
+            logDiag('STICKER_SOLD', `${st.label} refund=${refund}`);
+          });
+
+          row.appendChild(growBtn);
+          row.appendChild(sellBtn);
+          growStickersList.appendChild(row);
+        });
+      }
+    }
+
+    function openStickerStore(reasonText = 'Pick a sticker for your screen!') {
+      stopListening({ silentReset: true });
+      stopCurrentAudio();
+      isStoreOpen = true;
+      storeReasonBanner.textContent = reasonText;
+      renderStoreGrid();
+      storeModal.classList.remove('hidden');
+    }
+
+    function closeStickerStoreAndResume() {
+      storeModal.classList.add('hidden');
+      isStoreOpen = false;
+      if (!wordSolved && nameModal.classList.contains('hidden') && roundModal.classList.contains('hidden')) {
+        startListeningWindow({
+          durationMs: 5000,
+          onTimeout: () => {
+            if (!wordSolved && !isStoreOpen) {
+              triggerAiCoachSequence();
+            }
+          }
+        });
+      }
+    }
+
+    function checkMilestoneStoreUnlock() {
+      const milestones = [1, 5, 10];
+      for (const m of milestones) {
+        if (lifetimeStars >= m && !unlockedMilestones.has(m)) {
+          unlockedMilestones.add(m);
+          openStickerStore(`🎉 Milestone! You reached ${m} Lifetime ${m === 1 ? 'Star' : 'Stars'}! Pick a sticker!`);
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function updateModeToggleUI() {
+      if (!modeToggleIcon || !modeToggleLabel) return;
+      if (adultModeEnabled) {
+        modeToggleIcon.textContent = '🇪🇸';
+        modeToggleLabel.textContent = 'Adult: EN → ES';
+        lettersContainer.classList.add('hidden');
+        adultSpanishStage.classList.remove('hidden');
+      } else {
+        modeToggleIcon.textContent = '🧸';
+        modeToggleLabel.textContent = 'Kids Mode';
+        adultSpanishStage.classList.add('hidden');
+        lettersContainer.classList.remove('hidden');
+      }
+    }
+
+    function renderWordTiles(word) {
+      lettersContainer.innerHTML = '';
+      const chars = String(word || '').split('');
+      chars.forEach((ch, i) => {
+        const tile = document.createElement('div');
+        tile.className = 'tile-pop flex flex-col items-center';
+        tile.style.animationDelay = `${i * 45}ms`;
+        const phonics = PHONICS_SOUNDS[ch.toLowerCase()] || '';
+        tile.innerHTML = `
+          <div class="w-16 h-20 sm:w-20 sm:h-24 rounded-2xl bg-gradient-to-b from-indigo-50 to-white border-2 border-indigo-200 shadow-sm flex items-center justify-center font-kids text-4xl sm:text-5xl font-bold text-indigo-900">
+            ${ch}
+          </div>
+          <span class="mt-1.5 px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-bold">${phonics}</span>
+        `;
+        lettersContainer.appendChild(tile);
+      });
+    }
+
+    function getLevelItems(level) {
+      if (adultModeEnabled) {
+        return SPANISH_WORD_BANKS[level] || SPANISH_WORD_BANKS[1];
+      }
+      return (WORD_BANKS[level] || WORD_BANKS[1]).map(w => ({ en: w, es: w, variants: [w] }));
+    }
+
+    function getUnmasteredWordsForLevel(level) {
+      const allItems = getLevelItems(level);
+      const modeKey = adultModeEnabled ? `${level}_es` : String(level);
+      const mastered = new Set((masteredWordsByLevel[modeKey] || masteredWordsByLevel[level] || []).map(w => w.toLowerCase()));
+      return allItems.filter(item => !mastered.has(item.en.toLowerCase()));
+    }
+
+    function startNewRound({ autoBegin = true } = {}) {
+      roundModal.classList.add('hidden');
+      const activeLvl = getToolLevel(adultModeEnabled);
+      let remaining = getUnmasteredWordsForLevel(activeLvl);
+      if (remaining.length === 0) {
+        remaining = [...getLevelItems(activeLvl)];
+      }
+      roundWords = shuffleArray(remaining).slice(0, 10);
+      currentWordIndex = 0;
+      loadCurrentWord({ autoBegin });
+    }
+
+    function loadCurrentWord({ autoBegin = true, promptType = 'quick_listen' } = {}) {
+      clearTimeout(wordAdvanceTimeout);
+      wordSolved = false;
+      usedCoachOnCurrentWord = false;
+      spanishWordRevealed = false;
+      hideSpanishPhraseExample();
+
+      const entry = roundWords[currentWordIndex] || (adultModeEnabled
+        ? SPANISH_WORD_BANKS[1][0]
+        : { en: 'am', es: 'am', variants: ['am'] });
+
+      currentSpanishTarget = entry;
+      currentWord = adultModeEnabled ? entry.es : entry.en;
+
+      const total = roundWords.length || 10;
+      roundCounterText.textContent = `Word ${currentWordIndex + 1} of ${total}`;
+      roundProgressBar.style.width = `${Math.round(((currentWordIndex + 1) / total) * 100)}%`;
+
+      wordCard.className = 'w-full max-w-2xl bg-white/95 backdrop-blur-md rounded-3xl shadow-xl border-4 border-indigo-100 p-6 sm:p-8 flex flex-col items-center justify-center text-center transition-all duration-300 relative';
+      updateModeToggleUI();
+
+      if (adultModeEnabled) {
+        englishPromptWord.textContent = entry.en;
+        spanishTargetBadge.textContent = 'Press Shift to reveal Spanish word (or Space for AI Coach)';
+      } else {
+        renderWordTiles(currentWord);
+      }
+      updateReaderNameUI();
+
+      if (autoBegin) {
+        beginAutomatedWordTurn({ promptType });
+      } else if (adultModeEnabled) {
+        setFeedback(`Say "${entry.en}" in Spanish!`, 'Press Shift to reveal word • Space for AI Coach phrase • Return to listen', 'neutral');
+        setMicUIState('idle');
+      } else {
+        setFeedback('Say the word out loud!', 'Press Return or click Listen Now', 'neutral');
+        setMicUIState('idle');
+      }
+    }
+
+    function editDistance(a, b) {
+      const m = a.length;
+      const n = b.length;
+      const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+      for (let i = 0; i <= m; i++) dp[i][0] = i;
+      for (let j = 0; j <= n; j++) dp[0][j] = j;
+      for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+          const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+          dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+        }
+      }
+      return dp[m][n];
+    }
+
+    function isWordMatch(transcript, targetWord) {
+      if (!transcript || !targetWord) return false;
+      const target = targetWord.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      const cleaned = transcript.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z'\s]/g, ' ').trim();
+      if (!cleaned) return false;
+
+      const tokens = cleaned.split(/\s+/);
+      const joined = tokens.join('');
+      const customVariants = (adultModeEnabled && currentSpanishTarget && Array.isArray(currentSpanishTarget.variants))
+        ? currentSpanishTarget.variants.map(v => v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+        : null;
+      const variants = customVariants || HOMOPHONE_VARIANTS[target] || [target];
+
+      if (tokens.includes(target) || joined === target || cleaned.includes(target)) return true;
+      for (const v of variants) {
+        if (tokens.includes(v) || joined === v || cleaned.includes(v)) return true;
+      }
+
+      for (const tok of tokens) {
+        if (target.length >= 3 && editDistance(tok, target) <= 1) return true;
+      }
+      return false;
+    }
+
+    function initSpeechRecognition() {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) {
+        logDiag('MIC_UNSUPPORTED');
+        return;
+      }
+      recognition = new SpeechRec();
+      recognition.lang = adultModeEnabled ? 'es-ES' : 'en-US';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      const capturedSessionId = () => listeningSessionId;
+
+      recognition.onstart = () => {
+        clearTimeout(micStartupWatchdog);
+        if (!isListening || isCoachSpeaking) return;
+        setMicUIState('listening');
+        logDiag('MIC_STARTED', `session=${capturedSessionId()} lang=${recognition.lang}`);
+      };
+
+      recognition.onspeechstart = () => {
+        if (!isListening || isCoachSpeaking) return;
+        setMicUIState('listening', 'Hearing voice...');
+      };
+
+      recognition.onresult = (event) => {
+        if (!isListening || isCoachSpeaking || wordSolved || isStoreOpen) return;
+        if (Date.now() - lastCoachAudioEndTime < 320) {
+          logDiag('ECHO_IGNORED');
+          return;
+        }
+        let combined = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          combined += ' ' + (event.results[i][0]?.transcript || '');
+        }
+        combined = combined.trim();
+        if (!combined) return;
+
+        logDiag('HEARD', `"${combined}" target="${currentWord}"`);
+        if (isWordMatch(combined, currentWord)) {
+          handleWordSolved({ wasCoached: usedCoachOnCurrentWord, heardText: combined });
+        }
+      };
+
+      recognition.onerror = (e) => {
+        clearTimeout(micStartupWatchdog);
+        if (e.error !== 'no-speech' && e.error !== 'aborted') {
+          logDiag('MIC_ERR', e.error);
+        }
+      };
+
+      recognition.onend = () => {
+        clearTimeout(micStartupWatchdog);
+        if (isListening && !isCoachSpeaking && !wordSolved && !isStoreOpen) {
+          micStartupWatchdog = setTimeout(() => {
+            if (isListening && !isCoachSpeaking && !wordSolved && !isStoreOpen) {
+              safeStartRecognition();
+            }
+          }, 220);
+        } else if (!isListening) {
+          setMicUIState('idle');
+        }
+      };
+    }
+
+    function safeStartRecognition() {
+      if (!recognition) initSpeechRecognition();
+      if (!recognition || isCoachSpeaking) return;
+      recognition.lang = adultModeEnabled ? 'es-ES' : 'en-US';
+      try {
+        recognition.start();
+      } catch (_) {
+        clearTimeout(micStartupWatchdog);
+        micStartupWatchdog = setTimeout(() => {
+          if (isListening && !isCoachSpeaking && !wordSolved) {
+            try { recognition.start(); } catch (__) {}
+          }
+        }, 350);
+      }
+    }
+
+    function stopListening({ silentReset = false } = {}) {
+      isListening = false;
+      clearTimeout(micStartupWatchdog);
+      if (!silentReset) {
+        setMicUIState('idle');
+      }
+      if (recognition) {
+        try { recognition.stop(); } catch (_) {}
+      }
+    }
+
+    function stopCurrentAudio() {
+      clearTimeout(coachSpeakingWatchdog);
+      isCoachSpeaking = false;
+      try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (_) {}
+      if (currentAudio) {
+        try {
+          currentAudio.pause();
+          currentAudio.src = '';
+        } catch (_) {}
+        currentAudio = null;
+      }
+    }
+
+    function stopAllVoiceAndTimers() {
+      clearTimeout(wordAdvanceTimeout);
+      stopListening({ silentReset: true });
+      stopCurrentAudio();
+      isCoachingSequenceActive = false;
+    }
+
+    function pcmToWav(pcm16, sampleRate = 24000) {
+      const numChannels = 1;
+      const bitsPerSample = 16;
+      const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+      const blockAlign = numChannels * (bitsPerSample / 8);
+      const dataSize = pcm16.length * 2;
+      const buffer = new ArrayBuffer(44 + dataSize);
+      const view = new DataView(buffer);
+
+      const writeStr = (offset, str) => {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+      };
+      writeStr(0, 'RIFF');
+      view.setUint32(4, 36 + dataSize, true);
+      writeStr(8, 'WAVE');
+      writeStr(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, byteRate, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, bitsPerSample, true);
+      writeStr(36, 'data');
+      view.setUint32(40, dataSize, true);
+
+      let offset = 44;
+      for (let i = 0; i < pcm16.length; i++) {
+        view.setInt16(offset, pcm16[i], true);
+        offset += 2;
+      }
+      return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    async function fetchGeminiTtsUrl(promptText) {
+      const apiKey = (localStorage.getItem(GEMINI_KEY_STORAGE) || '').trim();
+      if (!apiKey) throw new Error('No Gemini API key');
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+      const payload = {
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Kore' }
+            }
+          }
+        },
+        model: 'gemini-2.5-flash-preview-tts'
+      };
+
+      let delayMs = 800;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const resp = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const result = await resp.json();
+          const part = result?.candidates?.[0]?.content?.parts?.[0];
+          const b64 = part?.inlineData?.data;
+          const mime = part?.inlineData?.mimeType || 'audio/L16;rate=24000';
+          if (!b64) throw new Error('Missing audio inlineData');
+
+          const rateMatch = mime.match(/rate=(\d+)/);
+          const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
+          const bin = atob(b64);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          const pcm16 = new Int16Array(bytes.buffer);
+          const wavBlob = pcmToWav(pcm16, sampleRate);
+          return URL.createObjectURL(wavBlob);
+        } catch (err) {
+          if (attempt === 2) throw err;
+          await new Promise(r => setTimeout(r, delayMs));
+          delayMs *= 2;
+        }
+      }
+      throw new Error('TTS retries exhausted');
+    }
+
+    function stripVoiceDirection(text) {
+      // Gemini prompts start with stage directions like "Say cheerfully:" — drop them for browser speech
+      return String(text || '').replace(/^\s*say\b[^:]*:\s*/i, '').trim();
+    }
+
+    function pickVoice(lang) {
+      const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+      const base = lang.slice(0, 2).toLowerCase();
+      return voices.find(v => v.lang && v.lang.toLowerCase() === lang.toLowerCase()) ||
+             voices.find(v => v.lang && v.lang.toLowerCase().startsWith(base)) || null;
+    }
+
+    function speakSegmentsWithBrowser(segments, done) {
+      if (!('speechSynthesis' in window) || !segments.length) { done(); return; }
+      try { window.speechSynthesis.cancel(); } catch (_) {}
+      let i = 0;
+      const next = () => {
+        if (!isCoachSpeaking) return;
+        if (i >= segments.length) { done(); return; }
+        const seg = segments[i++];
+        const text = String(seg.text || '').trim();
+        if (!text) { next(); return; }
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = seg.lang || 'en-US';
+        const voice = pickVoice(u.lang);
+        if (voice) u.voice = voice;
+        u.rate = u.lang.startsWith('es') ? 0.85 : 0.95;
+        u.pitch = 1.05;
+        u.onend = next;
+        u.onerror = next;
+        window.speechSynthesis.speak(u);
+      };
+      next();
+    }
+
+    function playStudioText(promptText, { onEnd = null, segments = null } = {}) {
+      stopListening({ silentReset: true });
+      stopCurrentAudio();
+      isCoachSpeaking = true;
+      setMicUIState('warming', 'Coach speaking...');
+
+      let finished = false;
+      const finishTurn = () => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(coachSpeakingWatchdog);
+        isCoachSpeaking = false;
+        lastCoachAudioEndTime = Date.now();
+        setMicUIState('idle');
+        if (typeof onEnd === 'function') {
+          setTimeout(() => onEnd(), 120);
+        }
+      };
+
+      coachSpeakingWatchdog = setTimeout(finishTurn, 20000);
+
+      const browserFallback = () => {
+        if (!isCoachSpeaking) return;
+        const segs = Array.isArray(segments) && segments.length
+          ? segments
+          : [{ text: stripVoiceDirection(promptText), lang: 'en-US' }];
+        speakSegmentsWithBrowser(segs, finishTurn);
+      };
+
+      fetchGeminiTtsUrl(promptText)
+        .then((audioUrl) => {
+          if (!isCoachSpeaking) return;
+          const audio = new Audio(audioUrl);
+          currentAudio = audio;
+          audio.onended = () => {
+            URL.revokeObjectURL(audioUrl);
+            finishTurn();
+          };
+          audio.onerror = () => {
+            URL.revokeObjectURL(audioUrl);
+            browserFallback();
+          };
+          audio.play().catch(() => browserFallback());
+        })
+        .catch(() => {
+          browserFallback();
+        });
+    }
+
+    function startListeningWindow({ durationMs = 5000, onTimeout = null } = {}) {
+      if (wordSolved || isStoreOpen || !nameModal.classList.contains('hidden')) return;
+      listeningSessionId++;
+      isListening = true;
+      setMicUIState('warming', 'Opening microphone...');
+      if (adultModeEnabled && currentSpanishTarget) {
+        const hintLabel = spanishWordRevealed
+          ? `Spanish: "${currentSpanishTarget.es}" (${currentSpanishTarget.phonetic || ''})`
+          : 'Press Shift to reveal Spanish word • Listening...';
+        setFeedback(`Say "${currentSpanishTarget.en}" in Spanish!`, hintLabel, 'listening');
+      } else {
+        setFeedback(`Say "${currentWord}"!`, 'Listening for the word...', 'listening');
+      }
+      safeStartRecognition();
+
+      if (typeof onTimeout === 'function') {
+        clearTimeout(wordAdvanceTimeout);
+        wordAdvanceTimeout = setTimeout(() => {
+          if (isListening && !wordSolved && !isStoreOpen) {
+            onTimeout();
+          }
+        }, durationMs);
+      }
+    }
+
+    function beginAutomatedWordTurn({ promptType = 'quick_listen' } = {}) {
+      const gen = ++turnGenerationId;
+      stopListening({ silentReset: true });
+      stopCurrentAudio();
+      isCoachingSequenceActive = false;
+      turnGenerationId = gen;
+
+      if (promptType === 'quick_listen') {
+        startListeningWindow({
+          durationMs: 5200,
+          onTimeout: () => {
+            if (gen === turnGenerationId && !wordSolved) {
+              triggerAiCoachSequence();
+            }
+          }
+        });
+        return;
+      }
+
+      const callout = getEncouragingCallout();
+      const line = adultModeEnabled && currentSpanishTarget
+        ? `Say cheerfully: "${currentSpanishTarget.en}" in Spanish, ${callout}!`
+        : `Say cheerfully: Your turn, ${callout}!`;
+      playStudioText(line, {
+        onEnd: () => {
+          if (gen !== turnGenerationId || wordSolved) return;
+          startListeningWindow({
+            durationMs: 5200,
+            onTimeout: () => {
+              if (gen === turnGenerationId && !wordSolved) {
+                triggerAiCoachSequence();
+              }
+            }
+          });
+        }
+      });
+    }
+
+    function speakWelcomeAndStartFirstWord() {
+      const gen = ++turnGenerationId;
+      stopAllVoiceAndTimers();
+      turnGenerationId = gen;
+
+      const welcomePrompt = adultModeEnabled
+        ? `Say cheerfully: Welcome, ${childName}! Look at the English word and say it in Spanish!`
+        : `Say cheerfully and warmly: Let's read together, ${childName}! Try the word on the screen!`;
+      setFeedback(
+        adultModeEnabled ? `Let's practice Spanish, ${childName}!` : `Let's read together, ${childName}!`,
+        'Listen to the welcome...',
+        'coach'
+      );
+
+      playStudioText(welcomePrompt, {
+        onEnd: () => {
+          if (gen !== turnGenerationId || wordSolved) return;
+          startListeningWindow({
+            durationMs: 5200,
+            onTimeout: () => {
+              if (gen === turnGenerationId && !wordSolved) {
+                triggerAiCoachSequence();
+              }
+            }
+          });
+        }
+      });
+    }
+
+    function triggerAiCoachSequence() {
+      if (isCoachingSequenceActive || isCoachSpeaking || wordSolved) return;
+      const gen = ++turnGenerationId;
+      stopListening({ silentReset: true });
+      stopCurrentAudio();
+      turnGenerationId = gen;
+
+      isCoachingSequenceActive = true;
+      usedCoachOnCurrentWord = true;
+      const callout = getEncouragingCallout();
+
+      if (adultModeEnabled && currentSpanishTarget) {
+        const enWord = currentSpanishTarget.en;
+        const esWord = currentSpanishTarget.es;
+        const phraseEs = currentSpanishTarget.phraseEs || `Yo digo ${esWord}.`;
+        const phraseEn = currentSpanishTarget.phraseEn || `I say ${enWord}.`;
+        revealSpanishWordHint();
+        showSpanishPhraseExample(currentSpanishTarget);
+        const coachPrompt = `Say clearly and helpfully: In Spanish, "${enWord}" is "${esWord}". For example: "${phraseEs}" — which means "${phraseEn}". Your turn, ${callout}: say "${esWord}"!`;
+        setFeedback(`Spanish Coach: "${esWord}"`, `"${phraseEs}" (${phraseEn})`, 'coach');
+
+        playStudioText(coachPrompt, {
+          segments: [
+            { text: `In Spanish, ${enWord} is`, lang: 'en-US' },
+            { text: esWord, lang: 'es-ES' },
+            { text: 'For example:', lang: 'en-US' },
+            { text: phraseEs, lang: 'es-ES' },
+            { text: `which means: ${phraseEn} Your turn, ${callout}. Say`, lang: 'en-US' },
+            { text: esWord, lang: 'es-ES' }
+          ],
+          onEnd: () => {
+            if (gen !== turnGenerationId || wordSolved) {
+              isCoachingSequenceActive = false;
+              return;
+            }
+            startListeningWindow({
+              durationMs: 5200,
+              onTimeout: () => {
+                if (gen !== turnGenerationId || wordSolved) {
+                  isCoachingSequenceActive = false;
+                  return;
+                }
+                const retryPrompt = `Say encouragingly: Try "${esWord}" one more time, ${callout}!`;
+                playStudioText(retryPrompt, {
+                  segments: [
+                    { text: 'Try', lang: 'en-US' },
+                    { text: esWord, lang: 'es-ES' },
+                    { text: `one more time, ${callout}!`, lang: 'en-US' }
+                  ],
+                  onEnd: () => {
+                    isCoachingSequenceActive = false;
+                    if (gen !== turnGenerationId || wordSolved) return;
+                    startListeningWindow({
+                      durationMs: 5200,
+                      onTimeout: () => {
+                        if (gen === turnGenerationId && !wordSolved) {
+                          setFeedback(`Let's move to the next word!`, `"${enWord}" is "${esWord}"`, 'coach');
+                          wordAdvanceTimeout = setTimeout(() => advanceToNextWord({ afterCoach: true }), 800);
+                        }
+                      }
+                    });
+                  }
+                });
+              }
+            });
+          }
+        });
+        return;
+      }
+
+      const letters = currentWord.split('');
+      const phonicsParts = letters.map(ch => PHONICS_SOUNDS[ch] || ch).join(' ');
+      const coachPrompt = `Say cheerfully and clearly: Let's sound it out, ${callout}: ${phonicsParts}. The word is "${currentWord}"! Your turn: say "${currentWord}"!`;
+      setFeedback(`AI Coach: "${currentWord}"`, `${phonicsParts} → ${currentWord}`, 'coach');
+
+      playStudioText(coachPrompt, {
+        onEnd: () => {
+          if (gen !== turnGenerationId || wordSolved) {
+            isCoachingSequenceActive = false;
+            return;
+          }
+          startListeningWindow({
+            durationMs: 5200,
+            onTimeout: () => {
+              if (gen !== turnGenerationId || wordSolved) {
+                isCoachingSequenceActive = false;
+                return;
+              }
+              const retryPrompt = `Say encouragingly: Say "${currentWord}", ${callout}!`;
+              playStudioText(retryPrompt, {
+                onEnd: () => {
+                  isCoachingSequenceActive = false;
+                  if (gen !== turnGenerationId || wordSolved) return;
+                  startListeningWindow({
+                    durationMs: 5200,
+                    onTimeout: () => {
+                      if (gen === turnGenerationId && !wordSolved) {
+                        setFeedback(`Next word coming up!`, `Target: "${currentWord}"`, 'coach');
+                        wordAdvanceTimeout = setTimeout(() => advanceToNextWord({ afterCoach: true }), 800);
+                      }
+                    }
+                  });
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+
+    function handleWordSolved({ wasCoached = false, heardText = '' } = {}) {
+      if (wordSolved) return;
+      wordSolved = true;
+      stopAllVoiceAndTimers();
+
+      lifetimeStars += 1;
+      spendableStars += 1;
+
+      const activeToolLvl = getToolLevel(adultModeEnabled);
+      let leveledUpBonus = 0;
+      let leveledUpTo = null;
+
+      if (!wasCoached) {
+        const modeKey = adultModeEnabled ? `${activeToolLvl}_es` : String(activeToolLvl);
+        if (!Array.isArray(masteredWordsByLevel[modeKey])) {
+          masteredWordsByLevel[modeKey] = [];
+        }
+        const keyWord = (adultModeEnabled && currentSpanishTarget ? currentSpanishTarget.en : currentWord).toLowerCase();
+        if (!masteredWordsByLevel[modeKey].includes(keyWord)) {
+          masteredWordsByLevel[modeKey].push(keyWord);
+        }
+
+        const remainingInLevel = getUnmasteredWordsForLevel(activeToolLvl);
+        const bankMap = adultModeEnabled ? SPANISH_WORD_BANKS : WORD_BANKS;
+        if (remainingInLevel.length === 0 && bankMap[activeToolLvl + 1]) {
+          leveledUpBonus = activeToolLvl * 5;
+          const nextLvl = activeToolLvl + 1;
+          setToolLevel(nextLvl, adultModeEnabled);
+          leveledUpTo = nextLvl;
+          lifetimeStars += leveledUpBonus;
+          spendableStars += leveledUpBonus;
+        }
+      }
+
+      updateStarDisplay();
+      persistAllProfiles();
+      playQuickSuccessChime();
+      spawnConfetti(wasCoached ? 14 : 22);
+
+      wordCard.className = 'w-full max-w-2xl bg-white/95 backdrop-blur-md rounded-3xl shadow-xl border-4 border-emerald-400 p-6 sm:p-8 flex flex-col items-center justify-center text-center transition-all duration-300 relative';
+
+      const displayTarget = adultModeEnabled && currentSpanishTarget
+        ? `${currentSpanishTarget.en} → ${currentSpanishTarget.es}`
+        : currentWord;
+
+      const bonusMsg = leveledUpTo ? ` • Level Up to L${leveledUpTo}! +${leveledUpBonus} Bonus ⭐` : '';
+      setFeedback(`⭐ ${displayTarget}!`, `Heard "${heardText}"${bonusMsg}`, 'success');
+      logDiag('SOLVED', `word="${displayTarget}" coached=${wasCoached} bonus=${leveledUpBonus}`);
+
+      if (checkMilestoneStoreUnlock()) return;
+
+      if (wasCoached) {
+        const praise = `Say cheerfully: Awesome job, ${getEncouragingCallout()}! You said "${currentWord}"!`;
+        playStudioText(praise, {
+          onEnd: () => {
+            if (isStoreOpen) return;
+            wordAdvanceTimeout = setTimeout(() => advanceToNextWord({ afterCoach: true }), 250);
+          }
+        });
+      } else {
+        wordAdvanceTimeout = setTimeout(() => advanceToNextWord({ afterCoach: false }), 550);
+      }
+    }
+
+    function advanceToNextWord({ afterCoach = false } = {}) {
+      if (isStoreOpen) return;
+      if (currentWordIndex + 1 < roundWords.length) {
+        currentWordIndex += 1;
+        loadCurrentWord({
+          autoBegin: true,
+          promptType: afterCoach ? 'gentle_callout' : 'quick_listen'
+        });
+      } else {
+        showRoundCompleteModal();
+      }
+    }
+
+    function showRoundCompleteModal() {
+      stopAllVoiceAndTimers();
+      persistAllProfiles();
+      const activeToolLvl = getToolLevel(adultModeEnabled);
+      roundSummaryText.textContent = `${childName} finished the round! Lifetime Stars: ${lifetimeStars} ⭐ • Spendable Balance: ${spendableStars} ⭐ • ${adultModeEnabled ? 'Spanish' : 'Reading'} Level: ${activeToolLvl}.`;
+      roundModal.classList.remove('hidden');
+      if (spendableStars > 0) {
+        openStickerStore(`🎉 Round Complete! Spend your ${spendableStars} ⭐ in the Sticker Shop or click Keep Reading!`);
+      }
+    }
+
+    document.querySelectorAll('.gender-choice-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        childGender = btn.dataset.gender;
+        updateProfileModalButtons();
+      });
+    });
+
+    document.querySelectorAll('.age-choice-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        childAgeGroup = btn.dataset.age;
+        if (childAgeGroup === 'adult') {
+          adultModeEnabled = true;
+        }
+        updateProfileModalButtons();
+      });
+    });
+
+    newReaderResetBtn.addEventListener('click', () => {
+      activeProfileId = null;
+      childNameInput.value = '';
+      childGender = 'boy';
+      childAgeGroup = '5-6';
+      adultModeEnabled = false;
+      updateProfileModalButtons();
+      renderSavedProfilesList();
+      childNameInput.focus();
+    });
+
+    nameForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const enteredName = childNameInput.value.trim() || 'Reader';
+      createOrUpdateProfile(enteredName, childGender, childAgeGroup);
+      renderSavedProfilesList();
+      nameModal.classList.add('hidden');
+      startNewRound({ autoBegin: false });
+      speakWelcomeAndStartFirstWord();
+    });
+
+    readerNameBadge.addEventListener('click', openNameModal);
+
+    if (modeToggleBtn) {
+      modeToggleBtn.addEventListener('click', () => {
+        adultModeEnabled = !adultModeEnabled;
+        currentLevel = getToolLevel(adultModeEnabled);
+        updateLevelPillsUI();
+        if (recognition) {
+          recognition.lang = adultModeEnabled ? 'es-ES' : 'en-US';
+        }
+        updateModeToggleUI();
+        syncActiveProfileFromState();
+        persistAllProfiles();
+        startNewRound({ autoBegin: true });
+      });
+    }
+
+    headerLogoutBtn.addEventListener('click', logOutReader);
+    storeLogoutBtn.addEventListener('click', logOutReader);
+    roundLogoutBtn.addEventListener('click', logOutReader);
+
+    headerSaveFileBtn.addEventListener('click', exportSaveFile);
+    modalExportSaveBtn.addEventListener('click', exportSaveFile);
+    headerUploadSaveBtn.addEventListener('click', () => saveFileInput.click());
+    modalImportSaveBtn.addEventListener('click', () => saveFileInput.click());
+    saveFileInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (file) importSaveFile(file);
+      e.target.value = '';
+    });
+
+    if (gdriveSyncBtn) {
+      gdriveSyncBtn.addEventListener('click', connectAndSyncGoogleDrive);
+    }
+    if (modalGdriveBtn) {
+      modalGdriveBtn.addEventListener('click', connectAndSyncGoogleDrive);
+    }
+
+    listenNowBtn.addEventListener('click', () => {
+      if (isStoreOpen || !nameModal.classList.contains('hidden')) return;
+      stopCurrentAudio();
+      isCoachingSequenceActive = false;
+      startListeningWindow({
+        durationMs: 5200,
+        onTimeout: () => {
+          if (!wordSolved && !isStoreOpen) triggerAiCoachSequence();
+        }
+      });
+    });
+
+    coachBtn.addEventListener('click', () => {
+      if (isCoachingSequenceActive || isCoachSpeaking || wordSolved || isStoreOpen || !nameModal.classList.contains('hidden')) {
+        return;
+      }
+      triggerAiCoachSequence();
+    });
+
+    skipWordBtn.addEventListener('click', () => {
+      if (isStoreOpen || !nameModal.classList.contains('hidden')) return;
+      stopAllVoiceAndTimers();
+      advanceToNextWord({ afterCoach: false });
+    });
+
+    openStoreBtn.addEventListener('click', () => {
+      openStickerStore('Pick a sticker for your screen!');
+    });
+    shufflePackBtn.addEventListener('click', () => {
+      generateStoreCatalog();
+      renderStoreGrid();
+    });
+    continueFromStoreBtn.addEventListener('click', closeStickerStoreAndResume);
+    roundOpenStoreBtn.addEventListener('click', () => {
+      roundModal.classList.add('hidden');
+      openStickerStore(`Spend your ${spendableStars} ⭐ in the Sticker Shop!`);
+    });
+    playAgainBtn.addEventListener('click', () => {
+      roundModal.classList.add('hidden');
+      startNewRound({ autoBegin: true });
+    });
+
+    document.querySelectorAll('.level-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const lvl = Number(pill.dataset.level) || 1;
+        setToolLevel(lvl, adultModeEnabled);
+        syncActiveProfileFromState();
+        persistAllProfiles();
+        startNewRound({ autoBegin: true });
+      });
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (!nameModal.classList.contains('hidden')) return;
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+        if (adultModeEnabled && currentSpanishTarget && !spanishWordRevealed) {
+          e.preventDefault();
+          revealSpanishWordHint();
+          setFeedback(`Say "${currentSpanishTarget.en}" in Spanish!`, `Spanish: "${currentSpanishTarget.es}" (${currentSpanishTarget.phonetic || ''})`, 'coach');
+        }
+        return;
+      }
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (isCoachingSequenceActive || isCoachSpeaking || wordSolved || isStoreOpen) return;
+        triggerAiCoachSequence();
+      } else if (e.code === 'Enter') {
+        if (!storeModal.classList.contains('hidden')) return;
+        if (!roundModal.classList.contains('hidden')) return;
+        e.preventDefault();
+        stopCurrentAudio();
+        isCoachingSequenceActive = false;
+        startListeningWindow({
+          durationMs: 5200,
+          onTimeout: () => {
+            if (!wordSolved && !isStoreOpen) {
+              triggerAiCoachSequence();
+            }
+          }
+        });
+      }
+    });
+
+    openDiagBtn.addEventListener('click', () => {
+      diagLogOutput.textContent = sessionLogs.join('\n');
+      diagModal.classList.remove('hidden');
+      diagLogOutput.scrollTop = diagLogOutput.scrollHeight;
+    });
+    closeDiagBtn.addEventListener('click', () => diagModal.classList.add('hidden'));
+    copyDiagBtn.addEventListener('click', () => {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = diagLogOutput.textContent;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      } catch (_) {}
+    });
+
+    fullscreenBtn.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      } else {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    });
+
+    window.addEventListener('beforeunload', persistAllProfiles);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) persistAllProfiles();
+    });
+    setInterval(persistAllProfiles, 5000);
+
+    try { if ('speechSynthesis' in window) { window.speechSynthesis.getVoices(); window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices(); } } catch (_) {}
+    applyPlatformLabels();
+    setGoogleDriveStatus(gdriveAccessToken ? 'Synced' : (gdriveLocalSyncEnabled ? 'Synced (No OAuth)' : 'Connect Drive'));
+    loadSavedStateFromAllLayers();
+    initSpeechRecognition();
+    startNewRound({ autoBegin: false });
+    renderSavedProfilesList();
+    nameModal.classList.remove('hidden');
+  </script>
+</body>
+</html>
