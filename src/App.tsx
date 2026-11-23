@@ -77,6 +77,8 @@ export default function App() {
   useEffect(() => {
     if (!session) return
     let cancelled = false
+    // Asks the auth server for this session's MFA level (an external system), then routes.
+    // eslint-disable-next-line react/set-state-in-effect
     checkAal().then((a) => {
       if (cancelled) return
       if (a.hasMfa && !a.verified) setView((v) => (v === 'recovery' ? v : 'mfa-challenge'))
@@ -88,6 +90,9 @@ export default function App() {
   }, [session, checkAal, refresh])
 
   // ---- saving --------------------------------------------------------------------------------
+
+  // Lets a failed save retry itself later without flush referring to its own declaration.
+  const flushRef = useRef<() => Promise<void>>(async () => {})
 
   const flush = useCallback(async () => {
     clearTimeout(saveTimer.current)
@@ -115,7 +120,6 @@ export default function App() {
     setSaveStatus(pending.current.size ? 'saving' : 'saved')
   }, [refresh])
 
-  const flushRef = useRef(flush)
   useEffect(() => {
     flushRef.current = flush
   }, [flush])

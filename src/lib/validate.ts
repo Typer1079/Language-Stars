@@ -13,8 +13,17 @@ const num = (v: unknown, min: number, max: number, fallback: number): number => 
   const n = Number(v)
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback
 }
-const str = (v: unknown, maxLen: number): string =>
-  typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, maxLen) : ''
+/** Drops control characters and angle brackets, trims, and limits length. */
+const str = (v: unknown, maxLen: number): string => {
+  if (typeof v !== 'string') return ''
+  let out = ''
+  for (const ch of v) {
+    const code = ch.codePointAt(0) ?? 0
+    if (code < 0x20 || code === 0x7f || ch === '<' || ch === '>') continue
+    out += ch
+  }
+  return out.trim().slice(0, maxLen)
+}
 
 export function cleanName(v: unknown): string {
   return str(v, 40)

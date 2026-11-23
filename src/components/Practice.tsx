@@ -6,7 +6,8 @@ import { moveSticker } from '../lib/stickers'
 import { recognitionSupported } from '../lib/speech'
 import type { Learner } from '../lib/types'
 import { PHONICS_SOUNDS } from '../lib/wordBanks'
-import { Confetti, makeConfetti, StickerCanvas, StickerShop, type ConfettiPiece } from './Stickers'
+import { makeConfetti, type ConfettiPiece } from '../lib/confetti'
+import { Confetti, StickerCanvas, StickerShop } from './Stickers'
 
 export type SaveStatus = 'saved' | 'saving' | 'offline' | 'error'
 
@@ -154,6 +155,8 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       log,
     })
     engineRef.current = engine
+    // Starts the speech engine (an external system) and the first round for this reader.
+    // eslint-disable-next-line react/set-state-in-effect
     startRound({ autoBegin: false, welcome: true })
     return () => {
       clearTimeout(advanceTimer.current)
@@ -161,7 +164,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       engineRef.current = null
     }
     // Start once per reader.
-  }, [learner.id])
+  }, [learner.id, log, startRound])
 
   // ---- controls ------------------------------------------------------------------------------
 
