@@ -267,7 +267,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
                 {spanish ? '🇪🇸' : learner.sticker_style === 'girl' ? '👧' : '👦'} Reader: {learner.display_name}
               </button>
               <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800"
-                title="Change Reading or Spanish with ✏️ Edit on the reader list">
+                title="Change Reading or Spanish with ✏️ Edit (Switch reader → ✏️ Edit)">
                 {spanish ? '🇪🇸 Spanish' : '📖 Reading'}
               </span>
               <span className={`text-[11px] font-semibold ${saveStatus === 'saved' ? 'text-emerald-700' : saveStatus === 'saving' ? 'text-slate-500' : 'text-rose-700'}`}>{saveLabel}</span>

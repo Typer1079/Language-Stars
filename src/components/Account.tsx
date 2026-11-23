@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { downloadText } from '../lib/download'
 import { dbMessage, deleteLearner, listAudit, type AuditEntry } from '../lib/learnersApi'
 import { supabase } from '../lib/supabase'
+import { FaceIdSettings } from './FaceId'
 import type { Learner } from '../lib/types'
 
 interface Props {
@@ -123,6 +124,8 @@ export default function Account(p: Props) {
           </>
         )}
       </section>
+
+      <FaceIdSettings />
 
       <section className="card space-y-2">
         <h2 className="font-semibold">Backup</h2>

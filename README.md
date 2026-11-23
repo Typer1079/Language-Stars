@@ -8,7 +8,10 @@ GitHub Pages.
 Live site: `https://typer1079.github.io/Language-Stars/`
 
 **What's in this version (v1.0)**
-- Sign in with email + password (Supabase Auth). New accounts need a confirmed email.
+- Installable app (PWA): add it to the Home Screen; it opens full screen, works offline for
+  practice screens, and loads new versions automatically.
+- Sign in with **Face ID** (passkey) or email + password (Supabase Auth). New accounts need a
+  confirmed email. The second step can be Face ID too, or a 6-digit authenticator code.
 - **Two-step sign-in** (authenticator app, e.g. Apple Passwords) is required for any account with
   kids' profiles. The database itself refuses to show or change a child's profile unless the
   session passed the second step.
@@ -72,7 +75,12 @@ Node.js 22 LTS, Git, GitHub Desktop, VS Code.
 5. **Authentication → Sign In / Providers → Email**: **Confirm email** on. Set **Minimum password
    length** to 12 and require lowercase, uppercase, digits (and turn on **leaked password protection**
    if your plan offers it).
-6. **Authentication → Multi-Factor**: make sure **TOTP (App Authenticator)** is enabled.
+6. **Authentication → Multi-Factor**: make sure **TOTP (App Authenticator)** is enabled. For Face ID as
+   the second step, also enable **WebAuthn**.
+7. **Face ID sign-in: Authentication → Passkeys**: turn it on. Relying Party ID `typer1079.github.io`,
+   origin `https://typer1079.github.io`. (Use the same values for WebAuthn MFA if it asks.) Contact
+   Capture lives on the same address, so Apple Passwords may list a passkey for each app; each
+   one only works in its own app.
 
 ### 3. Put it on GitHub (the `Language-Stars` repo)
 1. Copy the project files into `Documents/GitHub/Language-Stars` (the update list says which).

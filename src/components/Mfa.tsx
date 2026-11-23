@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { faceIdMessage, faceIdSupported, hasFaceIdFactor, verifyWithFaceId, wasCancelled } from '../lib/faceid'
 import { supabase } from '../lib/supabase'
 
 // Two-step sign-in with an authenticator app (NIST 800-53 IA-2(1), IA-2(2)).
@@ -25,6 +26,23 @@ export function MfaChallenge({ onDone, onCancel, cancelLabel = 'Sign out' }: { o
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [faceId, setFaceId] = useState(false)
+  const [showCode, setShowCode] = useState(false)
+
+  useEffect(() => {
+    if (!faceIdSupported()) return
+    void hasFaceIdFactor().then(setFaceId)
+  }, [])
+
+  async function useFaceId() {
+    setBusy(true)
+    setError('')
+    const { error: fErr } = await verifyWithFaceId()
+    setBusy(false)
+    if (!fErr) return onDone()
+    if (!wasCancelled(fErr as { code?: string; name?: string })) setError(faceIdMessage(fErr as { code?: string; message?: string }, 'verify'))
+    setShowCode(true)
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -34,7 +52,7 @@ export function MfaChallenge({ onDone, onCancel, cancelLabel = 'Sign out' }: { o
       const { data, error: listErr } = await supabase.auth.mfa.listFactors()
       if (listErr) throw listErr
       const factor = data.totp[0]
-      if (!factor) throw new Error('No authenticator is set up on this account.')
+      if (!factor) throw new Error('No authenticator code is set up on this account. Use Face ID instead.')
       const { error: vErr } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code })
       if (vErr) throw new Error('That code didn’t work. Check the time on your phone and try the newest code.')
       onDone()
@@ -48,13 +66,25 @@ export function MfaChallenge({ onDone, onCancel, cancelLabel = 'Sign out' }: { o
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6">
-      <h1 className="font-kids text-2xl font-bold">Enter your code</h1>
-      <p className="mt-1 text-sm text-slate-600">Open your authenticator app (for example Apple Passwords) and enter the 6-digit code for Read Aloud Stars.</p>
-      <form onSubmit={submit} className="mt-6 space-y-4">
+      <h1 className="font-kids text-2xl font-bold">Second step</h1>
+      {faceId && (
+        <button type="button" className="btn-primary mt-6 w-full" disabled={busy} onClick={useFaceId}>
+          {busy ? 'Waiting for Face ID…' : 'Verify with Face ID'}
+        </button>
+      )}
+      {faceId && !showCode && (
+        <button type="button" className="mt-4 text-sm text-slate-600 underline" onClick={() => setShowCode(true)}>Use the 6-digit code instead</button>
+      )}
+      {(!faceId || showCode) && (
+      <>
+      <p className="mt-4 text-sm text-slate-600">Open your authenticator app (for example Apple Passwords) and enter the 6-digit code for Read Aloud Stars.</p>
+      <form onSubmit={submit} className="mt-4 space-y-4">
         <CodeInput value={code} onChange={setCode} />
         {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
-        <button className="btn-primary w-full" disabled={busy || code.length !== 6}>{busy ? 'Checking…' : 'Verify'}</button>
+        <button className={`${faceId ? 'btn-secondary' : 'btn-primary'} w-full`} disabled={busy || code.length !== 6}>{busy ? 'Checking…' : 'Verify code'}</button>
       </form>
+      </>
+      )}
       <button type="button" className="mt-6 text-sm text-slate-600 underline" onClick={onCancel}>{cancelLabel}</button>
     </div>
   )

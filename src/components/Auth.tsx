@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { faceIdMessage, faceIdOnDevice, faceIdSupported, signInWithFaceId, wasCancelled } from '../lib/faceid'
 import { supabase } from '../lib/supabase'
 
 type Mode = 'signin' | 'signup' | 'reset'
@@ -13,6 +14,17 @@ export default function Auth() {
   const [message, setMessage] = useState<{ kind: 'error' | 'info'; text: string } | null>(null)
 
   const redirectTo = window.location.origin + import.meta.env.BASE_URL
+  const canFaceId = faceIdSupported()
+  const faceIdFirst = canFaceId && faceIdOnDevice()
+
+  async function faceIdSignIn() {
+    setBusy(true)
+    setMessage(null)
+    const { error } = await signInWithFaceId()
+    setBusy(false)
+    // Success: the app moves on by itself (auth state change).
+    if (error && !wasCancelled(error)) setMessage({ kind: 'error', text: faceIdMessage(error, 'signin') })
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -48,6 +60,19 @@ export default function Auth() {
         {mode === 'signin' ? 'Sign in to practice reading and Spanish.' : mode === 'signup' ? 'Create your account.' : 'Reset your password.'}
       </p>
 
+      {mode === 'signin' && canFaceId && (
+        <>
+          <button type="button" className={`${faceIdFirst ? 'btn-primary' : 'btn-secondary'} mt-6 w-full`} disabled={busy} onClick={faceIdSignIn}>
+            Sign in with Face ID
+          </button>
+          <div className="mt-6 flex items-center gap-3 text-xs text-slate-400">
+            <span className="h-px flex-1 bg-slate-200" />
+            or use your password
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+        </>
+      )}
+
       <form onSubmit={submit} method="post" action="#" className="mt-6 space-y-4">
         <div>
           <label className="label" htmlFor="email">Email</label>
@@ -69,7 +94,7 @@ export default function Auth() {
             {message.text}
           </p>
         )}
-        <button className="btn-primary w-full" disabled={busy}>
+        <button className={`${mode === 'signin' && faceIdFirst ? 'btn-secondary' : 'btn-primary'} w-full`} disabled={busy}>
           {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'}
         </button>
       </form>

@@ -1,6 +1,7 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type React from 'react'
 import { activeLevel } from '../lib/progress'
+import { FaceIdOffer } from './FaceId'
 import { cleanName, parseSaveFile } from '../lib/validate'
 import { newLearnerDraft, type AgeGroup, type Learner, type LearnerDraft, type LearnerKind, type Mode, type StickerStyle } from '../lib/types'
 
@@ -54,10 +55,10 @@ export default function LearnerPicker(p: Props) {
               </span>
               <span className="rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white">Play ▶</span>
             </button>
-            <button type="button" className="mr-3 rounded-xl px-2 py-2 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            <button type="button" className="mr-3 shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-100"
               aria-label={`Edit ${l.display_name}`} title={`Edit ${l.display_name}`}
               onClick={() => { setPanel('none'); setEditing(l) }}>
-              ✏️
+              ✏️ Edit
             </button>
           </div>
         ))}
@@ -67,6 +68,8 @@ export default function LearnerPicker(p: Props) {
         {p.loading && <p className="text-sm text-slate-500">Loading readers…</p>}
       </div>
       {p.error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{p.error}</p>}
+
+      <FaceIdOffer />
 
       {!p.verified && p.hasMfa && (
         <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
@@ -203,6 +206,10 @@ function AddReader({ verified, onUnlockKids, onCreate, onCancel }: { verified: b
 
 /** Edit an existing reader's name, practice type, age group and sticker packs. */
 function EditReader({ learner, onSave, onCancel }: { learner: Learner; onSave: (l: Learner) => Promise<void>; onCancel: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -220,7 +227,7 @@ function EditReader({ learner, onSave, onCancel }: { learner: Learner; onSave: (
   }
 
   return (
-    <div>
+    <div ref={ref}>
       <h2 className="mt-6 font-kids text-xl font-bold">Edit {learner.display_name}</h2>
       <ReaderForm isNew={false} busy={busy} error={error} onSubmit={submit} onCancel={onCancel} submitLabel="Save changes"
         initial={{ name: learner.display_name, kind: learner.kind, mode: learner.mode, age: learner.age_group, style: learner.sticker_style }}

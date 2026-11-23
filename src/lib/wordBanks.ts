@@ -288,12 +288,8 @@ export const HOMOPHONE_VARIANTS: Record<string, string[]> = {
   ]
 }
 
-export const ENCOURAGING_NICKNAMES = [
-  "Super Star",
-  "Super Reader",
-  "Champ",
-  "Reading Hero"
-]
+/** What the coach calls a young reader when not using their name. Kept to words a browser voice says clearly. */
+export const ENCOURAGING_NICKNAMES = ['Superstar', 'Super Reader', 'Reading Hero']
 
 export interface SpanishEntry {
   en: string

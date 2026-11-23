@@ -48,7 +48,7 @@ or GitHub · **Owner** = a setting or practice the account owner must keep up ·
 |---|---|---|
 | IA-2 Identification and authentication | Implemented | Unique account per adult (parent; Olivia separately). Children never get credentials; they are profiles under a parent's account. |
 | IA-2(1) / IA-2(2) Multi-factor | Implemented | TOTP authenticator. Enforced by the **database**: children's rows require an `aal2` session. Accounts that have MFA must enter the code at every sign-in before any data loads. |
-| IA-2(8) Replay-resistant authentication | Partial | TOTP codes are time-bound; passkeys/WebAuthn (phishing-resistant) would be the next step, as in Contact Capture. |
+| IA-2(8) Replay-resistant authentication | Implemented | Face ID sign-in uses passkeys and the Face ID second step uses a WebAuthn factor: challenge-response, phishing-resistant, private keys never leave the device. TOTP codes remain as a backup. |
 | IA-5(1) Password-based authentication | Implemented + Owner | 12-character minimum in the app; owner sets the same minimum and complexity in Supabase and enables leaked-password protection where the plan allows. Passwords are hashed by Supabase (bcrypt). |
 | IA-6 Authentication feedback | Implemented | Password fields are masked; one generic sign-in error. |
 | IA-11 Re-authentication | Implemented | Expired or idle sessions require signing in again, including the MFA code. |

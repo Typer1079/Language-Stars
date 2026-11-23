@@ -7,8 +7,24 @@ import '@fontsource/fredoka/latin-700.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import { registerSW } from 'virtual:pwa-register'
 import App from './App.tsx'
 import ErrorBoundary from './components/ErrorBoundary'
+
+// Installable app (PWA): works from the Home Screen and offline. When a new version is published,
+// load it right away instead of showing the old cached copy; check on launch, when the app comes
+// back to the foreground, and every hour.
+registerSW({
+  immediate: true,
+  onRegisteredSW(_url, reg) {
+    if (!reg) return
+    const check = () => void reg.update().catch(() => {})
+    setInterval(check, 60 * 60 * 1000)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') check()
+    })
+  },
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

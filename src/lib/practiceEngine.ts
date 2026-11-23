@@ -49,6 +49,9 @@ export class PracticeEngine {
   private lastCoachEnd = 0
 
   private recognition: RecognitionLike | null = null
+  private recActive = false
+  private seenResults = 0
+  private baseline = 0
   private cancelVoice: (() => void) | null = null
   private turnTimer: ReturnType<typeof setTimeout> | undefined
   private micTimer: ReturnType<typeof setTimeout> | undefined
@@ -89,7 +92,10 @@ export class PracticeEngine {
 
   setPaused(paused: boolean) {
     this.paused = paused
-    if (paused) this.stopAll()
+    if (paused) {
+      this.stopAll()
+      this.stopListening(true, true)
+    }
   }
 
   /** Coming back from the sticker shop: listen again, then coach. */
@@ -268,13 +274,14 @@ export class PracticeEngine {
     })
   }
 
+  /** How the coach addresses the reader: usually by name; kid nicknames only in Reading mode. */
   private callout(): string {
-    if (Math.random() < 0.35 && this.name) return this.name
+    if (this.name && (this.mode === 'spanish' || Math.random() < 0.6)) return this.name
     return ENCOURAGING_NICKNAMES[Math.floor(Math.random() * ENCOURAGING_NICKNAMES.length)]
   }
 
   private say(segments: VoiceSegment[], onEnd?: () => void) {
-    this.stopListening(true)
+    this.stopListening(true, true)
     this.stopVoice()
     this.coachSpeaking = true
     this.hooks.mic('warming', 'Coach speaking...')
@@ -329,6 +336,9 @@ export class PracticeEngine {
     }
     r.onstart = () => {
       clearTimeout(this.micTimer)
+      this.recActive = true
+      this.seenResults = 0
+      this.baseline = 0
       if (!this.listening || this.coachSpeaking) return
       this.hooks.mic('listening', 'Listening...')
       this.hooks.log('MIC_STARTED', `lang=${r.lang}`)
@@ -337,22 +347,32 @@ export class PracticeEngine {
       if (this.listening && !this.coachSpeaking) this.hooks.mic('listening', 'Hearing voice...')
     }
     r.onresult = (event) => {
+      this.seenResults = event.results.length
       if (!this.listening || this.coachSpeaking || this.solved || this.paused || !this.item) return
       if (Date.now() - this.lastCoachEnd < 320) return // the coach's own voice echoing
-      let heard = ''
-      for (let i = event.resultIndex; i < event.results.length; i++) heard += ' ' + (event.results[i][0]?.transcript ?? '')
-      heard = heard.trim()
-      if (!heard) return
-      this.hooks.log('HEARD', `"${heard}" target="${this.item.target}"`)
-      if (isWordMatch(heard, this.item.target, this.item.spanish?.variants)) {
+      // Only speech from this word's turn (the microphone stays on between words).
+      const from = Math.max(event.resultIndex, this.baseline)
+      const candidates: string[] = []
+      let top = ''
+      for (let i = from; i < event.results.length; i++) {
+        const res = event.results[i]
+        top += ' ' + (res[0]?.transcript ?? '')
+        // The recognizer's other guesses: "son" / "sun", "pin" / "pen" for short words.
+        for (let a = 0; a < res.length; a++) if (res[a]?.transcript) candidates.push(res[a].transcript)
+      }
+      top = top.trim()
+      if (!top) return
+      const all = [top, ...candidates.filter((c) => c.trim() !== top)]
+      this.hooks.log('HEARD', `${all.map((c) => `"${c.trim()}"`).join(' / ')} target="${this.item.target}"`)
+      const hit = all.find((c) => isWordMatch(c, this.item!.target, this.item!.spanish?.variants))
+      if (hit) {
         this.solved = true
         const coached = this.usedCoach
         this.stopAll()
-        this.hooks.solved(heard, coached)
+        this.hooks.solved(hit.trim(), coached)
       }
     }
     r.onerror = (e) => {
-      clearTimeout(this.micTimer)
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         this.listening = false
         this.hooks.feedback('Microphone is blocked', 'Allow the microphone for this site in your browser settings, then tap Listen Now.', 'neutral')
@@ -360,11 +380,11 @@ export class PracticeEngine {
       if (e.error !== 'no-speech' && e.error !== 'aborted') this.hooks.log('MIC_ERR', e.error)
     }
     r.onend = () => {
+      this.recActive = false
       clearTimeout(this.micTimer)
+      // The browser ends sessions on its own (silence, time limits); keep listening while it's our turn.
       if (this.listening && !this.coachSpeaking && !this.solved && !this.paused) {
-        this.micTimer = setTimeout(() => {
-          if (this.listening && !this.coachSpeaking && !this.solved && !this.paused) this.startRecognition()
-        }, 220)
+        this.micTimer = setTimeout(() => this.startRecognition(), 150)
       } else if (!this.listening) {
         this.hooks.mic('idle')
       }
@@ -373,31 +393,49 @@ export class PracticeEngine {
     return r
   }
 
-  private startRecognition() {
+  /** Starts the microphone if it isn't already running. Safe to call any number of times. */
+  private startRecognition(attempt = 0) {
     const r = this.ensureRecognition()
-    if (!r || this.coachSpeaking) return
-    r.lang = this.mode === 'spanish' ? 'es-ES' : 'en-US'
+    if (!r || this.coachSpeaking || !this.listening || this.paused || this.solved) return
+    const lang = this.mode === 'spanish' ? 'es-ES' : 'en-US'
+    if (this.recActive) {
+      if (r.lang === lang) {
+        // Already listening: just ignore anything said before this turn.
+        this.baseline = this.seenResults
+        this.hooks.mic('listening', 'Listening...')
+        return
+      }
+      // Language changed (Reading <-> Spanish): restart; onend starts it again.
+      try {
+        r.stop()
+      } catch {
+        // already stopping
+      }
+      return
+    }
+    r.lang = lang
     try {
       r.start()
-    } catch {
+      this.recActive = true
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'InvalidStateError') {
+        // The browser says it's still running from before; treat it as running.
+        this.recActive = true
+        this.baseline = this.seenResults
+        return
+      }
       clearTimeout(this.micTimer)
-      this.micTimer = setTimeout(() => {
-        if (this.listening && !this.coachSpeaking && !this.solved) {
-          try {
-            r.start()
-          } catch {
-            // already running
-          }
-        }
-      }, 350)
+      if (attempt < 8) this.micTimer = setTimeout(() => this.startRecognition(attempt + 1), 300)
+      else this.hooks.log('MIC_START_FAILED', String(err))
     }
   }
 
-  private stopListening(silent: boolean) {
+  /** hard: also switch the microphone off (while the coach talks, or when leaving the screen). */
+  private stopListening(silent: boolean, hard = false) {
     this.listening = false
     clearTimeout(this.micTimer)
     if (!silent) this.hooks.mic('idle')
-    if (this.recognition) {
+    if (hard && this.recognition && this.recActive) {
       try {
         this.recognition.stop()
       } catch {
@@ -405,4 +443,5 @@ export class PracticeEngine {
       }
     }
   }
+
 }

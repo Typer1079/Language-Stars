@@ -10,6 +10,7 @@ interface RecognitionLike {
   lang: string
   continuous: boolean
   interimResults: boolean
+  maxAlternatives: number
   onstart: (() => void) | null
   onspeechstart: (() => void) | null
   onresult: ((e: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null
@@ -34,6 +35,8 @@ export function createRecognition(): RecognitionLike | null {
   const r = new Ctor()
   r.continuous = true
   r.interimResults = true
+  // Ask for several guesses: short words like "sun" often come back as "son" first.
+  r.maxAlternatives = 5
   return r
 }
 
