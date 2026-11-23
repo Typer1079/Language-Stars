@@ -31,6 +31,10 @@ function cspPlugin(): Plugin {
 }
 
 export default defineConfig({
+  // Shown on the Account screen so it's easy to confirm a device has the newest version.
+  define: {
+    __APP_VERSION__: JSON.stringify(`${(process.env.GITHUB_SHA ?? 'local').slice(0, 7)} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`),
+  },
   // For a GitHub Pages project site this is "/<repo-name>/" (set by the deploy workflow).
   base: process.env.VITE_BASE ?? '/',
   plugins: [

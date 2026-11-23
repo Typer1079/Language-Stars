@@ -172,6 +172,7 @@ export default function Account(p: Props) {
         <button type="button" className="btn-secondary" onClick={() => supabase.auth.signOut()}>🚪 Sign out</button>
         <button type="button" className="btn-secondary" onClick={signOutEverywhere}>Sign out on all devices</button>
       </section>
+      <p className="text-center text-[11px] text-slate-400">Version {__APP_VERSION__}</p>
     </div>
   )
 }

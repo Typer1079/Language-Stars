@@ -75,7 +75,8 @@ export function cancelSpeech() {
  * Speaks the segments in order (English and Spanish voices mixed), then calls done.
  * Returns a cancel function. done is called at most once, including on cancel.
  */
-export function speakSegments(segments: VoiceSegment[], done: () => void): () => void {
+/** speed: 1 = normal coach pace; above 1 = brisker voice for adults and confident readers. */
+export function speakSegments(segments: VoiceSegment[], done: () => void, speed = 1): () => void {
   let finished = false
   let cancelled = false
   const finish = () => {
@@ -99,7 +100,7 @@ export function speakSegments(segments: VoiceSegment[], done: () => void): () =>
     u.lang = seg.lang
     const voice = pickVoice(seg.lang)
     if (voice) u.voice = voice
-    u.rate = seg.lang === 'es-ES' ? 0.85 : 0.95
+    u.rate = (seg.lang === 'es-ES' ? 0.85 : 0.95) * speed
     u.pitch = 1.05
     u.onend = next
     u.onerror = next

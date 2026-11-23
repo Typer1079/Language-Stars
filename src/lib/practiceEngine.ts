@@ -5,6 +5,16 @@ import type { Mode } from './types'
 import { ENCOURAGING_NICKNAMES, PHONICS_SOUNDS } from './wordBanks'
 
 export type Tone = 'neutral' | 'listening' | 'success' | 'coach'
+/**
+ * guided: young or new readers. Spoken welcome, "your turn" prompts, sound-it-out coaching.
+ * brisk: adults and readers who are doing well. No chatter: listen right away, the coach just says
+ *        the answer, faster voice, quicker move to the next item.
+ */
+export type Pace = 'guided' | 'brisk'
+
+// iPhone/iPad can't listen while speaking, so the mic pauses for the coach there.
+// Elsewhere it stays on (the coach's own voice is ignored), which makes the hand-back instant.
+const IOS = typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
 export type MicState = 'idle' | 'listening' | 'warming'
 
 export interface EngineHooks {
@@ -38,6 +48,7 @@ export class PracticeEngine {
   private item: PracticeItem | null = null
   private mode: Mode = 'reading'
   private name = ''
+  private pace: Pace = 'guided'
 
   private solved = false
   private usedCoach = false
@@ -76,16 +87,23 @@ export class PracticeEngine {
     return () => gen === this.gen && !this.solved && !this.paused && this.coach()
   }
 
+  /** How long to wait in Reading before the coach steps in: longer for longer phrases and for brisk readers. */
+  private get listenMs(): number {
+    const words = this.item ? this.item.target.split(' ').length : 1
+    return this.pace === 'brisk' ? LISTEN_MS + 2800 + (words - 1) * 500 : LISTEN_MS + (words - 1) * 700
+  }
+
   get isCoaching(): boolean {
     return this.coachingActive || this.coachSpeaking
   }
 
   /** Show a new word (does not start listening). */
-  load(item: PracticeItem, mode: Mode, name: string) {
+  load(item: PracticeItem, mode: Mode, name: string, pace: Pace = 'guided') {
     this.stopAll()
     this.item = item
     this.mode = mode
     this.name = name
+    this.pace = pace
     this.solved = false
     this.usedCoach = false
   }
@@ -109,13 +127,18 @@ export class PracticeEngine {
     this.stopAll()
     this.gen = gen
     const spanish = this.mode === 'spanish'
+    if (this.pace === 'brisk') {
+      // No spoken welcome: straight to the first item.
+      this.listenWindow(this.listenMs, this.onSilence(gen))
+      return
+    }
     this.hooks.feedback(spanish ? `Let's practice Spanish, ${this.name}!` : `Let's read together, ${this.name}!`, 'Listen to the welcome...', 'coach')
     const text = spanish
       ? `Welcome, ${this.name}! Look at the English word and say it in Spanish!`
       : `Let's read together, ${this.name}! Try the word on the screen!`
     this.say([{ text, lang: 'en-US' }], () => {
       if (gen !== this.gen || this.solved) return
-      this.listenWindow(LISTEN_MS, this.onSilence(gen))
+      this.listenWindow(this.listenMs, this.onSilence(gen))
     })
   }
 
@@ -123,8 +146,8 @@ export class PracticeEngine {
     const gen = ++this.gen
     this.stopAll()
     this.gen = gen
-    if (promptType === 'quick_listen') {
-      this.listenWindow(LISTEN_MS, this.onSilence(gen))
+    if (promptType === 'quick_listen' || this.pace === 'brisk') {
+      this.listenWindow(this.listenMs, this.onSilence(gen))
       return
     }
     const callout = this.callout()
@@ -134,7 +157,7 @@ export class PracticeEngine {
         : `Your turn, ${callout}!`
     this.say([{ text: line, lang: 'en-US' }], () => {
       if (gen !== this.gen || this.solved) return
-      this.listenWindow(LISTEN_MS, this.onSilence(gen))
+      this.listenWindow(this.listenMs, this.onSilence(gen))
     })
   }
 
@@ -143,7 +166,7 @@ export class PracticeEngine {
     if (this.paused || this.solved) return
     this.stopVoice()
     this.coachingActive = false
-    this.listenWindow(LISTEN_MS, this.onSilence(this.gen))
+    this.listenWindow(this.listenMs, this.onSilence(this.gen))
   }
 
   /** AI Coach / Space key. */
@@ -163,7 +186,9 @@ export class PracticeEngine {
       this.hooks.revealSpanish()
       this.hooks.showPhrase()
       this.hooks.feedback(`Spanish Coach: "${es}"`, phraseEs ? `"${phraseEs}" (${phraseEn})` : `“${en}”`, 'coach')
-      const intro: VoiceSegment[] = phraseEs
+      const intro: VoiceSegment[] = this.pace === 'brisk'
+        ? [{ text: es, lang: 'es-ES' }]
+        : phraseEs
         ? [
             { text: `In Spanish, ${en} is`, lang: 'en-US' },
             { text: es, lang: 'es-ES' },
@@ -183,12 +208,17 @@ export class PracticeEngine {
       this.say(intro, () => {
         this.coachingActive = false
         if (gen !== this.gen || this.solved) return
-        this.listenWindow(LISTEN_MS)
+        this.listenWindow(this.listenMs)
       })
       return
     }
 
     const word = item.target
+    if (this.pace === 'brisk') {
+      this.hooks.feedback(`AI Coach: "${word}"`, 'Listen, then say it', 'coach')
+      this.coachSequence(gen, [{ text: word, lang: 'en-US' }], [{ text: word, lang: 'en-US' }], 'Next one!', word)
+      return
+    }
     if (word.includes(' ')) {
       // Phrases and sentences: read it together instead of sounding out letters.
       this.hooks.feedback('AI Coach: let’s read it together', word, 'coach')
@@ -216,6 +246,7 @@ export class PracticeEngine {
 
   /** After a coached success: praise, then continue. */
   praiseThen(next: () => void) {
+    if (this.pace === 'brisk') return next()
     const word = this.item?.target ?? ''
     this.say(
       [
@@ -255,7 +286,7 @@ export class PracticeEngine {
         this.coachingActive = false
         return
       }
-      this.listenWindow(LISTEN_MS, () => {
+      this.listenWindow(this.listenMs, () => {
         if (gen !== this.gen || this.solved) {
           this.coachingActive = false
           return
@@ -263,7 +294,7 @@ export class PracticeEngine {
         this.say(retry, () => {
           this.coachingActive = false
           if (gen !== this.gen || this.solved) return
-          this.listenWindow(LISTEN_MS, () => {
+          this.listenWindow(this.listenMs, () => {
             if (gen === this.gen && !this.solved) {
               this.hooks.feedback(giveUpTitle, giveUpSub, 'coach')
               this.turnTimer = setTimeout(() => this.hooks.advance(true), 800)
@@ -281,7 +312,7 @@ export class PracticeEngine {
   }
 
   private say(segments: VoiceSegment[], onEnd?: () => void) {
-    this.stopListening(true, true)
+    this.stopListening(true, IOS)
     this.stopVoice()
     this.coachSpeaking = true
     this.hooks.mic('warming', 'Coach speaking...')
@@ -294,10 +325,10 @@ export class PracticeEngine {
       this.cancelVoice = null
       this.lastCoachEnd = Date.now()
       this.hooks.mic('idle')
-      if (onEnd) setTimeout(onEnd, 120)
+      if (onEnd) setTimeout(onEnd, IOS ? 60 : 0)
     }
     this.voiceWatchdog = setTimeout(finish, 20000)
-    this.cancelVoice = speakSegments(segments, finish)
+    this.cancelVoice = speakSegments(segments, finish, this.pace === 'brisk' ? 1.12 : 1)
   }
 
   private stopVoice() {
@@ -349,7 +380,7 @@ export class PracticeEngine {
     r.onresult = (event) => {
       this.seenResults = event.results.length
       if (!this.listening || this.coachSpeaking || this.solved || this.paused || !this.item) return
-      if (Date.now() - this.lastCoachEnd < 320) return // the coach's own voice echoing
+      if (Date.now() - this.lastCoachEnd < 450) return // the coach's own voice echoing
       // Only speech from this word's turn (the microphone stays on between words).
       const from = Math.max(event.resultIndex, this.baseline)
       const candidates: string[] = []

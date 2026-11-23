@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { PracticeEngine, type MicState, type Tone } from '../lib/practiceEngine'
+import { PracticeEngine, type MicState, type Pace, type Tone } from '../lib/practiceEngine'
 import { MAX_LEVEL, stageName } from '../lib/curriculum'
-import { activeLevel, endRound, newMilestone, pickRound, solveWord, type PracticeItem } from '../lib/progress'
+import { activeLevel, bestLevel, endRound, newMilestone, pickRound, solveWord, type PracticeItem } from '../lib/progress'
 import { playChime } from '../lib/sfx'
 import { moveSticker } from '../lib/stickers'
 import { recognitionSupported } from '../lib/speech'
@@ -19,6 +19,18 @@ interface Props {
   saveStatus: SaveStatus
   /** Something happened (a word was read); counts as activity for the idle timer. */
   onActivity: () => void
+}
+
+/**
+ * Coaching pace: adults and experienced or confident readers get the brisk coach (no chatter,
+ * faster voice, quick hand-back to the mic). Young or new readers get the guided coach.
+ * A strong last round (8+ of 10 without help) switches to brisk; a rough one switches back.
+ */
+function paceFor(l: Learner, lastRound: { clean: number; attempts: number } | null): Pace {
+  if (l.age_group === 'adult') return 'brisk'
+  if (lastRound && lastRound.attempts >= 5) return lastRound.clean / lastRound.attempts >= 0.8 ? 'brisk' : 'guided'
+  if (bestLevel(l) >= 10 || l.lifetime_stars >= 150) return 'brisk'
+  return 'guided'
 }
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)
@@ -41,6 +53,8 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const cleanRef = useRef(0)
   const attemptsRef = useRef(0)
   const levelUpPending = useRef(false)
+  const lastRoundRef = useRef<{ clean: number; attempts: number } | null>(null)
+  const paceRef = useRef<Pace>(paceFor(learner, null))
 
   const learnerRef = useRef(learner)
   const roundRef = useRef<PracticeItem[]>([])
@@ -78,7 +92,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     setSuccess(false)
     const l = learnerRef.current
     const engine = engineRef.current!
-    engine.load(it, l.mode, l.display_name)
+    engine.load(it, l.mode, l.display_name, paceRef.current)
     if (opts.autoBegin) {
       engine.setPaused(false)
       engine.begin(opts.promptType ?? 'quick_listen')
@@ -88,6 +102,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   }, [])
 
   const startRound = useCallback((opts: { autoBegin: boolean; welcome?: boolean }) => {
+    paceRef.current = paceFor(learnerRef.current, lastRoundRef.current)
     setRoundDone(false)
     setRoundNote(null)
     cleanRef.current = 0
@@ -113,6 +128,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       log('MOVED_DOWN', `to L${r.movedDownTo} clean=${cleanRef.current}/${attemptsRef.current}`)
     }
     setRoundNote({ clean: cleanRef.current, attempts: attemptsRef.current, movedDownTo: r.movedDownTo })
+    lastRoundRef.current = { clean: cleanRef.current, attempts: attemptsRef.current }
     const l = learnerRef.current
     if (l.spendable_stars > 0) setShop(`🎉 Round complete! Spend your ${l.spendable_stars} ⭐ or tap Keep Reading.`)
   }, [log, onChange])
@@ -155,7 +171,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       return
     }
     if (coached) engineRef.current?.praiseThen(() => { if (!shopRef.current) advanceTimer.current = setTimeout(() => advance(true), 250) })
-    else advanceTimer.current = setTimeout(() => advance(false), 550)
+    else advanceTimer.current = setTimeout(() => advance(false), paceRef.current === 'brisk' ? 250 : 550)
   }, [advance, log, onActivity, onChange])
 
   // Latest callbacks for the engine (created once).
