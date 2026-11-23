@@ -47,7 +47,7 @@ or GitHub · **Owner** = a setting or practice the account owner must keep up ·
 | Control | Status | How |
 |---|---|---|
 | IA-2 Identification and authentication | Implemented | Unique account per adult (parent; Olivia separately). Children never get credentials; they are profiles under a parent's account. |
-| IA-2(1) / IA-2(2) Multi-factor | Implemented | TOTP authenticator. Enforced by the **database**: children's rows require an `aal2` session. Accounts that have MFA must enter the code at every sign-in before any data loads. |
+| IA-2(1) / IA-2(2) Multi-factor | Implemented | Default: Face ID. A passkey sign-in (device + biometric, AAL2 under NIST SP 800-63B) or a WebAuthn second step; an authenticator app (TOTP) is optional as a backup. Enforced by the **database**: children's rows require `public.is_strong_session()` (an `aal2` session or a passkey/WebAuthn sign-in). Password-only sessions never see children's data. |
 | IA-2(8) Replay-resistant authentication | Implemented | Face ID sign-in uses passkeys and the Face ID second step uses a WebAuthn factor: challenge-response, phishing-resistant, private keys never leave the device. TOTP codes remain as a backup. |
 | IA-5(1) Password-based authentication | Implemented + Owner | 12-character minimum in the app; owner sets the same minimum and complexity in Supabase and enables leaked-password protection where the plan allows. Passwords are hashed by Supabase (bcrypt). |
 | IA-6 Authentication feedback | Implemented | Password fields are masked; one generic sign-in error. |

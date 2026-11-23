@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { downloadText } from '../lib/download'
 import { dbMessage, deleteLearner, listAudit, type AuditEntry } from '../lib/learnersApi'
 import { supabase } from '../lib/supabase'
-import { FaceIdSettings } from './FaceId'
+import { SignInMethods } from './FaceId'
 import type { Learner } from '../lib/types'
 
 interface Props {
@@ -11,7 +11,8 @@ interface Props {
   verified: boolean
   hasMfa: boolean
   onBack: () => void
-  onEnrollMfa: () => void
+  onEnrollMfa: (mode: 'choose' | 'totp') => void
+  signedInWith: string[]
   onVerify: () => void
   onChanged: () => void
 }
@@ -57,26 +58,6 @@ export default function Account(p: Props) {
     downloadText(JSON.stringify(payload, null, 2), `read-aloud-stars-backup-${new Date().toISOString().slice(0, 10)}.json`)
   }
 
-  async function removeMfa() {
-    setBusy(true)
-    setMessage('')
-    try {
-      const { data, error } = await supabase.auth.mfa.listFactors()
-      if (error) throw error
-      for (const f of data.all) {
-        const { error: uErr } = await supabase.auth.mfa.unenroll({ factorId: f.id })
-        if (uErr) throw uErr
-      }
-      await supabase.auth.refreshSession()
-      setMessage('Two-step sign-in is off. Kids’ profiles stay locked until you turn it back on.')
-      p.onChanged()
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Couldn’t turn off two-step sign-in.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   async function doDelete() {
     if (!toDelete || confirmName.trim().toLowerCase() !== toDelete.display_name.toLowerCase()) return
     setBusy(true)
@@ -106,26 +87,7 @@ export default function Account(p: Props) {
       <p className="text-sm text-slate-600">Signed in as <b>{p.email}</b></p>
       {message && <p role="status" className="rounded-xl bg-indigo-50 px-3 py-2 text-sm text-indigo-900">{message}</p>}
 
-      <section className="card space-y-2">
-        <h2 className="font-semibold">Two-step sign-in</h2>
-        {p.hasMfa ? (
-          <>
-            <p className="text-sm text-slate-600">On. {p.verified ? 'Verified for this session.' : 'Enter a code to unlock kids’ profiles.'}</p>
-            {p.verified ? (
-              <button type="button" className="btn-danger" disabled={busy} onClick={removeMfa}>Turn off</button>
-            ) : (
-              <button type="button" className="btn-primary" onClick={p.onVerify}>Enter code</button>
-            )}
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-slate-600">Off. Required for kids’ profiles.</p>
-            <button type="button" className="btn-primary" onClick={p.onEnrollMfa}>Set up</button>
-          </>
-        )}
-      </section>
-
-      <FaceIdSettings />
+      <SignInMethods verified={p.verified} signedInWith={p.signedInWith} onAddApp={() => p.onEnrollMfa('totp')} onSetUp={() => p.onEnrollMfa('choose')} onVerify={p.onVerify} onChanged={p.onChanged} />
 
       <section className="card space-y-2">
         <h2 className="font-semibold">Backup</h2>

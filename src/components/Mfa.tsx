@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { faceIdMessage, faceIdSupported, hasFaceIdFactor, verifyWithFaceId, wasCancelled } from '../lib/faceid'
+import { faceIdMessage, faceIdSupported, hasFaceIdFactor, setUpFaceId, verifyWithFaceId, wasCancelled } from '../lib/faceid'
 import { supabase } from '../lib/supabase'
 
 // Two-step sign-in with an authenticator app (NIST 800-53 IA-2(1), IA-2(2)).
@@ -27,9 +27,11 @@ export function MfaChallenge({ onDone, onCancel, cancelLabel = 'Sign out' }: { o
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [faceId, setFaceId] = useState(false)
+  const [hasApp, setHasApp] = useState(true)
   const [showCode, setShowCode] = useState(false)
 
   useEffect(() => {
+    void supabase.auth.mfa.listFactors().then(({ data }) => setHasApp(Boolean(data?.totp?.length)))
     if (!faceIdSupported()) return
     void hasFaceIdFactor().then(setFaceId)
   }, [])
@@ -72,10 +74,11 @@ export function MfaChallenge({ onDone, onCancel, cancelLabel = 'Sign out' }: { o
           {busy ? 'Waiting for Face ID…' : 'Verify with Face ID'}
         </button>
       )}
-      {faceId && !showCode && (
+      {faceId && !showCode && hasApp && (
         <button type="button" className="mt-4 text-sm text-slate-600 underline" onClick={() => setShowCode(true)}>Use the 6-digit code instead</button>
       )}
-      {(!faceId || showCode) && (
+      {faceId && !hasApp && error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+      {(!faceId || showCode) && hasApp && (
       <>
       <p className="mt-4 text-sm text-slate-600">Open your authenticator app (for example Apple Passwords) and enter the 6-digit code for Read Aloud Stars.</p>
       <form onSubmit={submit} className="mt-4 space-y-4">
@@ -91,7 +94,43 @@ export function MfaChallenge({ onDone, onCancel, cancelLabel = 'Sign out' }: { o
 }
 
 /** Sets up an authenticator app: shows a QR code, then confirms one code. */
-export function MfaEnroll({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+/** Two-step setup: Face ID first (recommended), an authenticator app as the alternative. */
+export function MfaEnroll({ onDone, onCancel, mode = 'choose' }: { onDone: () => void; onCancel: () => void; mode?: 'choose' | 'totp' }) {
+  const [useApp, setUseApp] = useState(mode === 'totp' || !faceIdSupported())
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function faceId() {
+    setBusy(true)
+    setError('')
+    const r = await setUpFaceId()
+    setBusy(false)
+    if (r.secondStep) return onDone()
+    if (r.error && !wasCancelled(r.error)) setError(faceIdMessage(r.error, 'setup'))
+    else if (r.signIn) setError('Face ID sign-in is set up, but the second step couldn’t be turned on. Use an authenticator app for now.')
+  }
+
+  if (useApp) return <TotpEnroll onDone={onDone} onCancel={mode === 'totp' ? onCancel : () => setUseApp(false)} />
+
+  return (
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-8">
+      <h1 className="font-kids text-2xl font-bold">Protect kids’ profiles</h1>
+      <p className="mt-1 text-sm text-slate-600">
+        Kids’ profiles need a second step after your password. Face ID is the quickest: it’s saved in Apple Passwords and syncs to your other Apple devices.
+        Face ID will ask twice while it sets up.
+      </p>
+      <button type="button" className="btn-primary mt-6 w-full py-4 text-base" disabled={busy} onClick={faceId}>
+        {busy ? 'Waiting for Face ID…' : 'Use Face ID (recommended)'}
+      </button>
+      {error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+      <button type="button" className="mt-5 text-sm text-slate-600 underline" onClick={() => setUseApp(true)}>Use an authenticator app instead</button>
+      <button type="button" className="mt-3 text-sm text-slate-500 underline" onClick={onCancel}>Not now</button>
+    </div>
+  )
+}
+
+/** Sets up an authenticator app (6-digit codes): shows a QR code, then confirms one code. */
+function TotpEnroll({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
   const [factor, setFactor] = useState<{ id: string; qr: string; secret: string } | null>(null)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -134,9 +173,9 @@ export function MfaEnroll({ onDone, onCancel }: { onDone: () => void; onCancel: 
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-8">
-      <h1 className="font-kids text-2xl font-bold">Set up two-step sign-in</h1>
+      <h1 className="font-kids text-2xl font-bold">Add an authenticator app</h1>
       <p className="mt-1 text-sm text-slate-600">
-        Kids’ profiles are protected by a second step. Scan this code with an authenticator app. On iPhone or Mac, Apple Passwords works:
+        Scan this code with an authenticator app. On iPhone or Mac, Apple Passwords works:
         open the Camera and point it at the code, or in Passwords choose the account and tap <b>Set Up Verification Code</b>.
       </p>
       <div className="card mt-5 flex flex-col items-center gap-3">
@@ -156,9 +195,9 @@ export function MfaEnroll({ onDone, onCancel }: { onDone: () => void; onCancel: 
         <label className="label" htmlFor="enroll-code">Then enter the 6-digit code it shows</label>
         <CodeInput value={code} onChange={setCode} autoFocus={false} />
         {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
-        <button className="btn-primary w-full" disabled={busy || !factor || code.length !== 6}>{busy ? 'Checking…' : 'Turn on two-step sign-in'}</button>
+        <button className="btn-primary w-full" disabled={busy || !factor || code.length !== 6}>{busy ? 'Checking…' : 'Turn on'}</button>
       </form>
-      <button type="button" className="mt-5 text-sm text-slate-600 underline" onClick={onCancel}>Not now</button>
+      <button type="button" className="mt-5 text-sm text-slate-600 underline" onClick={onCancel}>Back</button>
     </div>
   )
 }

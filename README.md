@@ -11,7 +11,8 @@ Live site: `https://typer1079.github.io/Language-Stars/`
 - Installable app (PWA): add it to the Home Screen; it opens full screen, works offline for
   practice screens, and loads new versions automatically.
 - Sign in with **Face ID** (passkey) or email + password (Supabase Auth). New accounts need a
-  confirmed email. The second step can be Face ID too, or a 6-digit authenticator code.
+  confirmed email. Kids' profiles need a strong sign-in: **Face ID** (one tap) is the default; an
+  authenticator app is an optional backup that can be removed in ⚙️ Account.
 - **Two-step sign-in** (authenticator app, e.g. Apple Passwords) is required for any account with
   kids' profiles. The database itself refuses to show or change a child's profile unless the
   session passed the second step.

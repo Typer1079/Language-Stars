@@ -13,13 +13,16 @@ import type { Learner, LearnerDraft } from './lib/types'
 type View = 'picker' | 'account' | 'practice' | 'mfa-challenge' | 'mfa-enroll' | 'recovery'
 
 /** Signed-in sessions end after this long without any taps, keys or words read (NIST 800-53 AC-11, AC-12). */
+const FACE_ID_METHODS = ['passkey', 'webauthn', 'mfa/webauthn']
+
 const IDLE_LIMIT_MS = 30 * 60 * 1000
 const SAVE_DELAY_MS = 800
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
-  const [aal, setAal] = useState<{ verified: boolean; hasMfa: boolean }>({ verified: false, hasMfa: false })
+  const [aal, setAal] = useState<{ verified: boolean; hasMfa: boolean; methods: string[] }>({ verified: false, hasMfa: false, methods: [] })
+  const [enrollMode, setEnrollMode] = useState<'choose' | 'totp'>('choose')
   const [view, setView] = useState<View>('picker')
   const [learners, setLearners] = useState<Learner[]>([])
   const [loading, setLoading] = useState(false)
@@ -38,7 +41,11 @@ export default function App() {
 
   const checkAal = useCallback(async () => {
     const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-    const next = { verified: data?.currentLevel === 'aal2', hasMfa: data?.nextLevel === 'aal2' }
+    const methods = (data?.currentAuthenticationMethods ?? []).map((m) => (typeof m === 'string' ? m : m.method))
+    // Signing in with Face ID (a passkey) is already two-step: the device plus your face.
+    // The database accepts it the same way (supabase/migrations/004_face_id_counts_as_two_step.sql).
+    const faceId = methods.some((m) => FACE_ID_METHODS.includes(m))
+    const next = { verified: data?.currentLevel === 'aal2' || faceId, hasMfa: data?.nextLevel === 'aal2', methods }
     setAal(next)
     return next
   }, [])
@@ -251,7 +258,7 @@ export default function App() {
   if (view === 'mfa-challenge') {
     return <MfaChallenge onDone={afterVerified} onCancel={() => supabase.auth.signOut()} />
   }
-  if (view === 'mfa-enroll') return <MfaEnroll onDone={afterVerified} onCancel={() => { setPendingAdd(null); setView('picker') }} />
+  if (view === 'mfa-enroll') return <MfaEnroll mode={enrollMode} onDone={afterVerified} onCancel={() => { setPendingAdd(null); setView('picker') }} />
 
   const active = learners.find((l) => l.id === activeId)
   if (view === 'practice' && active) {
@@ -265,7 +272,8 @@ export default function App() {
         verified={aal.verified}
         hasMfa={aal.hasMfa}
         onBack={() => setView('picker')}
-        onEnrollMfa={() => setView('mfa-enroll')}
+        signedInWith={aal.methods}
+        onEnrollMfa={(mode) => { setEnrollMode(mode); setView('mfa-enroll') }}
         onVerify={() => setView('mfa-challenge')}
         onChanged={() => { void checkAal(); void refresh() }}
       />
@@ -288,7 +296,7 @@ export default function App() {
         onCreate={create}
         onUpdate={updateProfile}
         onImport={importDrafts}
-        onUnlockKids={(pending) => { setPendingAdd(pending?.length ? pending : null); setView(aal.hasMfa ? 'mfa-challenge' : 'mfa-enroll') }}
+        onUnlockKids={(pending) => { setPendingAdd(pending?.length ? pending : null); setEnrollMode('choose'); setView(aal.hasMfa ? 'mfa-challenge' : 'mfa-enroll') }}
         onAccount={() => setView('account')}
       />
     </>
