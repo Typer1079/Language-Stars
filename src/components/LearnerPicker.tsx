@@ -41,8 +41,8 @@ export default function LearnerPicker(p: Props) {
         <div className="flex items-center gap-2.5">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-2xl shadow-md">⭐</div>
           <div>
-            <h1 className="font-kids text-2xl font-bold leading-tight">Who’s reading?</h1>
-            <p className="text-xs text-slate-500">Tap a reader to start</p>
+            <h1 className="font-kids text-2xl font-bold leading-tight">Who’s learning?</h1>
+            <p className="text-xs text-slate-500">Tap a learner to start</p>
           </div>
         </div>
         <div className="flex gap-2">
