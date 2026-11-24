@@ -171,3 +171,30 @@ export async function adminKpis(days = 30): Promise<AdminKpis> {
   if (error) throw error
   return data as AdminKpis
 }
+
+// ---- worldwide rankings (names are never returned: others appear as codenames) ---------------
+
+export type RankMetric = 'stars' | 'stars_week' | 'reading' | 'spanish' | 'biggest_sticker' | 'stickers' | 'words' | 'minutes_week' | 'days30' | 'questions'
+
+export interface MyRank { rank: number | null; total: number; value: number }
+export type MyRanks = Partial<Record<RankMetric, MyRank>>
+
+export interface Leaderboard {
+  metric: RankMetric
+  total: number
+  me: { rank: number; value: number } | null
+  top: { rank: number; value: number; name: string; icon: string; me: boolean }[]
+}
+
+export async function myRanks(learnerId: string): Promise<MyRanks> {
+  const { data, error } = await supabase.rpc('my_ranks', { me: learnerId })
+  if (error) throw error
+  return (data ?? {}) as MyRanks
+}
+
+/** Top of one ranking. Pass a learner to also get their own rank; pass null as the super admin. */
+export async function leaderboard(metric: RankMetric, learnerId: string | null, top = 10): Promise<Leaderboard> {
+  const { data, error } = await supabase.rpc('leaderboard', { metric, me: learnerId, top_n: top })
+  if (error) throw error
+  return data as Leaderboard
+}

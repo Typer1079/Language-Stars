@@ -191,3 +191,11 @@ Sign in with Face ID or your authenticator code and a **📊 Admin** button appe
 The dashboard only receives site-wide totals (no names or emails), and each visit is written to the audit log.
 To remove an admin: `delete from public.app_admins where user_id = '…';`
 
+## World ranks
+
+Migration `007_leaderboards.sql` adds worldwide rankings (🏆 World ranks on the progress page, and in the
+admin dashboard): lifetime stars, stars this week, Reading and Spanish level, words said, meanings right,
+minutes this week, days practiced, biggest sticker and sticker count. Names are never shared: everyone else
+appears under a fixed made-up codename (like "Brave Otter 47"), and only your own row shows your name, on
+your own device. The admin sees codenames too.
+

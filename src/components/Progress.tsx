@@ -4,6 +4,7 @@ import { dailySeries, summarize } from '../lib/stats'
 import { stageName } from '../lib/curriculum'
 import type { Learner } from '../lib/types'
 import { BarChart, LineChart, Tile } from './Charts'
+import { RanksSection } from './Ranks'
 
 const RANGES = [7, 30, 90] as const
 
@@ -79,6 +80,8 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
               <Tile label="Meaning questions" value={qPct === null ? '–' : `${qPct}%`} sub={s.questions ? `${s.questionsRight} of ${s.questions} right` : 'from Reading Level 31'} />
               <Tile label="Now at" value={`L${learner.mode === 'spanish' ? learner.spanish_level : learner.reading_level}`} sub={learner.mode === 'spanish' ? 'Spanish' : 'Reading'} />
             </div>
+
+            <RanksSection learnerId={learner.id} name={learner.display_name} />
 
             {rounds.length === 0 ? (
               <p className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">

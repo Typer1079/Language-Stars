@@ -208,12 +208,16 @@ function AvatarPicker({ value, fallback, onChange }: { value: string | null; fal
 
   return (
     <div>
-      <span className="label">Character</span>
+      <span className="label">Avatar</span>
       <div className="flex items-center gap-3">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-50 to-fuchsia-50 text-4xl ring-2 ring-indigo-200">{shown}</div>
-        <button type="button" className="btn-secondary" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{open ? 'Done' : '🎨 Choose a character'}</button>
+        <button type="button" className="btn-secondary" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{open ? 'Done' : '🎨 Choose an avatar'}</button>
       </div>
-      {!avatarsAvailable() && <p className="mt-1 text-xs text-amber-700">Characters save after the database update (migration 006) is run.</p>}
+      {!avatarsAvailable() && (
+        <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+          Avatars can’t be saved yet: the database needs one update. In Supabase → SQL Editor, run <code>supabase/migrations/006_avatar.sql</code>, then reload this page.
+        </p>
+      )}
       {open && (
         <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
           <div className="mb-2 flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Skin tone">
@@ -224,17 +228,17 @@ function AvatarPicker({ value, fallback, onChange }: { value: string | null; fal
                 style={{ backgroundColor: t.swatch }} />
             ))}
           </div>
-          <div className="-mx-1 mb-2 flex gap-1.5 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Character types">
+          <div className="-mx-1 mb-2 flex gap-1.5 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Avatar types">
             {AVATAR_GROUPS.map((x) => (
               <button key={x.id} type="button" role="tab" aria-selected={group === x.id} onClick={() => setGroup(x.id)}
                 className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition ${group === x.id ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100'}`}>{x.label}</button>
             ))}
           </div>
-          <div className="grid max-h-64 grid-cols-6 gap-1.5 overflow-y-auto sm:grid-cols-8" role="radiogroup" aria-label="Characters">
+          <div className="grid max-h-64 grid-cols-6 gap-1.5 overflow-y-auto sm:grid-cols-8" role="radiogroup" aria-label="Avatars">
             {g.items.map((b) => {
               const e = g.toned ? withTone(b, tone) : b
               return (
-                <button key={b} type="button" role="radio" aria-checked={value === e} aria-label={`Character ${e}`} onClick={() => onChange(e)}
+                <button key={b} type="button" role="radio" aria-checked={value === e} aria-label={`Avatar ${e}`} onClick={() => onChange(e)}
                   className={`flex aspect-square items-center justify-center rounded-xl text-3xl transition hover:scale-110 ${value === e ? 'bg-indigo-100 ring-2 ring-indigo-500' : 'bg-white'}`}>{e}</button>
               )
             })}
@@ -361,6 +365,10 @@ function EditReader({ learner, onSave, onCancel }: { learner: Learner; onSave: (
 
   async function submit(f: ReaderFields) {
     if (!f.name) return setError('Enter a first name or nickname.')
+    // Without the database update the avatar would silently snap back, so say so instead.
+    if (f.avatar && f.avatar !== learner.avatar && !avatarsAvailable()) {
+      return setError('The avatar can’t be saved yet. In Supabase → SQL Editor, run 006_avatar.sql, reload this page, then save again.')
+    }
     setBusy(true)
     setError('')
     try {

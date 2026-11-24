@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { adminKpis, dbMessage, type AdminKpis } from '../lib/learnersApi'
 import { BarChart, LineChart, Tile } from './Charts'
+import { AdminLeaderboards } from './Ranks'
 
 const RANGES = [7, 30, 90, 365] as const
 
@@ -82,6 +83,8 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <BarChart title="Rounds per day" days={labels} values={k.daily.map((d) => d.rounds)} />
             <BarChart title="Stars per day" days={labels} values={k.daily.map((d) => d.stars)} />
           </div>
+
+          <AdminLeaderboards />
 
           <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
             <div className="mb-2 text-xs font-bold text-slate-700">Where readers are (current level)</div>
