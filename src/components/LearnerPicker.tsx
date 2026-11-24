@@ -8,6 +8,7 @@ import { avatarsAvailable, myRanks, spellingAvailable } from '../lib/learnersApi
 import { medal } from '../lib/ranks'
 import { gradeFor } from '../lib/levelGuide'
 import { HelpGuide } from './HelpGuide'
+import { LinkDevicePanel } from './Devices'
 import { MAX_LEVEL, stageName } from '../lib/curriculum'
 import { cleanName, parseSaveFile } from '../lib/validate'
 import { newLearnerDraft, type AgeGroup, type Learner, type LearnerDraft, type LearnerKind, type Mode, type StickerStyle } from '../lib/types'
@@ -28,6 +29,7 @@ interface Props {
   onAccount: () => void
   /** Only for super admins. */
   onAdmin?: () => void
+  onSignOut: () => void
 }
 
 export default function LearnerPicker(p: Props) {
@@ -46,10 +48,11 @@ export default function LearnerPicker(p: Props) {
             <p className="text-xs text-slate-500">Tap a learner to start</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button type="button" className="chip" onClick={() => setHelp(true)}>❓ Help</button>
           {p.onAdmin && <button type="button" className="chip" onClick={p.onAdmin}>📊 Admin</button>}
           <button type="button" className="chip" onClick={p.onAccount}>⚙️ Account</button>
+          <button type="button" className="chip" onClick={p.onSignOut}>🚪 Sign out</button>
         </div>
       </div>
 
@@ -83,7 +86,7 @@ export default function LearnerPicker(p: Props) {
 
       {help && <HelpGuide onClose={() => setHelp(false)} />}
       {viewing && <ProgressView learner={viewing} parentView onClose={() => setViewing(null)} />}
-      {editing && <EditReader key={editing.id} learner={editing} onCancel={() => setEditing(null)} onSave={async (l) => { await p.onUpdate(l); setEditing(null) }} />}
+      {editing && <EditReader key={editing.id} verified={p.verified} learner={editing} onCancel={() => setEditing(null)} onSave={async (l) => { await p.onUpdate(l); setEditing(null) }} />}
       {panel === 'add' && <AddReader verified={p.verified} onUnlockKids={p.onUnlockKids} onCancel={() => setPanel('none')} onCreate={async (d) => { await p.onCreate(d); setPanel('none') }} />}
       {panel === 'import' && <ImportReaders verified={p.verified} onUnlockKids={p.onUnlockKids} onImport={async (d) => { await p.onImport(d); setPanel('none') }} />}
     </div>
@@ -398,7 +401,7 @@ function AddReader({ verified, onUnlockKids, onCreate, onCancel }: { verified: b
 }
 
 /** Edit an existing reader's name, practice type, age group and sticker packs. */
-function EditReader({ learner, onSave, onCancel }: { learner: Learner; onSave: (l: Learner) => Promise<void>; onCancel: () => void }) {
+function EditReader({ learner, verified, onSave, onCancel }: { learner: Learner; verified: boolean; onSave: (l: Learner) => Promise<void>; onCancel: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -434,6 +437,7 @@ function EditReader({ learner, onSave, onCancel }: { learner: Learner; onSave: (
       <ReaderForm isNew={false} busy={busy} error={error} onSubmit={submit} onCancel={onCancel} submitLabel="Save changes"
         initial={{ name: learner.display_name, kind: learner.kind, mode: learner.mode, age: learner.age_group, style: learner.sticker_style, readingLevel: learner.reading_level, spanishLevel: learner.spanish_level, spellingLevel: learner.spelling_level ?? 1, avatar: learner.avatar ?? null }}
         footer={<p className="text-xs text-slate-500">Stars and stickers aren’t changed. To delete a learner, use ⚙️ Account.</p>} />
+      <LinkDevicePanel learner={learner} verified={verified} />
     </div>
   )
 }

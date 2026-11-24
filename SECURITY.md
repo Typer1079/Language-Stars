@@ -103,3 +103,13 @@ Open a private security advisory on the GitHub repository (Security → Advisori
 | PL-4 Rules of behavior / PT-5 Privacy notice | Terms of Use and Privacy Policy shown at sign-up and at sign-in whenever the version changes; acceptance (adult, guardian, version, time) stored in `terms_acceptance`. |
 | PT-2 / COPPA parental consent | Only an adult account holder can add a child's profile, and only with two-step sign-in; the holder attests to being the parent/guardian and consents. |
 
+### Learner devices and inactivity (migration 010)
+
+| Control | How it's met |
+|---|---|
+| AC-2(3) Disable inactive accounts | No sign-in or practice for 90 days → archived automatically (at next sign-in, or by the optional nightly job). Data is blocked until the holder re-verifies with an emailed link, Face ID / passkey or authenticator code in the last 15 minutes (`reactivate_after_inactivity`). Audited. |
+| AC-6 / AC-3 Least privilege for devices | A linked device signs in anonymously and can read and update only its one learner's progress (`device_learner()` policies); a trigger blocks it from changing the name, kind, age, avatar or sticker settings. It can't see other learners, the parent's account, admin or audit data. |
+| IA-5 Authenticator management | Link codes are random (10 characters), single-use, expire in 10 minutes, need a two-step / Face ID parent session to create, and guessing is throttled. Parents can list and unlink devices; unlinking deletes the device's sign-in. |
+| AC-11 Device lock | Parent sessions still sign out after 30 idle minutes. Linked learner devices stay signed in (signing out would unlink them) and rely on the device's own screen lock. |
+| COPPA | No personal information is collected from the child to link a device; the parent authorizes and can revoke it. Disclosed in the Privacy Policy. |
+

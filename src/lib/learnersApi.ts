@@ -214,7 +214,15 @@ export async function leaderboard(metric: RankMetric, learnerId: string | null, 
 
 // ---- account status, Terms acceptance, admin user management --------------------------------
 
-export interface AccountStatus { archived: boolean; terms_version: string | null }
+export interface AccountStatus {
+  archived: boolean
+  terms_version?: string | null
+  /** 'inactive' = archived after 90 days without activity (can re-verify); 'admin' = archived by the admin. */
+  archive_kind?: 'admin' | 'inactive' | null
+  /** This sign-in is a learner's linked phone or tablet. */
+  device?: boolean
+  learner_id?: string | null
+}
 
 /** null = the database doesn't have update 009 yet (nothing to enforce). */
 export async function myAccountStatus(): Promise<AccountStatus | null> {
@@ -235,6 +243,8 @@ export interface AdminUser {
   last_sign_in_at: string | null
   archived_at: string | null
   archive_reason: string | null
+  archive_kind?: 'admin' | 'inactive' | null
+  devices?: number
   is_admin: boolean
   terms_version: string | null
   last_active: string | null
@@ -251,4 +261,48 @@ export async function adminAccountAction(target: string, action: 'sign_out' | 'a
   const { data, error } = await supabase.rpc('admin_account_action', { target, action, reason: reason ?? null })
   if (error) throw error
   return ((data as { notes?: string[] })?.notes ?? [])
+}
+
+// ---- learner devices (a child's own phone, linked by the parent) ------------------------------
+
+export async function createPairingCode(learnerId: string): Promise<{ code: string; expires_at: string }> {
+  const { data, error } = await supabase.rpc('create_pairing_code', { learner: learnerId })
+  if (error) throw error
+  return data as { code: string; expires_at: string }
+}
+
+export interface LinkedDevice { id: string; label: string | null; created_at: string; last_seen_at: string | null }
+
+export async function listDevices(learnerId: string): Promise<LinkedDevice[]> {
+  const { data, error } = await supabase.rpc('list_devices', { learner: learnerId })
+  if (error) throw error
+  return (data ?? []) as LinkedDevice[]
+}
+
+export async function unlinkDevice(deviceId: string): Promise<void> {
+  const { error } = await supabase.rpc('unlink_device', { device: deviceId })
+  if (error) throw error
+}
+
+/** On the learner's device, step 1: sign in without any email or password (nothing is reachable until a code is redeemed). */
+export async function startDeviceSignIn(): Promise<void> {
+  const { error } = await supabase.auth.signInAnonymously()
+  if (error) {
+    throw new Error(/anonymous/i.test(error.message)
+      ? 'Learner devices aren’t turned on yet. The parent needs to turn on “Allow anonymous sign-ins” in Supabase (see README).'
+      : 'Couldn’t connect. Check the internet connection and try again.')
+  }
+}
+
+/** Step 2: redeem the parent's one-time code. Returns the linked learner's id. */
+export async function linkThisDevice(code: string, label: string): Promise<string> {
+  const { data, error } = await supabase.rpc('redeem_pairing_code', { code: code.toUpperCase().replace(/[^A-Z0-9]/g, ''), label: label || null })
+  if (error) throw new Error(error.message || 'That code didn’t work. Ask for a new one.')
+  return data as string
+}
+
+/** After 90 days without activity: true once this sign-in has re-verified and the account is active again. */
+export async function reactivateAfterInactivity(): Promise<boolean> {
+  const { data, error } = await supabase.rpc('reactivate_after_inactivity')
+  return !error && data === true
 }

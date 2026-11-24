@@ -3,6 +3,7 @@ import { faceIdMessage, faceIdOnDevice, faceIdSupported, signInWithFaceId, wasCa
 import { supabase } from '../lib/supabase'
 import InstallApp from './InstallApp'
 import { AgreementChecks, LegalLinks } from './Legal'
+import { StartDeviceLink } from './Devices'
 import { TERMS_VERSION } from '../lib/legal'
 
 type Mode = 'signin' | 'signup' | 'reset'
@@ -118,6 +119,7 @@ export default function Auth() {
         )}
       </div>
 
+      {mode === 'signin' && <StartDeviceLink />}
       {mode === 'signin' && <InstallApp />}
 
       {/* System use notification (NIST 800-53 AC-8). */}

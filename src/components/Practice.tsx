@@ -27,6 +27,8 @@ interface Props {
   saveStatus: SaveStatus
   /** Something happened (a word was read); counts as activity for the idle timer. */
   onActivity: () => void
+  /** On a learner's own linked device: no switching learners. */
+  deviceMode?: boolean
 }
 
 /**
@@ -49,7 +51,7 @@ const MODE_STYLE: Record<Mode, { icon: string; label: string; on: string }> = {
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
-export default function Practice({ learner, onChange, onExit, saveStatus, onActivity }: Props) {
+export default function Practice({ learner, onChange, onExit, saveStatus, onActivity, deviceMode = false }: Props) {
   const [round, setRound] = useState<PracticeItem[]>([])
   const [index, setIndex] = useState(0)
   const [feedback, setFeedback] = useState<{ title: string; sub: string; tone: Tone }>({ title: 'Say the word out loud!', sub: `Press ${isMac ? 'Return' : 'Enter'} or tap Listen Now`, tone: 'neutral' })
@@ -553,7 +555,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
                 <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm font-semibold shadow-xl" onClick={() => setMenuOpen(false)}>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setProgressOpen(true)}>📈 My progress</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setHelpOpen(true)}>❓ How levels work</button>
-                  <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={onExit}>🚪 Switch learner</button>
+                  <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={onExit}>{deviceMode ? '🏠 Home' : '🚪 Switch learner'}</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setLogOpen(true)}>📊 Speech log</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50"
                     onClick={() => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => {})}>⛶ Full screen</button>
@@ -789,7 +791,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
             <div className="flex flex-col gap-2.5">
               <button type="button" className="btn bg-gradient-to-r from-fuchsia-500 to-purple-600 font-kids text-base text-white" onClick={() => setShop(`Spend your ${learner.spendable_stars} ⭐ in the Sticker Shop!`)}>🏪 Spend stars in the Sticker Shop</button>
               <button type="button" className="btn bg-gradient-to-r from-emerald-500 to-teal-600 font-kids text-base text-white" onClick={() => startRound({ autoBegin: true })}>Next Round ➡️</button>
-              <button type="button" className="btn-danger" onClick={onExit}>🚪 Switch learner</button>
+              <button type="button" className="btn-danger" onClick={onExit}>{deviceMode ? '🏠 Home' : '🚪 Switch learner'}</button>
             </div>
           </div>
         </div>

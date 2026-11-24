@@ -6,7 +6,7 @@
  * Raise TERMS_VERSION whenever the text changes in a way people should re-accept: everyone is
  * asked to accept the new version at their next sign-in.
  */
-export const TERMS_VERSION = '2026-11-23'
+export const TERMS_VERSION = '2026-11-24'
 export const APP_NAME = 'Language Stars'
 /** Who parents contact about their child's information. Change this if you want a different address. */
 export const CONTACT_EMAIL = 'typer1079@gmail.com'
@@ -30,7 +30,11 @@ export const TERMS: LegalDoc = {
       `We grant you a personal, limited, non-exclusive, non-transferable, revocable license to use ${APP_NAME} for your family's private, non-commercial learning, on devices you own or control.`,
       'You may not copy, resell, rent, reverse engineer or redistribute the app or its word lists, or use it to build a competing product, except where the law allows it.',
     ] },
-    { heading: '3. Your responsibilities', body: [
+    { heading: '3. Learner devices', body: [
+      'A parent may link a child\'s own phone or tablet to that child\'s learner profile with a one-time code. The child never gives an email, phone number or password. A linked device can only practice as that learner; it cannot see other learners, change the profile, or reach the parent\'s account.',
+      'You are responsible for the devices you link. Unlink a device at any time from ✏️ Edit on the learner\'s card; a lost device should be unlinked right away.',
+    ] },
+    { heading: '3a. Your responsibilities', body: [
       'Keep your password, Face ID / passkey and authenticator safe; you are responsible for activity on your account.',
       'Supervise children\'s use. Use first names or nicknames only for learner profiles; don\'t enter last names, addresses, school names or other contact information.',
       'Don\'t misuse the service: no attempts to access other accounts, overload or attack the service, or bypass its security.',
@@ -43,6 +47,7 @@ export const TERMS: LegalDoc = {
     { heading: '5. Account suspension and closure', body: [
       'We may sign out, suspend or archive an account that breaks these Terms, puts a child at risk, or threatens the security of the service. Archived accounts can\'t sign in or see their data; we can restore them.',
       `You can delete a learner profile at any time (Account → Delete a learner), and ask us to delete your whole account by emailing ${CONTACT_EMAIL}.`,
+      'Accounts with no activity for 90 days are archived automatically for safety. Nothing is deleted; the account holder can reopen it by confirming their identity (emailed sign-in link, Face ID or authenticator code).',
     ] },
     { heading: '6. Changes', body: [
       'We may update the app and these Terms. If the Terms change in a meaningful way, we\'ll ask you to accept the new version the next time you sign in. If you don\'t accept, stop using the app and ask us to delete your account.',
@@ -97,8 +102,11 @@ export const PRIVACY: LegalDoc = {
       `Parents can review a child's information (Progress and Account screens), change it (Edit), download it (Account → backup), delete a child's profile (Account → Delete a learner), or refuse further collection by deleting the profile. To have the whole account deleted, email ${CONTACT_EMAIL}; we'll delete it within 30 days.`,
       'We won\'t require a child to give more information than needed to use the app.',
     ] },
+    { heading: 'Learner devices', body: [
+      'When a parent links a child\'s own device, that device signs in without any personal information (no email, phone number or password); it gets a random identifier only. It can read and update only that child\'s progress, stickers and settings for today\'s subject, and is listed for the parent, who can unlink it at any time. Unlinking deletes the device\'s sign-in.',
+    ] },
     { heading: 'How long we keep it', body: [
-      'Account and learner data: until you delete it or ask us to. Practice history: up to 2 years. Security activity logs: 1 year. Archived accounts: kept so they can be restored, unless you ask for deletion.',
+      'Account and learner data: until you delete it or ask us to. Practice history: up to 2 years. Security activity logs: 1 year. Accounts with no activity for 90 days are archived automatically and need the account holder to confirm their identity to reopen. Archived accounts are kept so they can be restored, unless you ask for deletion.',
     ] },
     { heading: 'Security', body: [
       'Encrypted connections, row-level database security so each family can only reach its own data, two-step sign-in for children\'s profiles, automatic sign-out after inactivity, and an audit log. No system is perfectly secure; tell us right away if you think your account was misused.',

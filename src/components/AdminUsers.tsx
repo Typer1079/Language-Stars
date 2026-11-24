@@ -63,10 +63,11 @@ export function AdminUsers() {
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="truncate font-bold text-slate-900">{u.email ?? '(no email)'}</span>
                   {u.is_admin && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800">ADMIN</span>}
-                  {u.archived_at && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">ARCHIVED {when(u.archived_at)}</span>}
+                  {u.archived_at && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">{u.archive_kind === 'inactive' ? 'INACTIVE 90 DAYS' : 'ARCHIVED'} {when(u.archived_at)}</span>}
+                  {(u.devices ?? 0) > 0 && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-800">📱 {u.devices} learner device{u.devices === 1 ? '' : 's'}</span>}
                   {u.terms_version !== TERMS_VERSION && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">{u.terms_version ? 'OLD TERMS' : 'TERMS NOT ACCEPTED'}</span>}
                 </div>
-                <div className="text-[11px] text-slate-500">Joined {when(u.created_at)} · last sign-in {when(u.last_sign_in_at)} · last practice {when(u.last_active)}</div>
+                <div className="text-[11px] text-slate-500">Joined {when(u.created_at)} · last sign-in {when(u.last_sign_in_at)} · last active {when(u.last_active)}</div>
                 {u.archive_reason && <div className="text-[11px] text-rose-700">Reason: {u.archive_reason}</div>}
               </div>
               {!u.is_admin && (

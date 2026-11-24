@@ -6,8 +6,10 @@ import Auth, { NewPassword } from './components/Auth'
 import LearnerPicker from './components/LearnerPicker'
 import { MfaChallenge, MfaEnroll } from './components/Mfa'
 import Practice, { type SaveStatus } from './components/Practice'
-import { acceptTerms, checkIsAdmin, createLearner, dbMessage, listLearners, myAccountStatus, saveLearner } from './lib/learnersApi'
+import { acceptTerms, reactivateAfterInactivity, unlinkDevice, checkIsAdmin, createLearner, dbMessage, listLearners, myAccountStatus, saveLearner } from './lib/learnersApi'
 import { AcceptTerms } from './components/Legal'
+import { Revalidate, DeviceHome } from './components/Revalidate'
+import { LinkThisDevice } from './components/Devices'
 import { TERMS_VERSION } from './lib/legal'
 import { primeVoices } from './lib/speech'
 import { isConfigured, supabase } from './lib/supabase'
@@ -39,6 +41,10 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false)
   // Has this account accepted the current Terms? (null = still checking)
   const [termsOk, setTermsOk] = useState<boolean | null>(null)
+  // This sign-in is a learner's own linked phone/tablet (only that learner, no parent screens).
+  const [device, setDevice] = useState<{ learnerId: string | null } | null>(null)
+  // Archived after 90 days without activity: must re-verify before anything loads.
+  const [inactive, setInactive] = useState(false)
 
   const pending = useRef(new Map<string, Learner>())
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -72,6 +78,8 @@ export default function App() {
         setLearners([])
         setActiveId(null)
         setIsAdmin(false)
+        setDevice(null)
+        setInactive(false)
         setView('picker')
       }
     })
@@ -107,18 +115,34 @@ export default function App() {
   }, [session, checkAal, refresh])
 
   // Archived accounts are signed out; everyone else must have accepted the current Terms of Use.
-  const statusUser = session?.user.id
+  // Re-checked whenever the sign-in changes (new sign-in, two-step code, emailed link).
+  const statusToken = session?.access_token
   const statusEmail = session?.user.email?.toLowerCase()
   useEffect(() => {
-    if (!statusUser) return
+    if (!statusToken) return
     let live = true
-    // eslint-disable-next-line react/set-state-in-effect
-    setTermsOk(null)
     void (async () => {
       const st = await myAccountStatus()
       if (!live) return
       if (!st) return setTermsOk(true) // database update 009 not run yet: nothing to check
-      if (st.archived) {
+      if (st.device) {
+        if (st.archived) {
+          setNotice('This device’s family account isn’t active right now. Ask your parent.')
+          return
+        }
+        setDevice({ learnerId: st.learner_id ?? null })
+        return setTermsOk(true) // the parent accepted the Terms for their family
+      }
+      setDevice(null)
+      if (st.archived && st.archive_kind === 'inactive') {
+        // Re-verified just now (email link, Face ID or code)? Then reactivate straight away.
+        if (await reactivateAfterInactivity()) {
+          if (live) { setInactive(false); void refresh() }
+        } else {
+          if (live) setInactive(true)
+          return
+        }
+      } else if (st.archived) {
         setNotice('This account has been archived. Contact the administrator if you think this is a mistake.')
         await supabase.auth.signOut()
         return
@@ -137,7 +161,7 @@ export default function App() {
       if (live) setTermsOk(false)
     })()
     return () => { live = false }
-  }, [statusUser, statusEmail])
+  }, [statusToken, statusEmail, refresh])
 
   // ---- saving --------------------------------------------------------------------------------
 
@@ -207,6 +231,8 @@ export default function App() {
     window.addEventListener('pointerdown', touch, opts)
     window.addEventListener('keydown', touch, opts)
     const id = setInterval(async () => {
+      // A linked learner device stays signed in (signing out would unlink it); the phone's own lock protects it.
+      if (device) return
       if (Date.now() - lastActivity.current < IDLE_LIMIT_MS) return
       await flush()
       await supabase.auth.signOut()
@@ -217,7 +243,7 @@ export default function App() {
       window.removeEventListener('pointerdown', touch)
       window.removeEventListener('keydown', touch)
     }
-  }, [session, flush, touch])
+  }, [session, flush, touch, device])
 
   // ---- actions -------------------------------------------------------------------------------
 
@@ -291,6 +317,13 @@ export default function App() {
     return () => { live = false }
   }, [userId, aal.verified])
 
+  /** On a learner device: remove the link (and its anonymous sign-in) and go back to the sign-in page. */
+  const unlinkThisDevice = async () => {
+    const uid = session?.user.id
+    if (uid) await unlinkDevice(uid).catch(() => {})
+    await supabase.auth.signOut()
+  }
+
   // ---- screens -------------------------------------------------------------------------------
 
   if (!isConfigured) {
@@ -309,6 +342,21 @@ export default function App() {
         <Auth />
       </>
     )
+  }
+  if (inactive) {
+    return <Revalidate email={session.user.email ?? ''} hasMfa={aal.hasMfa}
+      onVerifyCode={() => { setInactive(false); setView('mfa-challenge') }}
+      onDone={async () => { if (await reactivateAfterInactivity()) { setInactive(false); await refresh() } else throw new Error('Not verified yet') }}
+      onSignOut={() => void supabase.auth.signOut()} />
+  }
+  if (device && !device.learnerId) {
+    return <LinkThisDevice onCancel={() => void supabase.auth.signOut()} onLinked={(id) => { setDevice({ learnerId: id }); void refresh() }} />
+  }
+  if (device) {
+    const me = learners.find((l) => l.id === device.learnerId) ?? learners[0]
+    if (!me) return <p className="p-10 text-center text-sm text-slate-500">{loading ? 'Loading…' : loadError || 'This device isn’t linked to a learner anymore.'}</p>
+    if (view === 'practice') return <Practice learner={me} onChange={updateLearner} onExit={exitPractice} saveStatus={saveStatus} onActivity={touch} deviceMode />
+    return <DeviceHome learner={me} onPlay={() => { setActiveId(me.id); setView('practice') }} onUnlink={async () => { await flush(); await unlinkThisDevice(); }} />
   }
   if (termsOk === false) {
     return <AcceptTerms onDecline={() => void supabase.auth.signOut()} onAccept={async (adult, guardian) => { await acceptTerms(TERMS_VERSION, adult, guardian); setTermsOk(true) }} />
@@ -359,6 +407,7 @@ export default function App() {
         onUnlockKids={(pending) => { setPendingAdd(pending?.length ? pending : null); setEnrollMode('choose'); setView(aal.hasMfa ? 'mfa-challenge' : 'mfa-enroll') }}
         onAccount={() => setView('account')}
         onAdmin={isAdmin ? () => setView('admin') : undefined}
+        onSignOut={async () => { await flush(); await supabase.auth.signOut() }}
       />
     </>
   )

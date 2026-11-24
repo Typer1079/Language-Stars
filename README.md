@@ -221,3 +221,16 @@ Migration `009_accounts_and_terms.sql` adds:
 - **Sign out / Archive / Restore**: archive signs the account out everywhere, blocks sign-in and hides all its data
   (learners, history, rankings) without deleting anything; restore undoes it. Every action is audited with a reason.
 
+## Learner devices and 90-day inactivity
+
+Migration `010_devices_and_inactivity.sql`, plus one setting: **Authentication → Sign In / Providers → Allow
+anonymous sign-ins: ON** (needed for learner devices).
+
+- **Learner devices:** on ✏️ Edit for a learner, a parent (signed in with Face ID or an authenticator code) taps
+  **Make a link code**. On the child's phone, open the site, tap **I'm a learner: link this device** and type the
+  code (one use, 10 minutes). The child gives no email, phone or password. That device can only practice as that
+  learner: no other learners, no profile changes, no parent screens. Parents see linked devices and can unlink them.
+- **Inactivity:** an account with no sign-in or practice for 90 days is archived the next time it signs in. It can
+  reopen itself by confirming with an emailed sign-in link, Face ID, or its authenticator code. Optional nightly job:
+  enable `pg_cron` and run `select cron.schedule('archive-inactive', '20 4 * * *', $$select public.archive_inactive_accounts()$$);`
+
