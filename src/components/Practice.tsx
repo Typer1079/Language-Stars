@@ -14,6 +14,7 @@ import { Confetti, StickerBoard, StickerCanvas, StickerShop } from './Stickers'
 import { useWideScreen } from '../lib/useWideScreen'
 import { ProgressView } from './Progress'
 import { logRound } from '../lib/learnersApi'
+import { avatarFor } from '../lib/avatars'
 
 export type SaveStatus = 'saved' | 'saving' | 'offline' | 'error'
 
@@ -442,7 +443,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
               <h1 className="hidden font-kids text-2xl font-bold leading-tight sm:block">Language Stars</h1>
               <button type="button" onClick={onExit} title="Switch reader"
                 className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-sm font-bold text-indigo-700 hover:bg-indigo-100">
-                {spanish ? '🇪🇸' : learner.sticker_style === 'girl' ? '👧' : '👦'} {learner.display_name} <span className="text-indigo-400">▾</span>
+                {avatarFor(learner)} {learner.display_name} <span className="text-indigo-400">▾</span>
               </button>
             </div>
           </div>

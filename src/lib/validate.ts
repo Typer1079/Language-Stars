@@ -1,3 +1,4 @@
+import { ALL_AVATARS } from './avatars'
 import { maxLevel } from './progress'
 import { MAX_STICKERS } from './stickers'
 import { AGE_GROUPS, newId, type AgeGroup, type LearnerDraft, type LearnerKind, type Mode, type PlacedSticker, type StickerStyle } from './types'
@@ -82,6 +83,7 @@ export function cleanLearnerDraft(v: Record<string, unknown>, kind: LearnerKind)
     kind,
     age_group,
     sticker_style,
+    ...(typeof v.avatar === 'string' && ALL_AVATARS.has(v.avatar) ? { avatar: v.avatar } : {}),
     mode,
     reading_level,
     spanish_level,

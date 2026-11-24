@@ -3,6 +3,8 @@ import type React from 'react'
 import { activeLevel } from '../lib/progress'
 import { FaceIdOffer } from './FaceId'
 import { ProgressView } from './Progress'
+import { AVATAR_GROUPS, SKIN_TONES, avatarFor, toneOf, withTone } from '../lib/avatars'
+import { avatarsAvailable } from '../lib/learnersApi'
 import { MAX_LEVEL, stageName } from '../lib/curriculum'
 import { cleanName, parseSaveFile } from '../lib/validate'
 import { newLearnerDraft, type AgeGroup, type Learner, type LearnerDraft, type LearnerKind, type Mode, type StickerStyle } from '../lib/types'
@@ -23,11 +25,6 @@ interface Props {
   onAccount: () => void
   /** Only for super admins. */
   onAdmin?: () => void
-}
-
-function avatar(l: Pick<Learner, 'sticker_style' | 'age_group'>) {
-  if (l.age_group === 'adult') return l.sticker_style === 'girl' ? '👩' : l.sticker_style === 'boy' ? '👨' : '🧑'
-  return l.sticker_style === 'girl' ? '👧' : l.sticker_style === 'boy' ? '👦' : '🧒'
 }
 
 export default function LearnerPicker(p: Props) {
@@ -122,7 +119,7 @@ function LearnerCard({ learner: l, onPlay, onProgress, onEdit }: { learner: Lear
       </button>
 
       <div className="relative px-4 pb-4">
-        <div className={`-mt-9 flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-3xl bg-white text-4xl shadow-md ring-4 ${t.ring}`}>{avatar(l)}</div>
+        <div className={`-mt-9 flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-3xl bg-white text-4xl shadow-md ring-4 ${t.ring}`}>{avatarFor(l)}</div>
 
         <div className="mt-2 flex items-end justify-between gap-2">
           <div className="min-w-0">
@@ -189,6 +186,65 @@ function LevelPicker({ id, label, mode, value, onChange }: { id: string; label: 
   )
 }
 
+/** Pick a profile character: people of every look in six skin tones, heroes, animals and more. */
+function AvatarPicker({ value, fallback, onChange }: { value: string | null; fallback: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [tone, setTone] = useState(() => toneOf(value))
+  const [group, setGroup] = useState(AVATAR_GROUPS[0].id)
+  const g = AVATAR_GROUPS.find((x) => x.id === group) ?? AVATAR_GROUPS[0]
+  const shown = value ?? fallback
+
+  const changeTone = (next: string) => {
+    // Re-tone the current pick, if it's a person.
+    if (value) {
+      for (const grp of AVATAR_GROUPS) {
+        if (!grp.toned) continue
+        const base = grp.items.find((b) => withTone(b, tone) === value)
+        if (base) { onChange(withTone(base, next)); break }
+      }
+    }
+    setTone(next)
+  }
+
+  return (
+    <div>
+      <span className="label">Character</span>
+      <div className="flex items-center gap-3">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-50 to-fuchsia-50 text-4xl ring-2 ring-indigo-200">{shown}</div>
+        <button type="button" className="btn-secondary" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{open ? 'Done' : '🎨 Choose a character'}</button>
+      </div>
+      {!avatarsAvailable() && <p className="mt-1 text-xs text-amber-700">Characters save after the database update (migration 006) is run.</p>}
+      {open && (
+        <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <div className="mb-2 flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Skin tone">
+            <span className="text-xs font-bold text-slate-600">Skin tone</span>
+            {SKIN_TONES.map((t) => (
+              <button key={t.label} type="button" role="radio" aria-checked={tone === t.id} aria-label={t.label} title={t.label} onClick={() => changeTone(t.id)}
+                className={`h-8 w-8 rounded-full border-2 transition ${tone === t.id ? 'scale-110 border-indigo-600 ring-2 ring-indigo-200' : 'border-white shadow'}`}
+                style={{ backgroundColor: t.swatch }} />
+            ))}
+          </div>
+          <div className="-mx-1 mb-2 flex gap-1.5 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Character types">
+            {AVATAR_GROUPS.map((x) => (
+              <button key={x.id} type="button" role="tab" aria-selected={group === x.id} onClick={() => setGroup(x.id)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition ${group === x.id ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100'}`}>{x.label}</button>
+            ))}
+          </div>
+          <div className="grid max-h-64 grid-cols-6 gap-1.5 overflow-y-auto sm:grid-cols-8" role="radiogroup" aria-label="Characters">
+            {g.items.map((b) => {
+              const e = g.toned ? withTone(b, tone) : b
+              return (
+                <button key={b} type="button" role="radio" aria-checked={value === e} aria-label={`Character ${e}`} onClick={() => onChange(e)}
+                  className={`flex aspect-square items-center justify-center rounded-xl text-3xl transition hover:scale-110 ${value === e ? 'bg-indigo-100 ring-2 ring-indigo-500' : 'bg-white'}`}>{e}</button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export interface ReaderFields {
   name: string
   kind: LearnerKind
@@ -197,6 +253,7 @@ export interface ReaderFields {
   style: StickerStyle
   readingLevel: number
   spanishLevel: number
+  avatar: string | null
 }
 
 /** The add / edit form for a reader profile. */
@@ -227,6 +284,7 @@ export function ReaderForm({ initial, isNew, busy, error, submitLabel, onSubmit,
             options={[{ v: 'child', label: '🧒 Someone I manage' }, { v: 'self', label: '🙋 Me' }]} />
         </div>
       )}
+      <AvatarPicker value={f.avatar} fallback={avatarFor({ avatar: null, sticker_style: f.style, age_group: f.age })} onChange={(v) => set('avatar', v)} />
       <div>
         <label className="label" htmlFor="reader-name">First name or nickname</label>
         <input id="reader-name" className="input" maxLength={40} autoComplete="off" value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g., Ethan" />
@@ -271,7 +329,7 @@ function AddReader({ verified, onUnlockKids, onCreate, onCancel }: { verified: b
   async function submit(f: ReaderFields) {
     if (!f.name) return setError('Enter a first name or nickname.')
     const base = newLearnerDraft(f.name, f.kind, f.age, f.style)
-    const draft: LearnerDraft = { ...base, mode: f.mode, reading_level: f.readingLevel, spanish_level: f.spanishLevel, reading_best: f.readingLevel, spanish_best: f.spanishLevel }
+    const draft: LearnerDraft = { ...base, mode: f.mode, reading_level: f.readingLevel, spanish_level: f.spanishLevel, reading_best: f.readingLevel, spanish_best: f.spanishLevel, ...(f.avatar ? { avatar: f.avatar } : {}) }
     // Managed profiles are protected by two-step sign-in; set it up first, then add automatically.
     if (f.kind === 'child' && !verified) return onUnlockKids([draft])
     setBusy(true)
@@ -288,7 +346,7 @@ function AddReader({ verified, onUnlockKids, onCreate, onCancel }: { verified: b
   return (
     <ReaderForm isNew busy={busy} error={error} onSubmit={submit} onCancel={onCancel}
       submitLabel={verified ? 'Add reader' : 'Add reader (sets up two-step sign-in)'}
-      initial={{ name: '', kind: 'child', mode: 'reading', age: '5-6', style: 'any', readingLevel: 1, spanishLevel: 1 }} />
+      initial={{ name: '', kind: 'child', mode: 'reading', age: '5-6', style: 'any', readingLevel: 1, spanishLevel: 1, avatar: null }} />
   )
 }
 
@@ -306,7 +364,7 @@ function EditReader({ learner, onSave, onCancel }: { learner: Learner; onSave: (
     setBusy(true)
     setError('')
     try {
-      let next: Learner = { ...learner, display_name: f.name, mode: f.mode, age_group: f.age, sticker_style: f.style }
+      let next: Learner = { ...learner, display_name: f.name, mode: f.mode, age_group: f.age, sticker_style: f.style, ...(f.avatar ? { avatar: f.avatar } : {}) }
       // A new starting level: the best level only ever goes up (the database requires it).
       if (f.readingLevel !== learner.reading_level) next = { ...next, reading_level: f.readingLevel, reading_best: Math.max(learner.reading_best ?? 1, f.readingLevel) }
       if (f.spanishLevel !== learner.spanish_level) next = { ...next, spanish_level: f.spanishLevel, spanish_best: Math.max(learner.spanish_best ?? 1, f.spanishLevel) }
@@ -322,7 +380,7 @@ function EditReader({ learner, onSave, onCancel }: { learner: Learner; onSave: (
     <div ref={ref}>
       <h2 className="mt-6 font-kids text-xl font-bold">Edit {learner.display_name}</h2>
       <ReaderForm isNew={false} busy={busy} error={error} onSubmit={submit} onCancel={onCancel} submitLabel="Save changes"
-        initial={{ name: learner.display_name, kind: learner.kind, mode: learner.mode, age: learner.age_group, style: learner.sticker_style, readingLevel: learner.reading_level, spanishLevel: learner.spanish_level }}
+        initial={{ name: learner.display_name, kind: learner.kind, mode: learner.mode, age: learner.age_group, style: learner.sticker_style, readingLevel: learner.reading_level, spanishLevel: learner.spanish_level, avatar: learner.avatar ?? null }}
         footer={<p className="text-xs text-slate-500">Stars and stickers aren’t changed. To delete a reader, use ⚙️ Account.</p>} />
     </div>
   )

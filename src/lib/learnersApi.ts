@@ -1,26 +1,53 @@
 import { supabase } from './supabase'
 import type { Learner, LearnerDraft } from './types'
 
-const COLUMNS =
+const BASE_COLUMNS =
   'id, display_name, kind, age_group, sticker_style, mode, reading_level, spanish_level, reading_best, spanish_best, lifetime_stars, spendable_stars, mastered, stickers, updated_at'
 
+// Profile characters need migration 006 (the `avatar` column). Until it's run, the app keeps
+// working without them instead of failing.
+let avatarColumn = true
+const columns = () => (avatarColumn ? `${BASE_COLUMNS}, avatar` : BASE_COLUMNS)
+const missingAvatar = (e: { message?: string; code?: string } | null) => Boolean(e && /avatar/i.test(e.message ?? '') && /column|schema cache/i.test(e.message ?? ''))
+function withoutAvatar<T extends { avatar?: unknown }>(row: T): Omit<T, 'avatar'> | T {
+  if (avatarColumn) return row
+  const { avatar: _a, ...rest } = row
+  void _a
+  return rest
+}
+
+/** True once the database can store profile characters. */
+export const avatarsAvailable = () => avatarColumn
+
 export async function listLearners(): Promise<Learner[]> {
-  const { data, error } = await supabase.from('learners').select(COLUMNS).order('created_at', { ascending: true })
+  let { data, error } = await supabase.from('learners').select(columns()).order('created_at', { ascending: true })
+  if (missingAvatar(error)) {
+    avatarColumn = false
+    ;({ data, error } = await supabase.from('learners').select(columns()).order('created_at', { ascending: true }))
+  }
   if (error) throw error
-  return (data ?? []) as Learner[]
+  return (data ?? []) as unknown as Learner[]
 }
 
 export async function createLearner(d: LearnerDraft): Promise<Learner> {
-  const { data, error } = await supabase.from('learners').insert(d).select(COLUMNS).single()
+  let { data, error } = await supabase.from('learners').insert(withoutAvatar(d)).select(columns()).single()
+  if (missingAvatar(error)) {
+    avatarColumn = false
+    ;({ data, error } = await supabase.from('learners').insert(withoutAvatar(d)).select(columns()).single())
+  }
   if (error) throw error
-  return data as Learner
+  return data as unknown as Learner
 }
 
 /** Saves progress and profile fields (never the id or owner). */
 export async function saveLearner(l: Learner): Promise<void> {
   const { id, updated_at: _u, ...fields } = l
   void _u
-  const { error } = await supabase.from('learners').update(fields).eq('id', id)
+  let { error } = await supabase.from('learners').update(withoutAvatar(fields)).eq('id', id)
+  if (missingAvatar(error)) {
+    avatarColumn = false
+    ;({ error } = await supabase.from('learners').update(withoutAvatar(fields)).eq('id', id))
+  }
   if (error) throw error
 }
 

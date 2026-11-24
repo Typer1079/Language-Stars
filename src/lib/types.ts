@@ -27,6 +27,8 @@ export interface Learner {
   kind: LearnerKind
   age_group: AgeGroup
   sticker_style: StickerStyle
+  /** Profile character (an emoji); null = default from the profile. */
+  avatar?: string | null
   mode: Mode
   reading_level: number
   spanish_level: number
