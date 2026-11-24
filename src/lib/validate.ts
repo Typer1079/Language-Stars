@@ -45,6 +45,7 @@ export function cleanStickers(v: unknown): PlacedSticker[] {
       }
       if (s.scale !== undefined) out.scale = num(s.scale, 0.5, 6, 1)
       if (s.growCount !== undefined) out.growCount = int(s.growCount, 0, 30, 0)
+      if (s.spent !== undefined) out.spent = int(s.spent, 1, 100000, 1)
       return out
     })
 }

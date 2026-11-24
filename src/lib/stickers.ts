@@ -1,18 +1,25 @@
 import { shuffle } from './progress'
 import { STICKER_POOL, type StickerItem } from './stickerPool'
+import { FOR_YOU, packById } from './stickerPacks'
 import { newId, type Learner, type PlacedSticker } from './types'
 
-/** Growing costs 1 star, then 2, then 3, ... */
+/** Growing follows the Fibonacci sequence: 1, 2, 3, 5, 8, 13, 21 ... stars. */
 export function growCost(growCount = 0): number {
-  return (Number(growCount) || 0) + 1
+  const g = Math.max(0, Math.floor(Number(growCount) || 0))
+  let a = 1
+  let b = 2
+  for (let i = 0; i < g; i++) [a, b] = [b, a + b]
+  return a
 }
 
-/** Selling refunds everything spent on the sticker: 1 for buying plus every grow step. */
-export function sellValue(st: Pick<PlacedSticker, 'growCount'>): number {
+/** Biggest a sticker can get (12 grows = 4x its size). */
+export const MAX_GROW = 12
+
+/** Selling refunds exactly what was spent on the sticker. Older stickers (before costs were tracked) use the old 1, 2, 3 ... prices. */
+export function sellValue(st: Pick<PlacedSticker, 'growCount' | 'spent'>): number {
+  if (typeof st.spent === 'number' && st.spent >= 1) return Math.floor(st.spent)
   const g = Number(st.growCount) || 0
-  let spent = 1
-  for (let i = 0; i < g; i++) spent += growCost(i)
-  return Math.max(1, spent)
+  return 1 + (g * (g + 1)) / 2
 }
 
 export function stickerScale(st: PlacedSticker): number {
@@ -31,8 +38,9 @@ export function stickerPoolFor(l: Pick<Learner, 'sticker_style' | 'age_group'>):
   return matched.length >= 4 ? matched : STICKER_POOL
 }
 
-export function makeCatalog(l: Pick<Learner, 'sticker_style' | 'age_group'>, rand: () => number = Math.random): CatalogItem[] {
-  return shuffle(stickerPoolFor(l), rand)
+export function makeCatalog(l: Pick<Learner, 'sticker_style' | 'age_group'>, rand: () => number = Math.random, packId: string = FOR_YOU): CatalogItem[] {
+  const pool = packById(packId)?.items ?? stickerPoolFor(l)
+  return shuffle(pool, rand)
     .slice(0, 8)
     .map((item) => ({ ...item, uid: newId(), rot: Math.floor(rand() * 24) - 12 }))
 }
@@ -49,6 +57,7 @@ export function buySticker(l: Learner, item: CatalogItem, rand: () => number = M
     y: 14 + rand() * 64,
     rot: item.rot,
     growCount: 0,
+    spent: item.cost,
   }
   return { ...l, spendable_stars: l.spendable_stars - item.cost, stickers: [...l.stickers, placed] }
 }
@@ -57,11 +66,11 @@ export function growSticker(l: Learner, id: string): Learner | null {
   const st = l.stickers.find((s) => s.id === id)
   if (!st) return null
   const cost = growCost(st.growCount)
-  if (l.spendable_stars < cost) return null
+  if (l.spendable_stars < cost || (Number(st.growCount) || 0) >= MAX_GROW) return null
   return {
     ...l,
     spendable_stars: l.spendable_stars - cost,
-    stickers: l.stickers.map((s) => (s.id === id ? { ...s, growCount: (Number(s.growCount) || 0) + 1 } : s)),
+    stickers: l.stickers.map((s) => (s.id === id ? { ...s, growCount: (Number(s.growCount) || 0) + 1, spent: sellValue(s) + cost } : s)),
   }
 }
 

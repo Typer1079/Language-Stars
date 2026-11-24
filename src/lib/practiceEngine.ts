@@ -2,7 +2,8 @@ import { isWordMatch } from './match'
 import type { PracticeItem } from './progress'
 import { createRecognition, speakSegments, cancelSpeech, IS_IOS, type RecognitionLike, type VoiceSegment } from './speech'
 import type { Mode } from './types'
-import { ENCOURAGING_NICKNAMES, PHONICS_SOUNDS } from './wordBanks'
+import { ENCOURAGING_NICKNAMES } from './wordBanks'
+import { wordHelp } from './phonics'
 
 export type Tone = 'neutral' | 'listening' | 'success' | 'coach'
 /**
@@ -29,20 +30,13 @@ export interface EngineHooks {
   log(tag: string, detail?: string): void
 }
 
-// How each letter's sound is spoken by the browser voice (the screen shows the IPA symbol).
-const SPOKEN_SOUNDS: Record<string, string> = {
-  a: 'ah', b: 'buh', c: 'kuh', d: 'duh', e: 'eh', f: 'fuh', g: 'guh', h: 'huh', i: 'ih', j: 'juh',
-  k: 'kuh', l: 'luh', m: 'muh', n: 'nuh', o: 'aw', p: 'puh', q: 'kwuh', r: 'ruh', s: 'sss', t: 'tuh',
-  u: 'uh', v: 'vuh', w: 'wuh', x: 'ks', y: 'yuh', z: 'zzz',
-}
-
 const LISTEN_MS = 5200
 
 const pick = <T,>(list: T[]): T => list[Math.floor(Math.random() * list.length)]
 
 /**
  * Runs one practice word: opens the microphone, listens for the word, and brings in the
- * AI coach (sound it out / Spanish example) when the reader needs help.
+ * Iris (word chunks and rhymes / Spanish example) when the reader needs help.
  * Ported from the original app's turn logic; UI updates go through `hooks`.
  */
 export class PracticeEngine {
@@ -237,13 +231,12 @@ export class PracticeEngine {
       )
       return
     }
-    const letters = word.toLowerCase().split('')
-    const shown = letters.map((ch) => PHONICS_SOUNDS[ch] ?? ch).join(' ')
-    const spoken = letters.map((ch) => SPOKEN_SOUNDS[ch] ?? ch).join(', ')
-    this.hooks.feedback(`Iris: "${word}"`, `${shown} → ${word}`, 'coach')
+    const help = wordHelp(word, callout)
+    const shown = help.kind === 'rhyme' ? `${help.chunks.join(' · ')} — rhymes with ${help.rhymes.join(', ')}` : help.chunks.join(' · ')
+    this.hooks.feedback(`Iris: "${word}"`, help.kind === 'whole' ? word : `${shown} → ${word}`, 'coach')
     this.coachSequence(
       gen,
-      [{ text: `Let's sound it out together. ${spoken}. ${word}! Now you say it, ${callout}.`, lang: 'en-US' }],
+      [{ text: help.speech, lang: 'en-US' }],
       [{ text: `Almost! Say ${word}.`, lang: 'en-US' }],
       'Next word coming up!',
       `Target: "${word}"`,

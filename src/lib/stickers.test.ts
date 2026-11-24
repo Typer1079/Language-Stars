@@ -8,11 +8,26 @@ const l: Learner = {
 }
 
 describe('stickers', () => {
-  it('grow costs escalate and sell refunds everything spent', () => {
-    expect([0, 1, 2].map(growCost)).toEqual([1, 2, 3])
+  it('grow costs follow Fibonacci; older stickers keep their old sell value', () => {
+    expect([0, 1, 2, 3, 4, 5, 6].map(growCost)).toEqual([1, 2, 3, 5, 8, 13, 21])
     expect(sellValue({ growCount: 0 })).toBe(1)
     expect(sellValue({ growCount: 3 })).toBe(7)
-    expect(sellValue({ growCount: 10 })).toBe(56)
+    expect(sellValue({ growCount: 3, spent: 13 })).toBe(13)
+  })
+  it('tracks stars spent so selling refunds exactly that', () => {
+    const rich = { ...l, lifetime_stars: 100, spendable_stars: 50 }
+    let x = buySticker(rich, { ...makeCatalog(rich)[0], cost: 2 })!
+    const id = x.stickers[0].id
+    for (let i = 0; i < 4; i++) x = growSticker(x, id)!
+    // 2 to buy + 1 + 2 + 3 + 5 to grow
+    expect(x.spendable_stars).toBe(50 - 13)
+    expect(x.stickers[0].spent).toBe(13)
+    expect(sellSticker(x, id)!.spendable_stars).toBe(50)
+  })
+  it('builds a shop from the chosen themed pack', () => {
+    const cat = makeCatalog(l, Math.random, 'sports')
+    expect(cat).toHaveLength(8)
+    expect(cat.every((c) => c.themes.includes('pack:sports'))).toBe(true)
   })
   it('buys, grows and sells with correct balances', () => {
     const item = { ...makeCatalog(l)[0], cost: 1 }

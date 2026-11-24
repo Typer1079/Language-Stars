@@ -6,9 +6,10 @@ import { playChime } from '../lib/sfx'
 import { moveSticker } from '../lib/stickers'
 import { recognitionSupported } from '../lib/speech'
 import type { Learner } from '../lib/types'
-import { PHONICS_SOUNDS } from '../lib/wordBanks'
+import { wordHelp } from '../lib/phonics'
 import { makeConfetti, type ConfettiPiece } from '../lib/confetti'
-import { Confetti, StickerCanvas, StickerShop } from './Stickers'
+import { Confetti, StickerBoard, StickerCanvas, StickerShop } from './Stickers'
+import { useWideScreen } from '../lib/useWideScreen'
 
 export type SaveStatus = 'saved' | 'saving' | 'offline' | 'error'
 
@@ -44,6 +45,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const [phraseShown, setPhraseShown] = useState(false)
   const [success, setSuccess] = useState(false)
   const [shop, setShop] = useState<string | null>(null)
+  const wide = useWideScreen()
   const [roundDone, setRoundDone] = useState(false)
   const [logOpen, setLogOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -309,11 +311,12 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     success: 'bg-amber-50 border-amber-300 text-amber-900',
     coach: 'bg-indigo-50 border-indigo-200 text-indigo-900',
   }
+  const moveOne = (id: string, x: number, y: number) => onChange(moveSticker(learnerRef.current, id, x, y))
   const saveLabel = { saved: '✓ Saved', saving: 'Saving…', offline: 'Offline – will retry', error: 'Not saved' }[saveStatus]
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <StickerCanvas stickers={learner.stickers} onMove={(id, x, y) => onChange(moveSticker(learnerRef.current, id, x, y))} />
+      {wide && <StickerCanvas stickers={learner.stickers} onMove={moveOne} />}
       <Confetti pieces={confetti} />
 
       <header className="relative z-30 mx-auto w-full max-w-5xl px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 sm:px-6">
@@ -391,12 +394,27 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
         <section className={`relative flex w-full max-w-2xl flex-col items-center justify-center rounded-3xl border-4 bg-white/95 p-6 text-center shadow-xl backdrop-blur-md transition-all duration-300 sm:p-8 ${success ? 'border-emerald-400' : 'border-indigo-100'}`}>
           {item && !spanish && !item.target.includes(' ') && (
             <div key={`${learner.id}-${index}-${item.key}`} className="my-3 flex min-h-[120px] flex-wrap items-center justify-center gap-3 sm:min-h-[145px] sm:gap-4">
-              {item.target.split('').map((ch, i) => (
-                <div key={i} className="animate-tile-pop flex flex-col items-center" style={{ animationDelay: `${i * 45}ms` }}>
-                  <div className="flex h-20 w-16 items-center justify-center rounded-2xl border-2 border-indigo-200 bg-gradient-to-b from-indigo-50 to-white font-kids text-4xl font-bold text-indigo-900 shadow-sm sm:h-24 sm:w-20 sm:text-5xl">{ch}</div>
-                  <span className="mt-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-900">{PHONICS_SOUNDS[ch.toLowerCase()] ?? ''}</span>
-                </div>
-              ))}
+              {(() => {
+                const help = wordHelp(item.target, '')
+                return (
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3" aria-label={item.target}>
+                      {help.chunks.map((chunk, i) => (
+                        <div key={i} className="animate-tile-pop flex items-center" style={{ animationDelay: `${i * 60}ms` }}>
+                          {i > 0 && <span className="mr-2 text-2xl font-bold text-indigo-300 sm:mr-3" aria-hidden>·</span>}
+                          <div className={`flex h-20 items-center justify-center rounded-2xl border-2 px-3 font-kids text-4xl font-bold shadow-sm sm:h-24 sm:px-4 sm:text-5xl ${i % 2 ? 'border-amber-200 bg-gradient-to-b from-amber-50 to-white text-amber-900' : 'border-indigo-200 bg-gradient-to-b from-indigo-50 to-white text-indigo-900'}`}>{chunk}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {help.rhymes.length > 0 && (
+                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900">rhymes with {help.rhymes.join(' · ')}</span>
+                    )}
+                    {help.kind === 'syllables' && (
+                      <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-800">👏 {help.chunks.length} claps</span>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           )}
 
@@ -449,7 +467,15 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
             <button type="button" onClick={skip} className="rounded-2xl bg-slate-100 px-4 py-3.5 font-kids text-base font-bold text-slate-700 transition hover:bg-slate-200 active:scale-95 sm:text-lg">Next ➡️</button>
           </div>
         </section>
+
+        {!wide && learner.stickers.length > 0 && (
+          <a href="#sticker-board" className="text-xs font-bold text-fuchsia-700 underline-offset-2 hover:underline">
+            👇 Scroll down to see your {learner.stickers.length} sticker{learner.stickers.length === 1 ? '' : 's'}
+          </a>
+        )}
       </main>
+
+      {!wide && <StickerBoard name={learner.display_name} stickers={learner.stickers} onMove={moveOne} onShop={() => openShop('Pick a sticker for your board!')} />}
 
       {roundDone && !shop && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true">

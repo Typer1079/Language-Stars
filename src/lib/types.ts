@@ -16,6 +16,8 @@ export interface PlacedSticker {
   /** Starting size (older stickers); growing adds 0.25 per step on top. */
   scale?: number
   growCount?: number
+  /** Stars spent on this sticker (buying + growing); selling refunds exactly this. */
+  spent?: number
 }
 
 /** A reader profile, stored in the `learners` table. */
