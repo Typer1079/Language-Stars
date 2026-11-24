@@ -209,3 +209,15 @@ A wrong spelling shows the right one; "The mic misheard me" retries the word, an
 backup when the microphone struggles. Spelling shows up in progress graphs, world ranks and the admin dashboard.
 Run 005, 006 and 007 first.
 
+## Accounts, Terms and archiving
+
+Migration `009_accounts_and_terms.sql` adds:
+- **Terms of Use and Privacy Policy** (`src/lib/legal.ts`): account holders must be 18+, confirm they are the parent or
+  guardian of any child they add, and accept the current version (asked at sign-up and again whenever `TERMS_VERSION`
+  changes). Each acceptance is stored with its version and time. Written for COPPA, Apple's minimum EULA terms and the
+  App Store Kids Category rules (no ads, no third-party analytics). Have it reviewed by a lawyer before publishing to
+  the App Store, and set `CONTACT_EMAIL` in `src/lib/legal.ts` to the address parents should use.
+- **Admin user list** (📊 Admin → Users): every account's email, learners and last activity.
+- **Sign out / Archive / Restore**: archive signs the account out everywhere, blocks sign-in and hides all its data
+  (learners, history, rankings) without deleting anything; restore undoes it. Every action is audited with a reason.
+

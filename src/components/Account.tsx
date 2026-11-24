@@ -5,6 +5,7 @@ import { irisVoiceName } from '../lib/speech'
 import { supabase } from '../lib/supabase'
 import { SignInMethods } from './FaceId'
 import type { Learner } from '../lib/types'
+import { LegalLinks } from './Legal'
 
 interface Props {
   email: string
@@ -19,9 +20,9 @@ interface Props {
 }
 
 function describe(e: AuditEntry, names: Map<string, string>): string {
-  const who = (e.learner_id && names.get(e.learner_id)) || 'a reader'
+  const who = (e.learner_id && names.get(e.learner_id)) || 'a learner'
   if (e.action === 'learner.create') return `Added ${who}`
-  if (e.action === 'learner.delete') return `Deleted a reader`
+  if (e.action === 'learner.delete') return `Deleted a learner`
   const parts: string[] = []
   const d = e.detail as Record<string, [number | string, number | string] | boolean>
   const pair = (k: string, label: string) => {
@@ -83,7 +84,7 @@ export default function Account(p: Props) {
     <div className="mx-auto max-w-lg space-y-4 px-4 py-8">
       <div className="flex items-center justify-between">
         <h1 className="font-kids text-2xl font-bold">Account</h1>
-        <button type="button" className="chip" onClick={p.onBack}>← Readers</button>
+        <button type="button" className="chip" onClick={p.onBack}>← Learners</button>
       </div>
       <p className="text-sm text-slate-600">Signed in as <b>{p.email}</b></p>
       {message && <p role="status" className="rounded-xl bg-indigo-50 px-3 py-2 text-sm text-indigo-900">{message}</p>}
@@ -100,13 +101,13 @@ export default function Account(p: Props) {
 
       <section className="card space-y-2">
         <h2 className="font-semibold">Backup</h2>
-        <p className="text-sm text-slate-600">Download every reader’s progress as a file. Keep it somewhere private; it includes first names.</p>
+        <p className="text-sm text-slate-600">Download every learner’s progress as a file. Keep it somewhere private; it includes first names.</p>
         <button type="button" className="btn-secondary" onClick={exportBackup} disabled={p.learners.length === 0}>⬇️ Download backup</button>
       </section>
 
       <section className="card space-y-2">
         <h2 className="font-semibold">Activity</h2>
-        <p className="text-xs text-slate-500">Star, level and sticker changes on this account’s readers. Kept for one year.</p>
+        <p className="text-xs text-slate-500">Star, level and sticker changes on this account’s learners. Kept for one year.</p>
         {auditErr && <p className="text-sm text-rose-700">{auditErr}</p>}
         {!audit && !auditErr && <p className="text-sm text-slate-500">Loading…</p>}
         {audit && audit.length === 0 && <p className="text-sm text-slate-500">No activity yet.</p>}
@@ -123,9 +124,9 @@ export default function Account(p: Props) {
       </section>
 
       <section className="card space-y-2">
-        <h2 className="font-semibold">Delete a reader</h2>
+        <h2 className="font-semibold">Delete a learner</h2>
         <select className="input" value={deleteId} onChange={(e) => { setDeleteId(e.target.value); setConfirmName('') }} aria-label="Reader to delete">
-          <option value="">Choose a reader…</option>
+          <option value="">Choose a learner…</option>
           {p.learners.map((l) => <option key={l.id} value={l.id}>{l.display_name}</option>)}
         </select>
         {toDelete && (
@@ -143,7 +144,7 @@ export default function Account(p: Props) {
         <button type="button" className="btn-secondary" onClick={() => supabase.auth.signOut()}>🚪 Sign out</button>
         <button type="button" className="btn-secondary" onClick={signOutEverywhere}>Sign out on all devices</button>
       </section>
-      <p className="text-center text-[11px] text-slate-400">Version {__APP_VERSION__}</p>
+      <p className="text-center text-[11px] text-slate-400">Version {__APP_VERSION__} · <LegalLinks /></p>
     </div>
   )
 }

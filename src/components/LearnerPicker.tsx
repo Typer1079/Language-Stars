@@ -58,9 +58,9 @@ export default function LearnerPicker(p: Props) {
           <LearnerCard key={l.id} learner={l} onMode={(m) => { void p.onUpdate({ ...l, mode: m }).catch(() => {}) }} onPlay={() => p.onPick(l)} onProgress={() => setViewing(l)} onEdit={() => { setPanel('none'); setEditing(l) }} />
         ))}
         {!p.loading && p.learners.length === 0 && (
-          <p className="card text-sm text-slate-600 sm:col-span-2">No readers yet. Add one below, or import a backup from the old app.</p>
+          <p className="card text-sm text-slate-600 sm:col-span-2">No learners yet. Add one below, or import a backup from the old app.</p>
         )}
-        {p.loading && <p className="text-sm text-slate-500">Loading readers…</p>}
+        {p.loading && <p className="text-sm text-slate-500">Loading learners…</p>}
       </div>
       {p.error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{p.error}</p>}
 
@@ -77,7 +77,7 @@ export default function LearnerPicker(p: Props) {
       )}
 
       <div className="mt-6 flex flex-wrap gap-2">
-        <button type="button" className="btn-secondary" onClick={() => { setEditing(null); setPanel(panel === 'add' ? 'none' : 'add') }}>+ Add reader</button>
+        <button type="button" className="btn-secondary" onClick={() => { setEditing(null); setPanel(panel === 'add' ? 'none' : 'add') }}>+ Add learner</button>
         <button type="button" className="btn-secondary" onClick={() => { setEditing(null); setPanel(panel === 'import' ? 'none' : 'import') }}>📂 Import backup</button>
       </div>
 
@@ -325,7 +325,7 @@ export function ReaderForm({ initial, isNew, busy, error, submitLabel, onSubmit,
     <form onSubmit={submit} className="card mt-4 space-y-4">
       {isNew && (
         <div>
-          <span className="label">Who is this reader?</span>
+          <span className="label">Who is this learner?</span>
           <Choice label="Who is this reader" value={f.kind} onChange={(v) => setF((x) => ({ ...x, kind: v, ...(v === 'self' ? { mode: 'spanish' as Mode, age: 'adult' as AgeGroup } : {}) }))}
             options={[{ v: 'child', label: '🧒 Someone I manage' }, { v: 'self', label: '🙋 Me' }]} />
         </div>
@@ -384,7 +384,7 @@ function AddReader({ verified, onUnlockKids, onCreate, onCancel }: { verified: b
     try {
       await onCreate(draft)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Couldn’t add the reader.')
+      setError(err instanceof Error ? err.message : 'Couldn’t add the learner.')
     } finally {
       setBusy(false)
     }
@@ -392,7 +392,7 @@ function AddReader({ verified, onUnlockKids, onCreate, onCancel }: { verified: b
 
   return (
     <ReaderForm isNew busy={busy} error={error} onSubmit={submit} onCancel={onCancel}
-      submitLabel={verified ? 'Add reader' : 'Add reader (sets up two-step sign-in)'}
+      submitLabel={verified ? 'Add learner' : 'Add learner (sets up two-step sign-in)'}
       initial={{ name: '', kind: 'child', mode: 'reading', age: '5-6', style: 'any', readingLevel: 1, spanishLevel: 1, spellingLevel: 1, avatar: null }} />
   )
 }
@@ -433,7 +433,7 @@ function EditReader({ learner, onSave, onCancel }: { learner: Learner; onSave: (
       <h2 className="mt-6 font-kids text-xl font-bold">Edit {learner.display_name}</h2>
       <ReaderForm isNew={false} busy={busy} error={error} onSubmit={submit} onCancel={onCancel} submitLabel="Save changes"
         initial={{ name: learner.display_name, kind: learner.kind, mode: learner.mode, age: learner.age_group, style: learner.sticker_style, readingLevel: learner.reading_level, spanishLevel: learner.spanish_level, spellingLevel: learner.spelling_level ?? 1, avatar: learner.avatar ?? null }}
-        footer={<p className="text-xs text-slate-500">Stars and stickers aren’t changed. To delete a reader, use ⚙️ Account.</p>} />
+        footer={<p className="text-xs text-slate-500">Stars and stickers aren’t changed. To delete a learner, use ⚙️ Account.</p>} />
     </div>
   )
 }
@@ -459,7 +459,7 @@ function ImportReaders({ verified, onUnlockKids, onImport }: { verified: boolean
 
   async function submit() {
     const chosen = picked()
-    if (chosen.length === 0) return setError('Choose at least one reader.')
+    if (chosen.length === 0) return setError('Choose at least one learner.')
     setBusy(true)
     setError('')
     try {

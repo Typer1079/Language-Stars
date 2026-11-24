@@ -93,3 +93,13 @@ security (PS) are organizational responsibilities outside the app.
 
 ## Reporting a problem
 Open a private security advisory on the GitHub repository (Security → Advisories → New draft).
+
+### Account management and rules of behavior (migration 009)
+
+| Control | How it's met |
+|---|---|
+| AC-2(3) Disable accounts | Admin can archive an account: sessions and refresh tokens are deleted, sign-in is blocked (`banned_until`), and every row-level policy checks `account_active()`, so the account can't reach any data even with a still-valid token. Restore reverses it. Audited as `admin.account_archive` / `_restore` / `_sign_out` with a reason. |
+| AC-2(4) Automated audit of account actions | Admin views (`admin.view_users`) and actions are written to `audit_log`. |
+| PL-4 Rules of behavior / PT-5 Privacy notice | Terms of Use and Privacy Policy shown at sign-up and at sign-in whenever the version changes; acceptance (adult, guardian, version, time) stored in `terms_acceptance`. |
+| PT-2 / COPPA parental consent | Only an adult account holder can add a child's profile, and only with two-step sign-in; the holder attests to being the parent/guardian and consents. |
+

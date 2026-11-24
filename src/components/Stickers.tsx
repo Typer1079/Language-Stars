@@ -186,7 +186,7 @@ export function StickerShop({ learner, reason, onChange, onClose, onSignOut }: {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2">
-          <button type="button" className="btn-danger" onClick={onSignOut}>🚪 Switch reader</button>
+          <button type="button" className="btn-danger" onClick={onSignOut}>🚪 Switch learner</button>
           <button type="button" className="btn bg-gradient-to-r from-emerald-500 to-teal-600 font-kids text-base text-white shadow-md hover:from-emerald-600 hover:to-teal-700" onClick={onClose}>
             Keep Reading ➡️
           </button>

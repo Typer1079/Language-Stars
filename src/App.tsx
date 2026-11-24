@@ -6,7 +6,9 @@ import Auth, { NewPassword } from './components/Auth'
 import LearnerPicker from './components/LearnerPicker'
 import { MfaChallenge, MfaEnroll } from './components/Mfa'
 import Practice, { type SaveStatus } from './components/Practice'
-import { checkIsAdmin, createLearner, dbMessage, listLearners, saveLearner } from './lib/learnersApi'
+import { acceptTerms, checkIsAdmin, createLearner, dbMessage, listLearners, myAccountStatus, saveLearner } from './lib/learnersApi'
+import { AcceptTerms } from './components/Legal'
+import { TERMS_VERSION } from './lib/legal'
 import { primeVoices } from './lib/speech'
 import { isConfigured, supabase } from './lib/supabase'
 import type { Learner, LearnerDraft } from './lib/types'
@@ -35,6 +37,8 @@ export default function App() {
   const [pendingAdd, setPendingAdd] = useState<LearnerDraft[] | null>(null)
   // Super admin (set only in the database, and only with a two-step / Face ID session).
   const [isAdmin, setIsAdmin] = useState(false)
+  // Has this account accepted the current Terms? (null = still checking)
+  const [termsOk, setTermsOk] = useState<boolean | null>(null)
 
   const pending = useRef(new Map<string, Learner>())
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -101,6 +105,39 @@ export default function App() {
       cancelled = true
     }
   }, [session, checkAal, refresh])
+
+  // Archived accounts are signed out; everyone else must have accepted the current Terms of Use.
+  const statusUser = session?.user.id
+  const statusEmail = session?.user.email?.toLowerCase()
+  useEffect(() => {
+    if (!statusUser) return
+    let live = true
+    // eslint-disable-next-line react/set-state-in-effect
+    setTermsOk(null)
+    void (async () => {
+      const st = await myAccountStatus()
+      if (!live) return
+      if (!st) return setTermsOk(true) // database update 009 not run yet: nothing to check
+      if (st.archived) {
+        setNotice('This account has been archived. Contact the administrator if you think this is a mistake.')
+        await supabase.auth.signOut()
+        return
+      }
+      if (st.terms_version === TERMS_VERSION) return setTermsOk(true)
+      // Agreed while creating the account (before the email was confirmed): record it now.
+      try {
+        const pendingTerms = JSON.parse(localStorage.getItem('ras.pendingTerms') ?? 'null') as { email: string; version: string; adult: boolean; guardian: boolean } | null
+        if (pendingTerms && pendingTerms.email === statusEmail && pendingTerms.version === TERMS_VERSION && pendingTerms.adult) {
+          await acceptTerms(TERMS_VERSION, true, pendingTerms.guardian)
+          localStorage.removeItem('ras.pendingTerms')
+          if (live) setTermsOk(true)
+          return
+        }
+      } catch { /* fall through to asking */ }
+      if (live) setTermsOk(false)
+    })()
+    return () => { live = false }
+  }, [statusUser, statusEmail])
 
   // ---- saving --------------------------------------------------------------------------------
 
@@ -214,7 +251,7 @@ export default function App() {
       }
       await create(d)
     }
-    if (skipped.length) setNotice(`Skipped ${skipped.join(', ')}: a reader with that name already exists.`)
+    if (skipped.length) setNotice(`Skipped ${skipped.join(', ')}: a learner with that name already exists.`)
   }
 
   async function afterVerified() {
@@ -230,7 +267,7 @@ export default function App() {
         await refresh()
         setNotice(`Added ${list.map((d) => d.display_name).join(', ')}.`)
       } catch (err) {
-        setNotice(err instanceof Error ? err.message : 'Couldn’t add the reader.')
+        setNotice(err instanceof Error ? err.message : 'Couldn’t add the learner.')
       }
     }
   }
@@ -272,6 +309,9 @@ export default function App() {
         <Auth />
       </>
     )
+  }
+  if (termsOk === false) {
+    return <AcceptTerms onDecline={() => void supabase.auth.signOut()} onAccept={async (adult, guardian) => { await acceptTerms(TERMS_VERSION, adult, guardian); setTermsOk(true) }} />
   }
   if (view === 'recovery') return <NewPassword onDone={() => { setNotice('Password updated.'); void afterVerified() }} />
   if (view === 'mfa-challenge') {

@@ -91,8 +91,8 @@ export async function listAudit(limit = 100): Promise<AuditEntry[]> {
 export function dbMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : typeof err === 'object' && err && 'message' in err ? String((err as { message: unknown }).message) : String(err)
   if (/row-level security/i.test(msg)) return 'Kids’ profiles need two-step sign-in. Verify with your authenticator code first.'
-  if (/learners_owner_name_idx|duplicate key/i.test(msg)) return 'There’s already a reader with that name.'
-  if (/Too many reader profiles/i.test(msg)) return 'This account already has the maximum of 12 readers.'
+  if (/learners_owner_name_idx|duplicate key/i.test(msg)) return 'There’s already a learner with that name.'
+  if (/Too many reader profiles/i.test(msg)) return 'This account already has the maximum of 12 learners.'
   if (/Lifetime stars can only go up/i.test(msg)) return 'Progress on another device is newer. Reload to get it.'
   if (/Failed to fetch|NetworkError|network/i.test(msg)) return 'No connection. Progress will save when you’re back online.'
   return msg || 'Something went wrong.'
@@ -210,4 +210,45 @@ export async function leaderboard(metric: RankMetric, learnerId: string | null, 
   const { data, error } = await supabase.rpc('leaderboard', { metric, me: learnerId, top_n: top })
   if (error) throw error
   return data as Leaderboard
+}
+
+// ---- account status, Terms acceptance, admin user management --------------------------------
+
+export interface AccountStatus { archived: boolean; terms_version: string | null }
+
+/** null = the database doesn't have update 009 yet (nothing to enforce). */
+export async function myAccountStatus(): Promise<AccountStatus | null> {
+  const { data, error } = await supabase.rpc('my_account_status')
+  if (error) return null
+  return data as AccountStatus
+}
+
+export async function acceptTerms(version: string, isAdult: boolean, isGuardian: boolean): Promise<void> {
+  const { error } = await supabase.rpc('accept_terms', { version, is_adult: isAdult, is_guardian: isGuardian })
+  if (error) throw error
+}
+
+export interface AdminUser {
+  id: string
+  email: string | null
+  created_at: string
+  last_sign_in_at: string | null
+  archived_at: string | null
+  archive_reason: string | null
+  is_admin: boolean
+  terms_version: string | null
+  last_active: string | null
+  learners: { name: string; kind: string; mode: string; avatar: string | null; reading: number; spanish: number; spelling: number | null; stars: number }[]
+}
+
+export async function adminUsers(): Promise<AdminUser[]> {
+  const { data, error } = await supabase.rpc('admin_users')
+  if (error) throw error
+  return (data ?? []) as AdminUser[]
+}
+
+export async function adminAccountAction(target: string, action: 'sign_out' | 'archive' | 'restore', reason?: string): Promise<string[]> {
+  const { data, error } = await supabase.rpc('admin_account_action', { target, action, reason: reason ?? null })
+  if (error) throw error
+  return ((data as { notes?: string[] })?.notes ?? [])
 }

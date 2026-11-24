@@ -531,7 +531,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-xl shadow-md sm:h-11 sm:w-11 sm:text-2xl">⭐</div>
             <div className="min-w-0">
               <h1 className="hidden font-kids text-2xl font-bold leading-tight sm:block">Language Stars</h1>
-              <button type="button" onClick={onExit} title="Switch reader"
+              <button type="button" onClick={onExit} title="Switch learner"
                 className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-sm font-bold text-indigo-700 hover:bg-indigo-100">
                 {avatarFor(learner)} {learner.display_name} <span className="text-indigo-400">▾</span>
               </button>
@@ -553,7 +553,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
                 <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm font-semibold shadow-xl" onClick={() => setMenuOpen(false)}>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setProgressOpen(true)}>📈 My progress</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setHelpOpen(true)}>❓ How levels work</button>
-                  <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={onExit}>🚪 Switch reader</button>
+                  <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={onExit}>🚪 Switch learner</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setLogOpen(true)}>📊 Speech log</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50"
                     onClick={() => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => {})}>⛶ Full screen</button>
@@ -789,7 +789,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
             <div className="flex flex-col gap-2.5">
               <button type="button" className="btn bg-gradient-to-r from-fuchsia-500 to-purple-600 font-kids text-base text-white" onClick={() => setShop(`Spend your ${learner.spendable_stars} ⭐ in the Sticker Shop!`)}>🏪 Spend stars in the Sticker Shop</button>
               <button type="button" className="btn bg-gradient-to-r from-emerald-500 to-teal-600 font-kids text-base text-white" onClick={() => startRound({ autoBegin: true })}>Next Round ➡️</button>
-              <button type="button" className="btn-danger" onClick={onExit}>🚪 Switch reader</button>
+              <button type="button" className="btn-danger" onClick={onExit}>🚪 Switch learner</button>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { adminKpis, dbMessage, type AdminKpis } from '../lib/learnersApi'
 import { BarChart, LineChart, Tile } from './Charts'
 import { AdminLeaderboards } from './Ranks'
+import { AdminUsers } from './AdminUsers'
 
 const RANGES = [7, 30, 90, 365] as const
 
@@ -52,9 +53,9 @@ export default function Admin({ onBack }: { onBack: () => void }) {
           <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Users</h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Tile label="Accounts" value={k.accounts} sub={`+${k.accounts_new} in ${k.days}d`} />
-            <Tile label="Readers" value={k.learners} sub={`${k.learners_kids} managed kids`} />
+            <Tile label="Learners" value={k.learners} sub={`${k.learners_kids} managed by a parent`} />
             <Tile label="Reading / Spanish / Spelling" value={`${k.learners_reading} / ${k.learners_spanish} / ${k.learners_spelling ?? 0}`} sub="current choice" />
-            <Tile label="Active readers" value={k.active_learners_7d} sub="last 7 days" />
+            <Tile label="Active learners" value={k.active_learners_7d} sub="last 7 days" />
             <Tile label="Active today" value={k.active_accounts_1d} sub="accounts, last 24h" />
             <Tile label="Weekly active" value={k.active_accounts_7d} sub="accounts" />
             <Tile label="Monthly active" value={k.active_accounts_30d} sub="accounts" />
@@ -74,7 +75,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <LineChart title="Active accounts per day" days={labels}
               series={[
                 { name: 'accounts', values: k.daily.map((d) => d.accounts), className: 'stroke-indigo-500', dot: 'bg-indigo-500', fill: 'fill-indigo-500' },
-                { name: 'readers', values: k.daily.map((d) => d.learners), className: 'stroke-amber-500', dot: 'bg-amber-500', fill: 'fill-amber-500' },
+                { name: 'learners', values: k.daily.map((d) => d.learners), className: 'stroke-amber-500', dot: 'bg-amber-500', fill: 'fill-amber-500' },
               ]} />
             <BarChart title="Practice minutes per day" days={labels} values={k.daily.map((d) => d.minutes)} unit=" min" />
             <BarChart title="Words per day" days={labels} values={k.daily.map((d) => d.items)} inner={k.daily.map((d) => d.clean)} legend={['tried', 'on their own']} />
@@ -84,10 +85,12 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <BarChart title="Stars per day" days={labels} values={k.daily.map((d) => d.stars)} />
           </div>
 
+          <AdminUsers />
+
           <AdminLeaderboards />
 
           <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
-            <div className="mb-2 text-xs font-bold text-slate-700">Where readers are (current level)</div>
+            <div className="mb-2 text-xs font-bold text-slate-700">Where learners are (current level)</div>
             <table className="w-full text-left text-xs">
               <thead className="text-[11px] uppercase tracking-wide text-slate-500">
                 <tr><th className="py-1">Levels</th><th className="py-1">📖 Reading</th><th className="py-1">🇪🇸 Spanish</th><th className="py-1">🐝 Spelling</th></tr>

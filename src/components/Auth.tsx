@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { faceIdMessage, faceIdOnDevice, faceIdSupported, signInWithFaceId, wasCancelled } from '../lib/faceid'
 import { supabase } from '../lib/supabase'
 import InstallApp from './InstallApp'
+import { AgreementChecks, LegalLinks } from './Legal'
+import { TERMS_VERSION } from '../lib/legal'
 
 type Mode = 'signin' | 'signup' | 'reset'
 
@@ -13,6 +15,7 @@ export default function Auth() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ kind: 'error' | 'info'; text: string } | null>(null)
+  const [agree, setAgree] = useState({ adult: false, guardian: false, agree: false })
 
   const redirectTo = window.location.origin + import.meta.env.BASE_URL
   const canFaceId = faceIdSupported()
@@ -37,9 +40,12 @@ export default function Auth() {
         // One message for every failure so the form never reveals which emails have accounts.
         if (error) throw new Error('Email or password is incorrect, or the email isn’t confirmed yet.')
       } else if (mode === 'signup') {
+        if (!agree.adult || !agree.agree) throw new Error('To create an account, confirm you are 18 or older and agree to the Terms of Use and Privacy Policy.')
         if (password.length < MIN_PASSWORD) throw new Error(`Use a password of at least ${MIN_PASSWORD} characters.`)
         const { error } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: redirectTo } })
         if (error) throw new Error('Couldn’t create the account. New sign-ups may be turned off; ask the family admin for an invite.')
+        // Recorded in the database at first sign-in (there's no session until the email is confirmed).
+        try { localStorage.setItem('ras.pendingTerms', JSON.stringify({ email: email.trim().toLowerCase(), version: TERMS_VERSION, adult: agree.adult, guardian: agree.guardian })) } catch { /* private mode */ }
         setMessage({ kind: 'info', text: 'Check your email for a confirmation link, then sign in.' })
         setMode('signin')
       } else {
@@ -90,6 +96,7 @@ export default function Auth() {
             {mode === 'signup' && <p className="mt-1 text-xs text-slate-500">At least {MIN_PASSWORD} characters. A passphrase works well.</p>}
           </div>
         )}
+        {mode === 'signup' && <AgreementChecks {...agree} onChange={setAgree} />}
         {message && (
           <p role="alert" className={`rounded-xl px-3 py-2 text-sm ${message.kind === 'error' ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-800'}`}>
             {message.text}
@@ -115,7 +122,8 @@ export default function Auth() {
 
       {/* System use notification (NIST 800-53 AC-8). */}
       <p className="mt-10 text-center text-[11px] leading-relaxed text-slate-500">
-        Private family app for authorized users only. Activity on reader profiles is logged.
+        Private family app for authorized users only. Activity on learner profiles is logged.
+        <br /><LegalLinks />
       </p>
     </div>
   )
