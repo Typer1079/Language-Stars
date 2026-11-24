@@ -1,10 +1,27 @@
 import { describe, expect, it } from 'vitest'
 import { questionFor } from './comprehension'
 import { READING_LEVELS } from './curriculum'
+import { BANDS } from './readingAdvanced'
 
 describe('reading comprehension', () => {
+  it('climbs to doctoral vocabulary with a meaning question for every advanced item', () => {
+    for (const b of BANDS) {
+      expect(b.entries, b.name).toHaveLength(25)
+      expect(new Set(b.entries.map((e) => e[1])).size, b.name).toBe(25)
+    }
+    for (let l = 56; l <= 100; l++) {
+      expect(READING_LEVELS[l], `L${l}`).toHaveLength(10)
+      for (const s of READING_LEVELS[l]) {
+        const q = questionFor(s)!
+        expect(q, s).toBeTruthy()
+        expect(new Set(q.choices).size).toBe(3)
+        expect(s.length).toBeLessThan(160)
+      }
+    }
+    expect(READING_LEVELS[100].join(' ')).toMatch(/epistemic humility/i)
+  })
   it('has a question for every phrase and sentence from Level 31', () => {
-    for (let l = 31; l <= 100; l++) for (const s of READING_LEVELS[l]) {
+    for (let l = 31; l <= 55; l++) for (const s of READING_LEVELS[l]) {
       const q = questionFor(s)!
       expect(q, s).toBeTruthy()
       expect(new Set(q.choices).size).toBe(3)

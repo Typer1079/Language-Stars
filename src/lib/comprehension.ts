@@ -1,4 +1,5 @@
 import { R, third } from './curriculum'
+import { lookupAdvanced } from './readingAdvanced'
 
 /** A "what does it mean?" question about a phrase or sentence the reader just read. */
 export interface Question {
@@ -51,6 +52,13 @@ const words = (list: string[]) => list.join('|')
 
 /** Builds a question for a reading item, or null when there isn't a good one. */
 export function questionFor(text: string): Question | null {
+  // Levels 56-100: what does this word or phrase mean?
+  const adv = lookupAdvanced(text)
+  if (adv) {
+    const [word, meaning] = adv.entry
+    const prompt = adv.isSentence ? `In this sentence, what does “${word}” mean?` : `What does “${word}” mean?`
+    return build(prompt, meaning, adv.band.entries.map((e) => e[1]), text.toLowerCase())
+  }
   const s = text.trim().replace(/[.!?]$/, '')
   const seed = s.toLowerCase()
   let m: RegExpMatchArray | null

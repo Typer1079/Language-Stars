@@ -6,6 +6,7 @@ import { playChime } from '../lib/sfx'
 import { moveSticker } from '../lib/stickers'
 import { recognitionSupported, speakSegments } from '../lib/speech'
 import { COMPREHENSION_FROM, questionFor, type Question } from '../lib/comprehension'
+import { ADVANCED_FROM } from '../lib/readingAdvanced'
 import type { Learner } from '../lib/types'
 import { wordHelp } from '../lib/phonics'
 import { makeConfetti, type ConfettiPiece } from '../lib/confetti'
@@ -231,9 +232,9 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       setShop(`🎉 Milestone! You reached ${m} lifetime ${m === 1 ? 'star' : 'stars'}! Pick a sticker!`)
       return
     }
-    // Reading phrases and sentences: every other one, ask what it means.
+    // Reading phrases and sentences: every other one, ask what it means (every one from Level 56).
     const itemLevel = it.stretchLevel ?? activeLevel(before)
-    if (before.mode === 'reading' && itemLevel >= COMPREHENSION_FROM && indexRef.current % 2 === 1) {
+    if (before.mode === 'reading' && itemLevel >= COMPREHENSION_FROM && (itemLevel >= ADVANCED_FROM || indexRef.current % 2 === 1)) {
       const q = questionFor(it.target)
       if (q) {
         log('QUESTION', q.prompt)
@@ -462,7 +463,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
                       {help.chunks.map((chunk, i) => (
                         <div key={i} className="animate-tile-pop flex items-center" style={{ animationDelay: `${i * 60}ms` }}>
                           {i > 0 && <span className="mr-2 text-2xl font-bold text-indigo-300 sm:mr-3" aria-hidden>·</span>}
-                          <div className={`flex h-20 items-center justify-center rounded-2xl border-2 px-3 font-kids text-4xl font-bold shadow-sm sm:h-24 sm:px-4 sm:text-5xl ${i % 2 ? 'border-amber-200 bg-gradient-to-b from-amber-50 to-white text-amber-900' : 'border-indigo-200 bg-gradient-to-b from-indigo-50 to-white text-indigo-900'}`}>{chunk}</div>
+                          <div className={`flex h-20 items-center justify-center rounded-2xl border-2 px-3 font-kids font-bold shadow-sm sm:h-24 sm:px-4 ${chunk.length > 12 ? 'text-2xl sm:text-4xl' : chunk.length > 8 ? 'text-3xl sm:text-5xl' : 'text-4xl sm:text-5xl'} ${i % 2 ? 'border-amber-200 bg-gradient-to-b from-amber-50 to-white text-amber-900' : 'border-indigo-200 bg-gradient-to-b from-indigo-50 to-white text-indigo-900'}`}>{chunk}</div>
                         </div>
                       ))}
                     </div>

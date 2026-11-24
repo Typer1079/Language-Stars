@@ -124,6 +124,12 @@ export function isWordMatch(transcript: string, targetWord: string, variants?: s
     if (key.length >= 2 && tokens.some((tok) => tok.length <= target.length + 1 && consonants(tok).startsWith(key))) return true
   }
   if (target.includes(' ')) return isPhraseMatch(transcript, targetWord)
+  // Long, hard words ("heteroskedasticity"): speech-to-text often splits or slightly misspells them.
+  if (target.length >= 8) {
+    const t = target.replace(/[^a-z]/g, '')
+    const j = joined.replace(/[^a-z]/g, '')
+    if (editDistance(j, t) <= Math.floor(t.length * 0.2)) return true
+  }
   return false
 }
 

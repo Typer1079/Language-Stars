@@ -155,6 +155,10 @@ export interface WordHelp {
 /** Everything Iris needs to help with a word, and what the screen shows. */
 export function wordHelp(word: string, callout: string): WordHelp {
   const w = word.toLowerCase()
+  // Long academic words: show and say the whole word (automatic syllable splits get these wrong).
+  if (w.length > 9 && !SYLLABLES[w]) {
+    return { chunks: [word], kind: 'whole', rhymes: [], speech: `This word is ${word}. Listen: ${word}. Now you say it, ${callout}.` }
+  }
   const parts = syllables(w)
   if (parts.length > 1) {
     const said = SYLLABLES[w]?.say ?? parts

@@ -24,7 +24,14 @@ describe('curriculum', () => {
     }
     expect(avgWords(1, 15)).toBe(1)
     expect(avgWords(16, 40)).toBeGreaterThan(2)
-    expect(avgWords(91, 100)).toBeGreaterThan(avgWords(41, 50))
+    expect(avgWords(51, 55)).toBeGreaterThan(avgWords(41, 45))
+    // The top levels get harder through vocabulary: much longer words on average.
+    const avgWordLen = (from: number, to: number) => {
+      const words = Array.from({ length: to - from + 1 }, (_, i) => READING_LEVELS[from + i]).flat().join(' ').split(/\s+/)
+      return words.reduce((n, w) => n + w.length, 0) / words.length
+    }
+    expect(avgWordLen(91, 100)).toBeGreaterThan(avgWordLen(41, 55) + 1.5)
+    expect(stageName(100, 'reading')).toBe('Doctorate')
     expect(stageName(10, 'reading')).toBe('Words')
     expect(stageName(30, 'reading')).toBe('Phrases')
     expect(stageName(80, 'spanish')).toBe('Sentences')

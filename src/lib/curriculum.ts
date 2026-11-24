@@ -5,6 +5,7 @@
 // level), so a level always contains the same items and mastered-word records stay valid.
 
 import { SPANISH_WORD_BANKS, WORD_BANKS, type SpanishEntry } from './wordBanks'
+import { ADVANCED_FROM, advancedLevels, bandFor } from './readingAdvanced'
 
 export const MAX_LEVEL = 100
 export const ITEMS_PER_LEVEL = 10
@@ -65,7 +66,8 @@ export function stageName(level: number, mode: 'reading' | 'spanish'): string {
   if (mode === 'reading') {
     if (level <= 15) return 'Words'
     if (level <= 40) return 'Phrases'
-    return 'Sentences'
+    if (level < ADVANCED_FROM) return 'Sentences'
+    return bandFor(level)?.name ?? 'Doctorate'
   }
   if (level <= 15) return 'Words'
   if (level <= 35) return 'Phrases'
@@ -252,7 +254,11 @@ function buildReading(): Record<number, string[]> {
   for (let l = 6; l <= 15; l++) out[l] = READING_WORDS[l]
   const used = new Set<string>()
   for (let l = 1; l <= 15; l++) out[l].forEach((w) => used.add(w.toLowerCase()))
-  fillLevels(out, 16, MAX_LEVEL, 'reading', (s) => s, used, readingItem)
+  // Levels 41-55 squeeze the whole range of everyday sentences into 15 levels, then Levels 56-100
+  // climb from Grade 5 vocabulary to doctoral academic language.
+  const everyday = (r: () => number, level: number) => readingItem(r, level <= 40 ? level : 41 + Math.round(((level - 41) * 59) / 14))
+  fillLevels(out, 16, ADVANCED_FROM - 1, 'reading', (s) => s, used, everyday)
+  Object.assign(out, advancedLevels())
   return out
 }
 
