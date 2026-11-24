@@ -25,8 +25,8 @@ interface Props {
   onAdmin?: () => void
 }
 
-function icon(l: Pick<Learner, 'mode' | 'sticker_style'>) {
-  if (l.mode === 'spanish') return '🇪🇸'
+function avatar(l: Pick<Learner, 'sticker_style' | 'age_group'>) {
+  if (l.age_group === 'adult') return l.sticker_style === 'girl' ? '👩' : l.sticker_style === 'boy' ? '👨' : '🧑'
   return l.sticker_style === 'girl' ? '👧' : l.sticker_style === 'boy' ? '👦' : '🧒'
 }
 
@@ -36,7 +36,7 @@ export default function LearnerPicker(p: Props) {
   const [viewing, setViewing] = useState<Learner | null>(null)
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col px-4 py-8">
+    <div className="mx-auto flex min-h-dvh max-w-3xl flex-col px-4 py-8">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-2xl shadow-md">⭐</div>
@@ -51,31 +51,9 @@ export default function LearnerPicker(p: Props) {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {p.learners.map((l) => (
-          <div key={l.id} className="card flex items-center justify-between gap-2 p-0 transition hover:-translate-y-0.5 hover:border-indigo-300">
-            <button type="button" onClick={() => p.onPick(l)} className="flex flex-1 items-center justify-between gap-3 p-4 text-left" aria-label={`Play as ${l.display_name}`}>
-              <span>
-                <span className="block font-kids text-xl font-bold">{icon(l)} {l.display_name}</span>
-                <span className="mt-0.5 block text-xs text-slate-500">
-                  {l.lifetime_stars} ⭐ • {l.stickers.length} stickers • {l.mode === 'spanish' ? `Spanish L${l.spanish_level}` : `Reading L${activeLevel(l)}`}
-                </span>
-              </span>
-              <span className="rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white">Play ▶</span>
-            </button>
-            <div className="mr-3 flex shrink-0 flex-col gap-1.5">
-              <button type="button" className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-100"
-                aria-label={`${l.display_name}'s progress`} title={`${l.display_name}'s progress`}
-                onClick={() => setViewing(l)}>
-                📈 Progress
-              </button>
-              <button type="button" className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-100"
-                aria-label={`Edit ${l.display_name}`} title={`Edit ${l.display_name}`}
-                onClick={() => { setPanel('none'); setEditing(l) }}>
-                ✏️ Edit
-              </button>
-            </div>
-          </div>
+          <LearnerCard key={l.id} learner={l} onPlay={() => p.onPick(l)} onProgress={() => setViewing(l)} onEdit={() => { setPanel('none'); setEditing(l) }} />
         ))}
         {!p.loading && p.learners.length === 0 && (
           <p className="card text-sm text-slate-600 sm:col-span-2">No readers yet. Add one below, or import a backup from the old app.</p>
@@ -106,6 +84,79 @@ export default function LearnerPicker(p: Props) {
       {panel === 'add' && <AddReader verified={p.verified} onUnlockKids={p.onUnlockKids} onCancel={() => setPanel('none')} onCreate={async (d) => { await p.onCreate(d); setPanel('none') }} />}
       {panel === 'import' && <ImportReaders verified={p.verified} onUnlockKids={p.onUnlockKids} onImport={async (d) => { await p.onImport(d); setPanel('none') }} />}
     </div>
+  )
+}
+
+/** Color themes for the cards, so each learner's card looks different at a glance. */
+const THEMES = {
+  reading: [
+    { band: 'from-indigo-500 via-violet-500 to-fuchsia-500', bar: 'from-indigo-500 to-fuchsia-500', ring: 'ring-indigo-200', play: 'from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700', soft: 'bg-indigo-50 text-indigo-800' },
+    { band: 'from-sky-500 via-cyan-500 to-emerald-400', bar: 'from-sky-500 to-emerald-400', ring: 'ring-sky-200', play: 'from-sky-600 to-cyan-600 hover:from-sky-700 hover:to-cyan-700', soft: 'bg-sky-50 text-sky-800' },
+  ],
+  spanish: [
+    { band: 'from-amber-400 via-orange-500 to-rose-500', bar: 'from-amber-400 to-rose-500', ring: 'ring-amber-200', play: 'from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600', soft: 'bg-amber-50 text-amber-900' },
+    { band: 'from-rose-400 via-pink-500 to-purple-500', bar: 'from-rose-400 to-purple-500', ring: 'ring-rose-200', play: 'from-rose-500 to-purple-600 hover:from-rose-600 hover:to-purple-700', soft: 'bg-rose-50 text-rose-800' },
+  ],
+}
+
+function LearnerCard({ learner: l, onPlay, onProgress, onEdit }: { learner: Learner; onPlay: () => void; onProgress: () => void; onEdit: () => void }) {
+  // Each learner keeps the same colors (picked from their name), so cards are easy to tell apart.
+  const t = THEMES[l.mode][[...l.display_name].reduce((n, c) => n + c.charCodeAt(0), 0) % 2]
+  const level = activeLevel(l)
+  const other = l.mode === 'spanish' ? { label: '📖 Reading', level: l.reading_level } : { label: '🇪🇸 Spanish', level: l.spanish_level }
+  const shown = l.stickers.slice(-6).reverse()
+  return (
+    <article className="group relative overflow-hidden rounded-3xl border border-white/70 bg-white shadow-lg ring-1 ring-slate-200/60 transition duration-200 hover:-translate-y-1 hover:shadow-xl">
+      {/* Colored header with the learner's avatar and their newest stickers */}
+      <button type="button" onClick={onPlay} tabIndex={-1} aria-hidden="true"
+        className={`relative block h-20 w-full overflow-hidden bg-gradient-to-br sm:h-24 ${t.band}`}>
+        <span className="absolute inset-0 opacity-25" style={{ backgroundImage: 'radial-gradient(white 1.5px, transparent 1.5px)', backgroundSize: '16px 16px' }} />
+        <span className="absolute right-3 top-2.5 flex -space-x-1.5">
+          {shown.map((st, i) => (
+            <span key={st.id} className="text-2xl drop-shadow transition-transform duration-300 group-hover:-translate-y-0.5" style={{ transform: `rotate(${(i % 2 ? 1 : -1) * (6 + i * 3)}deg)` }}>{st.emoji}</span>
+          ))}
+        </span>
+        <span className="absolute left-3 top-2.5 rounded-full bg-white/25 px-2.5 py-0.5 text-[11px] font-bold text-white backdrop-blur-sm">
+          {l.mode === 'spanish' ? '🇪🇸 Spanish' : '📖 Reading'}
+        </span>
+      </button>
+
+      <div className="relative px-4 pb-4">
+        <div className={`-mt-9 flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-3xl bg-white text-4xl shadow-md ring-4 ${t.ring}`}>{avatar(l)}</div>
+
+        <div className="mt-2 flex items-end justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="truncate font-kids text-2xl font-bold leading-tight text-slate-900">{l.display_name}</h2>
+            <p className="text-xs font-semibold text-slate-500">{stageName(level, l.mode)}{l.kind === 'self' ? ' • me' : ''}</p>
+          </div>
+          <div className="text-right">
+            <div className="font-kids text-3xl font-bold leading-none text-slate-900">{level}</div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">of {MAX_LEVEL}</div>
+          </div>
+        </div>
+
+        <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100" aria-label={`Level ${level} of ${MAX_LEVEL}`}>
+          <div className={`h-full rounded-full bg-gradient-to-r ${t.bar}`} style={{ width: `${Math.max(3, level)}%` }} />
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-1.5 text-xs font-bold">
+          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-900">⭐ {l.lifetime_stars.toLocaleString()}</span>
+          <span className="rounded-full bg-fuchsia-50 px-2.5 py-1 text-fuchsia-800">🎨 {l.stickers.length} sticker{l.stickers.length === 1 ? '' : 's'}</span>
+          {other.level > 1 && <span className={`rounded-full px-2.5 py-1 ${t.soft}`}>{other.label} L{other.level}</span>}
+        </div>
+
+        <div className="mt-4 flex items-center gap-2">
+          <button type="button" onClick={onPlay} aria-label={`Play as ${l.display_name}`}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r px-4 py-3 font-kids text-lg font-bold text-white shadow-md transition active:scale-95 ${t.play}`}>
+            ▶ Play
+          </button>
+          <button type="button" onClick={onProgress} aria-label={`${l.display_name}'s progress`} title="Progress"
+            className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-xl shadow-sm transition hover:bg-slate-50 active:scale-95">📈</button>
+          <button type="button" onClick={onEdit} aria-label={`Edit ${l.display_name}`} title="Edit"
+            className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-xl shadow-sm transition hover:bg-slate-50 active:scale-95">✏️</button>
+        </div>
+      </div>
+    </article>
   )
 }
 
