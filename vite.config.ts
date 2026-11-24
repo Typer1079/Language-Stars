@@ -45,8 +45,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Read Aloud Stars',
-        short_name: 'Read Stars',
+        name: 'Language Stars',
+        short_name: 'Language Stars',
         description: 'Reading practice for kids and English-to-Spanish speaking practice, with stars and stickers.',
         theme_color: '#4f46e5',
         background_color: '#e0e7ff',

@@ -80,7 +80,7 @@ export function MfaChallenge({ onDone, onCancel, cancelLabel = 'Sign out' }: { o
       {faceId && !hasApp && error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
       {(!faceId || showCode) && hasApp && (
       <>
-      <p className="mt-4 text-sm text-slate-600">Open your authenticator app (for example Apple Passwords) and enter the 6-digit code for Read Aloud Stars.</p>
+      <p className="mt-4 text-sm text-slate-600">Open your authenticator app (for example Apple Passwords) and enter the 6-digit code for Language Stars (it may still be listed as Read Aloud Stars).</p>
       <form onSubmit={submit} className="mt-4 space-y-4">
         <CodeInput value={code} onChange={setCode} />
         {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
@@ -171,7 +171,7 @@ function TotpEnroll({ onDone, onCancel }: { onDone: () => void; onCancel: () => 
         for (const f of list?.all ?? []) {
           if (f.status === 'unverified') await supabase.auth.mfa.unenroll({ factorId: f.id })
         }
-        const { data, error: enrollErr } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Read Aloud Stars ${new Date().toISOString().slice(0, 10)}` })
+        const { data, error: enrollErr } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Language Stars ${new Date().toISOString().slice(0, 10)}` })
         if (enrollErr) throw enrollErr
         setFactor({ id: data.id, qr: data.totp.qr_code, secret: data.totp.secret })
       } catch (err) {

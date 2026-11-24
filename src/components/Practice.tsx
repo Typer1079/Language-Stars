@@ -383,7 +383,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
           <div className="flex min-w-0 items-center gap-2.5">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-xl shadow-md sm:h-11 sm:w-11 sm:text-2xl">⭐</div>
             <div className="min-w-0">
-              <h1 className="hidden font-kids text-2xl font-bold leading-tight sm:block">Read Aloud Stars</h1>
+              <h1 className="hidden font-kids text-2xl font-bold leading-tight sm:block">Language Stars</h1>
               <button type="button" onClick={onExit} title="Switch reader"
                 className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-sm font-bold text-indigo-700 hover:bg-indigo-100">
                 {spanish ? '🇪🇸' : learner.sticker_style === 'girl' ? '👧' : '👦'} {learner.display_name} <span className="text-indigo-400">▾</span>

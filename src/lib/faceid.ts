@@ -51,7 +51,7 @@ export function faceIdMessage(err: AnyError, during: 'signin' | 'setup' | 'verif
   if (/webauthn.*(not enabled|disabled)|mfa_webauthn/i.test(code + ' ' + msg))
     return 'Face ID for the second step isn’t turned on yet (Supabase → Authentication → Multi-Factor → WebAuthn). The 6-digit code still works.'
   if (code === 'webauthn_credential_not_found')
-    return 'That passkey isn’t for Read Aloud Stars. If Apple Passwords offers two, pick the one for Read Aloud Stars, or sign in with your password.'
+    return 'That passkey isn’t for Language Stars. If Apple Passwords offers two, pick the one for Language Stars, or sign in with your password.'
   if (code === 'webauthn_credential_exists' || code === 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED') return 'This device already has Face ID set up for your account.'
   if (code === 'webauthn_challenge_expired') return 'That took a little too long. Please try again.'
   if (code === 'ERROR_INVALID_DOMAIN' || code === 'ERROR_INVALID_RP_ID')
@@ -98,7 +98,7 @@ export async function setUpFaceId(): Promise<{ signIn: boolean; secondStep: bool
   }
   signIn = true
   markFaceIdOnDevice(true)
-  if (reg.data && !reg.data.friendly_name) await supabase.auth.passkey.update({ passkeyId: reg.data.id, friendlyName: `Read Aloud Stars – ${deviceName()}` })
+  if (reg.data && !reg.data.friendly_name) await supabase.auth.passkey.update({ passkeyId: reg.data.id, friendlyName: `Language Stars – ${deviceName()}` })
 
   // Remove a half-finished WebAuthn factor from an earlier attempt, then add one for this device.
   const { data: list } = await supabase.auth.mfa.listFactors()

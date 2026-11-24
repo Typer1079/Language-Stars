@@ -99,7 +99,7 @@ export function cleanLearnerDraft(v: Record<string, unknown>, kind: LearnerKind)
  * Adults ("adult" age group) import as the account's own profile; everyone else as a child.
  */
 export function parseSaveFile(text: string): LearnerDraft[] {
-  if (text.length > 2_000_000) throw new Error('That file is too large to be a Read Aloud Stars backup.')
+  if (text.length > 2_000_000) throw new Error('That file is too large to be a Language Stars backup.')
   let parsed: unknown
   try {
     parsed = JSON.parse(text.replace(/^﻿/, ''))

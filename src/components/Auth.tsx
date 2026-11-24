@@ -55,7 +55,7 @@ export default function Auth() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6 py-10">
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-3xl shadow-md">⭐</div>
-      <h1 className="font-kids text-3xl font-bold">Read Aloud Stars</h1>
+      <h1 className="font-kids text-3xl font-bold">Language Stars</h1>
       <p className="mt-1 text-sm text-slate-600">
         {mode === 'signin' ? 'Sign in to practice reading and Spanish.' : mode === 'signup' ? 'Create your account.' : 'Reset your password.'}
       </p>
