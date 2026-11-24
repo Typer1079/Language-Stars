@@ -222,6 +222,8 @@ export default function App() {
       setPendingAdd(null)
       try {
         await importDrafts(list)
+        // Reload so the list can't be overwritten by a refresh that started before the adds.
+        await refresh()
         setNotice(`Added ${list.map((d) => d.display_name).join(', ')}.`)
       } catch (err) {
         setNotice(err instanceof Error ? err.message : 'Couldn’t add the reader.')

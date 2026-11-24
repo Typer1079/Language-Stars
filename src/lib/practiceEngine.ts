@@ -38,6 +38,8 @@ const SPOKEN_SOUNDS: Record<string, string> = {
 
 const LISTEN_MS = 5200
 
+const pick = <T,>(list: T[]): T => list[Math.floor(Math.random() * list.length)]
+
 /**
  * Runs one practice word: opens the microphone, listens for the word, and brings in the
  * AI coach (sound it out / Spanish example) when the reader needs help.
@@ -136,10 +138,10 @@ export class PracticeEngine {
       this.listenWindow(this.listenMs, this.onSilence(gen))
       return
     }
-    this.hooks.feedback(spanish ? `Let's practice Spanish, ${this.name}!` : `Let's read together, ${this.name}!`, 'Listen to the welcome...', 'coach')
+    this.hooks.feedback(spanish ? `Hi ${this.name}! Let's practice Spanish` : `Hi ${this.name}! Let's read together`, 'Iris is saying hello…', 'coach')
     const text = spanish
-      ? `Welcome, ${this.name}! Look at the English word and say it in Spanish!`
-      : `Let's read together, ${this.name}! Try the word on the screen!`
+      ? `Hi ${this.name}! It's Iris. Say each word in Spanish, and ask me if you need help.`
+      : `Hi ${this.name}! It's Iris. Let's read together! Read the word out loud.`
     this.say([{ text, lang: 'en-US' }], () => {
       if (gen !== this.gen || this.solved) return
       this.listenWindow(this.listenMs, this.onSilence(gen))
@@ -157,7 +159,7 @@ export class PracticeEngine {
     const callout = this.callout()
     const line =
       this.mode === 'spanish' && this.item?.spanish
-        ? `"${this.item.spanish.en}" in Spanish, ${callout}!`
+        ? `How do you say ${this.item.spanish.en}, ${callout}?`
         : `Your turn, ${callout}!`
     this.say([{ text: line, lang: 'en-US' }], () => {
       if (gen !== this.gen || this.solved) return
@@ -176,7 +178,8 @@ export class PracticeEngine {
 
   /** AI Coach / Space key. */
   coach() {
-    if (this.coachingActive || this.coachSpeaking || this.solved || this.paused || !this.item) return
+    // Asking Iris mid-greeting or mid-cheer interrupts it; asking again while she's helping does nothing.
+    if (this.coachingActive || this.solved || this.paused || !this.item) return
     const gen = ++this.gen
     this.stopListening(true)
     this.stopVoice()
@@ -190,24 +193,22 @@ export class PracticeEngine {
       const { en, es, phraseEs, phraseEn } = item.spanish
       this.hooks.revealSpanish()
       this.hooks.showPhrase()
-      this.hooks.feedback(`Spanish Coach: "${es}"`, phraseEs ? `"${phraseEs}" (${phraseEn})` : `“${en}”`, 'coach')
+      this.hooks.feedback(`Iris: "${es}"`, phraseEs ? `"${phraseEs}" (${phraseEn})` : `“${en}”`, 'coach')
       const intro: VoiceSegment[] = this.pace === 'brisk'
         ? [{ text: es, lang: 'es-ES' }]
         : phraseEs
         ? [
-            { text: `In Spanish, ${en} is`, lang: 'en-US' },
+            { text: `${en} is`, lang: 'en-US' },
             { text: es, lang: 'es-ES' },
-            { text: 'For example:', lang: 'en-US' },
+            { text: 'Like this:', lang: 'en-US' },
             { text: phraseEs, lang: 'es-ES' },
-            { text: `which means: ${phraseEn} Your turn, ${callout}. Say`, lang: 'en-US' },
-            { text: es, lang: 'es-ES' },
+            { text: `Now you try, ${callout}!`, lang: 'en-US' },
           ]
         : [
             // Phrases and sentences: say it, then once more for the reader to copy.
-            { text: `In Spanish, ${en} is:`, lang: 'en-US' },
+            { text: `In Spanish, you'd say:`, lang: 'en-US' },
             { text: es, lang: 'es-ES' },
-            { text: `Your turn, ${callout}. Listen once more:`, lang: 'en-US' },
-            { text: es, lang: 'es-ES' },
+            { text: `Now you try, ${callout}!`, lang: 'en-US' },
           ]
       // Say it once, then keep listening for as long as it takes (no retries, no auto-advance).
       this.say(intro, () => {
@@ -220,17 +221,17 @@ export class PracticeEngine {
 
     const word = item.target
     if (this.pace === 'brisk') {
-      this.hooks.feedback(`AI Coach: "${word}"`, 'Listen, then say it', 'coach')
+      this.hooks.feedback(`Iris: "${word}"`, 'Listen, then say it', 'coach')
       this.coachSequence(gen, [{ text: word, lang: 'en-US' }], [{ text: word, lang: 'en-US' }], 'Next one!', word)
       return
     }
     if (word.includes(' ')) {
       // Phrases and sentences: read it together instead of sounding out letters.
-      this.hooks.feedback('AI Coach: let’s read it together', word, 'coach')
+      this.hooks.feedback('Iris: let’s read it together', word, 'coach')
       this.coachSequence(
         gen,
-        [{ text: `Let's read it together, ${callout}. ${word} Now you try!`, lang: 'en-US' }],
-        [{ text: `Try it again: ${word}`, lang: 'en-US' }],
+        [{ text: `Let's read it together. ${word} Now you try, ${callout}!`, lang: 'en-US' }],
+        [{ text: `You've got this. ${word}`, lang: 'en-US' }],
         'Next one coming up!',
         word,
       )
@@ -239,27 +240,29 @@ export class PracticeEngine {
     const letters = word.toLowerCase().split('')
     const shown = letters.map((ch) => PHONICS_SOUNDS[ch] ?? ch).join(' ')
     const spoken = letters.map((ch) => SPOKEN_SOUNDS[ch] ?? ch).join(', ')
-    this.hooks.feedback(`AI Coach: "${word}"`, `${shown} → ${word}`, 'coach')
+    this.hooks.feedback(`Iris: "${word}"`, `${shown} → ${word}`, 'coach')
     this.coachSequence(
       gen,
-      [{ text: `Let's sound it out, ${callout}: ${spoken}. The word is ${word}! Your turn: say ${word}!`, lang: 'en-US' }],
-      [{ text: `Say ${word}, ${callout}!`, lang: 'en-US' }],
+      [{ text: `Let's sound it out together. ${spoken}. ${word}! Now you say it, ${callout}.`, lang: 'en-US' }],
+      [{ text: `Almost! Say ${word}.`, lang: 'en-US' }],
       'Next word coming up!',
       `Target: "${word}"`,
     )
   }
 
   /** After a coached success: praise, then continue. */
+  /** After a word said with Iris's help: a quick cheer, then straight on (never waits long on the voice). */
   praiseThen(next: () => void) {
     if (this.pace === 'brisk') return next()
-    const word = this.item?.target ?? ''
-    this.say(
-      [
-        { text: `Awesome job, ${this.callout()}! You said`, lang: 'en-US' },
-        { text: word, lang: this.mode === 'spanish' ? 'es-ES' : 'en-US' },
-      ],
-      next,
-    )
+    let done = false
+    const go = () => {
+      if (done) return
+      done = true
+      clearTimeout(cap)
+      next()
+    }
+    const cap = setTimeout(go, 1500)
+    this.say([{ text: pick(['Yes! Great job!', 'You got it!', 'Nice work!', 'That’s it!']), lang: 'en-US' }], go)
   }
 
   stopAll() {
@@ -320,7 +323,7 @@ export class PracticeEngine {
     this.stopListening(true, IOS)
     this.stopVoice()
     this.coachSpeaking = true
-    this.hooks.mic('warming', 'Coach speaking...')
+    this.hooks.mic('warming', 'Iris is talking…')
     let done = false
     const finish = () => {
       if (done) return
@@ -332,7 +335,9 @@ export class PracticeEngine {
       this.hooks.mic('idle')
       if (onEnd) setTimeout(onEnd, IOS ? 60 : 0)
     }
-    this.voiceWatchdog = setTimeout(finish, 20000)
+    const words = segments.reduce((n, sgm) => n + sgm.text.split(/\s+/).length, 0)
+    const speed = this.pace === 'brisk' ? 1.12 : 1
+    this.voiceWatchdog = setTimeout(finish, Math.min(12000, Math.max(2500, (words * 420) / speed + 1200)))
     this.cancelVoice = speakSegments(segments, finish, this.pace === 'brisk' ? 1.12 : 1)
   }
 
@@ -350,7 +355,7 @@ export class PracticeEngine {
     this.listening = true
     this.hooks.mic('warming', 'Opening microphone...')
     if (this.mode === 'spanish' && this.item.spanish) {
-      this.hooks.feedback(`Say "${this.item.spanish.en}" in Spanish!`, 'Listening until you say it • Shift shows the word • Space for the coach • Next to move on', 'listening')
+      this.hooks.feedback(`Say "${this.item.spanish.en}" in Spanish!`, 'Listening until you say it • Shift shows the word • Space asks Iris • Next to move on', 'listening')
     } else {
       this.hooks.feedback(`Say "${this.item.target}"!`, 'Listening for the word...', 'listening')
     }

@@ -7,7 +7,9 @@ import type { Learner, PlacedSticker } from '../lib/types'
 /** Stickers float over the page and can be dragged anywhere. Pop-up screens sit above them. */
 export function StickerCanvas({ stickers, onMove }: { stickers: PlacedSticker[]; onMove: (id: string, x: number, y: number) => void }) {
   return (
-    <div className="pointer-events-none fixed inset-0 z-[35] overflow-hidden" aria-label="Your stickers">
+    // Phones/tablets: stickers sit behind the cards and buttons so they can't block a tap.
+    // Large screens: they float on top like before.
+    <div className="pointer-events-none fixed inset-0 z-10 overflow-hidden lg:z-[35]" aria-label="Your stickers">
       {stickers.map((st) => (
         <DraggableSticker key={st.id} st={st} onMove={onMove} />
       ))}
@@ -31,7 +33,7 @@ function DraggableSticker({ st, onMove }: { st: PlacedSticker; onMove: (id: stri
       ref={el}
       className="placed-sticker"
       title={`${st.label} • drag to move`}
-      style={{ left: `${st.x}%`, top: `${st.y}%`, fontSize: `${Math.round(42 * stickerScale(st))}px`, transform: `rotate(${st.rot}deg)` }}
+      style={{ left: `${st.x}%`, top: `${st.y}%`, fontSize: `${Math.round(42 * stickerScale(st) * (window.innerWidth < 640 ? 0.7 : 1))}px`, transform: `rotate(${st.rot}deg)` }}
       onPointerDown={(e) => {
         const r = e.currentTarget.getBoundingClientRect()
         drag.current = { dx: e.clientX - r.left, dy: e.clientY - r.top, x: st.x, y: st.y }

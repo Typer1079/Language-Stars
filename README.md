@@ -26,12 +26,12 @@ Live site: `https://typer1079.github.io/Language-Stars/`
   first time they reach a new level) and moves down one level after a rough round (fewer than 4 of
   10 said without help). Stars are never taken away.
 - Reading mode: letter tiles with phonics hints for words, word tiles for phrases and sentences,
-  speech recognition with sound-alike tolerance, AI Coach (sound it out / read it together).
+  speech recognition with sound-alike tolerance, Iris, the reading helper (sound it out / read it together; tap **💬 Ask Iris**).
 - Spanish mode: English prompt, Spanish answer hidden until **Shift** (or the coach); listens until
-  the phrase is said correctly or **Next** is pressed; the coach speaks only when asked.
+  the phrase is said correctly or **Next** is pressed; Iris speaks only when asked.
 - Sticker shop: packs by age group and style, drag stickers anywhere, grow (+1⭐, +2⭐, +3⭐ …),
   sell back for everything spent.
-- Keyboard: **Return/Enter** = listen, **Space** = AI Coach, **Shift** = reveal Spanish word.
+- Keyboard: **Return/Enter** = listen, **Space** = Ask Iris, **Shift** = reveal Spanish word.
 - **Account** screen: two-step sign-in on/off, download a backup file, activity log (star, level and
   sticker changes), delete a reader, sign out everywhere.
 - Import a backup from the old single-page app (its ⬇️ Save file) or from this app.

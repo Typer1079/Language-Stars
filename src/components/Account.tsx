@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { downloadText } from '../lib/download'
 import { dbMessage, deleteLearner, listAudit, type AuditEntry } from '../lib/learnersApi'
+import { irisVoiceName } from '../lib/speech'
 import { supabase } from '../lib/supabase'
 import { SignInMethods } from './FaceId'
 import type { Learner } from '../lib/types'
@@ -88,6 +89,14 @@ export default function Account(p: Props) {
       {message && <p role="status" className="rounded-xl bg-indigo-50 px-3 py-2 text-sm text-indigo-900">{message}</p>}
 
       <SignInMethods verified={p.verified} signedInWith={p.signedInWith} onAddApp={() => p.onEnrollMfa('totp')} onSetUp={() => p.onEnrollMfa('choose')} onVerify={p.onVerify} onChanged={p.onChanged} />
+
+      <section className="card space-y-2">
+        <h2 className="font-semibold">💬 Iris’s voice</h2>
+        <p className="text-sm text-slate-600">On this device Iris uses: <b>{irisVoiceName()}</b></p>
+        <p className="text-xs text-slate-500">
+          For the most natural voice on iPhone or iPad: <b>Settings → Accessibility → Spoken Content → Voices → English</b>, download <b>Ava (Premium)</b> or <b>Zoe (Premium)</b>, and under Spanish, <b>Paulina (Premium)</b>. Iris picks them up automatically. On a Mac it’s System Settings → Accessibility → Spoken Content → System Voice → Manage Voices.
+        </p>
+      </section>
 
       <section className="card space-y-2">
         <h2 className="font-semibold">Backup</h2>

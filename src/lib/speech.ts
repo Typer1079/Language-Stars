@@ -51,22 +51,58 @@ export function createRecognition(): RecognitionLike | null {
 
 export type { RecognitionLike }
 
+// Iris's voice: the most natural-sounding female voice the device has.
+// Apple's "Premium"/"Enhanced" voices, Google's and Microsoft's "Natural" voices sound far less robotic.
+const PREFERRED: Record<'en' | 'es', string[]> = {
+  en: ['ava (premium)', 'zoe (premium)', 'ava (enhanced)', 'zoe (enhanced)', 'samantha (enhanced)', 'allison (enhanced)', 'susan (enhanced)',
+    'microsoft ava online', 'microsoft aria online', 'microsoft jenny online', 'google us english', 'ava', 'samantha', 'allison', 'karen', 'moira', 'tessa', 'serena'],
+  es: ['paulina (premium)', 'marisol (premium)', 'paulina (enhanced)', 'mónica (enhanced)', 'monica (enhanced)', 'microsoft elvira online', 'microsoft dalia online',
+    'google español de estados unidos', 'google español', 'paulina', 'mónica', 'monica', 'marisol', 'angelica'],
+}
+// Novelty and robotic system voices to avoid.
+const AVOID = /albert|bad news|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|fred|junior|ralph|grandpa|grandma|rocko|eddy|flo|reed|sandy|shelley/i
+
+function voiceScore(v: SpeechSynthesisVoice, lang: string): number {
+  const name = v.name.toLowerCase()
+  const vl = (v.lang || '').toLowerCase().replace('_', '-')
+  const base = lang.slice(0, 2).toLowerCase() as 'en' | 'es'
+  if (!vl.startsWith(base) || AVOID.test(name)) return -1
+  let score = vl === lang.toLowerCase() ? 20 : 10
+  const rank = PREFERRED[base].findIndex((p) => name.includes(p))
+  if (rank >= 0) score += 100 - rank * 3
+  if (/premium|enhanced|natural|neural/.test(name)) score += 40
+  return score
+}
+
+const voiceCache: Record<string, SpeechSynthesisVoice | null> = {}
+
 function pickVoice(lang: string): SpeechSynthesisVoice | null {
   if (!('speechSynthesis' in window)) return null
+  if (voiceCache[lang] !== undefined) return voiceCache[lang]
   const voices = window.speechSynthesis.getVoices()
-  const base = lang.slice(0, 2).toLowerCase()
-  return (
-    voices.find((v) => v.lang?.toLowerCase() === lang.toLowerCase()) ??
-    voices.find((v) => v.lang?.toLowerCase().startsWith(base)) ??
-    null
-  )
+  let best: SpeechSynthesisVoice | null = null
+  let bestScore = -1
+  for (const v of voices) {
+    const sc = voiceScore(v, lang)
+    if (sc > bestScore) { best = v; bestScore = sc }
+  }
+  if (voices.length) voiceCache[lang] = best
+  return best
+}
+
+/** The voice Iris uses on this device (for the Account screen). */
+export function irisVoiceName(): string {
+  return pickVoice('en-US')?.name ?? 'device default'
 }
 
 export function primeVoices() {
   try {
     if (!('speechSynthesis' in window)) return
     window.speechSynthesis.getVoices()
-    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices()
+    window.speechSynthesis.onvoiceschanged = () => {
+      for (const k of Object.keys(voiceCache)) delete voiceCache[k]
+      window.speechSynthesis.getVoices()
+    }
   } catch {
     // ignore
   }
@@ -109,8 +145,9 @@ export function speakSegments(segments: VoiceSegment[], done: () => void, speed 
     u.lang = seg.lang
     const voice = pickVoice(seg.lang)
     if (voice) u.voice = voice
-    u.rate = (seg.lang === 'es-ES' ? 0.85 : 0.95) * speed
-    u.pitch = 1.05
+    // A touch brighter and closer to a normal speaking pace sounds warmer than slow and flat.
+    u.rate = (seg.lang === 'es-ES' ? 0.9 : 1.0) * speed
+    u.pitch = 1.1
     u.onend = next
     u.onerror = next
     window.speechSynthesis.speak(u)

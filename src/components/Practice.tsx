@@ -46,6 +46,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const [shop, setShop] = useState<string | null>(null)
   const [roundDone, setRoundDone] = useState(false)
   const [logOpen, setLogOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [logLines, setLogLines] = useState<string[]>([])
   const [confetti, setConfetti] = useState<ConfettiPiece[]>([])
   const [roundNote, setRoundNote] = useState<{ clean: number; attempts: number; movedDownTo: number | null; note?: string } | null>(null)
@@ -101,7 +102,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       engine.setPaused(false)
       engine.begin(opts.promptType ?? 'quick_listen')
     }
-    else if (l.mode === 'spanish' && it.spanish) setFeedback({ title: `Say "${it.spanish.en}" in Spanish!`, sub: 'Shift reveals the word • Space for the AI Coach • Return to listen', tone: 'neutral' })
+    else if (l.mode === 'spanish' && it.spanish) setFeedback({ title: `Say "${it.spanish.en}" in Spanish!`, sub: 'Shift shows the word • Space asks Iris • Return to listen', tone: 'neutral' })
     else setFeedback({ title: 'Say the word out loud!', sub: `Press ${isMac ? 'Return' : 'Enter'} or tap Listen Now`, tone: 'neutral' })
   }, [])
 
@@ -213,7 +214,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       setShop(`🎉 Milestone! You reached ${m} lifetime ${m === 1 ? 'star' : 'stars'}! Pick a sticker!`)
       return
     }
-    if (coached) engineRef.current?.praiseThen(() => { if (!shopRef.current) advanceTimer.current = setTimeout(() => advance(true), 250) })
+    if (coached) engineRef.current?.praiseThen(() => { if (!shopRef.current) advanceTimer.current = setTimeout(() => advance(false), 150) })
     else advanceTimer.current = setTimeout(() => advance(false), paceRef.current === 'brisk' ? 250 : 550)
   }, [advance, log, onActivity, onChange])
 
@@ -315,46 +316,54 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       <StickerCanvas stickers={learner.stickers} onMove={(id, x, y) => onChange(moveSticker(learnerRef.current, id, x, y))} />
       <Confetti pieces={confetti} />
 
-      <header className="relative z-30 mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 px-3 pt-3 pb-2 sm:px-6">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-2xl shadow-md">⭐</div>
-          <div>
-            <h1 className="font-kids text-xl font-bold leading-tight sm:text-2xl">Read Aloud Stars</h1>
-            <div className="flex flex-wrap items-center gap-1.5">
+      <header className="relative z-30 mx-auto w-full max-w-5xl px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 sm:px-6">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-xl shadow-md sm:h-11 sm:w-11 sm:text-2xl">⭐</div>
+            <div className="min-w-0">
+              <h1 className="hidden font-kids text-2xl font-bold leading-tight sm:block">Read Aloud Stars</h1>
               <button type="button" onClick={onExit} title="Switch reader"
-                className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100">
-                {spanish ? '🇪🇸' : learner.sticker_style === 'girl' ? '👧' : '👦'} Reader: {learner.display_name}
+                className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-sm font-bold text-indigo-700 hover:bg-indigo-100">
+                {spanish ? '🇪🇸' : learner.sticker_style === 'girl' ? '👧' : '👦'} {learner.display_name} <span className="text-indigo-400">▾</span>
               </button>
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800"
-                title="Change Reading or Spanish with ✏️ Edit (Switch reader → ✏️ Edit)">
-                {spanish ? '🇪🇸 Spanish' : '📖 Reading'}
-              </span>
-              <span className={`text-[11px] font-semibold ${saveStatus === 'saved' ? 'text-emerald-700' : saveStatus === 'saving' ? 'text-slate-500' : 'text-rose-700'}`}>{saveLabel}</span>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1 rounded-2xl border-2 border-amber-300 bg-white/95 px-2.5 py-1 shadow-sm" title="Lifetime stars">
+              <span className="text-base">🌟</span>
+              <span className="font-kids text-base font-bold sm:text-lg">{learner.lifetime_stars}</span>
+            </div>
+            <button type="button" onClick={() => openShop('Pick a sticker for your screen!')} aria-label={`Stickers, ${learner.spendable_stars} stars to spend`}
+              className="flex items-center gap-1 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-purple-600 px-2.5 py-1.5 font-kids text-sm font-bold text-white shadow-md hover:from-fuchsia-600 hover:to-purple-700">
+              🏪<span className="hidden sm:inline"> Stickers</span> <span className="rounded-full bg-white/25 px-1.5 text-xs">{learner.spendable_stars}⭐</span>
+            </button>
+            <div className="relative">
+              <button type="button" className="chip h-9 w-9 justify-center px-0 text-base" aria-label="More" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>⋯</button>
+              {menuOpen && <div className="fixed inset-0 z-40" aria-hidden="true" onClick={() => setMenuOpen(false)} />}
+              {menuOpen && (
+                <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm font-semibold shadow-xl" onClick={() => setMenuOpen(false)}>
+                  <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={onExit}>🚪 Switch reader</button>
+                  <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setLogOpen(true)}>📊 Speech log</button>
+                  <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50"
+                    onClick={() => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => {})}>⛶ Full screen</button>
+                </div>
+              )}
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <div className="flex items-center gap-1.5 rounded-2xl border-2 border-amber-300 bg-white/95 px-3 py-1.5 shadow-sm">
-            <span className="text-lg">🌟</span>
-            <div className="leading-none">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Lifetime</div>
-              <div className="font-kids text-base font-bold sm:text-lg">{learner.lifetime_stars}</div>
-            </div>
-          </div>
-          <button type="button" onClick={() => openShop('Pick a sticker for your screen!')}
-            className="flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-purple-600 px-3 py-1.5 font-kids text-xs font-bold text-white shadow-md hover:from-fuchsia-600 hover:to-purple-700 sm:text-sm">
-            🏪 Stickers <span className="rounded-full bg-white/25 px-1.5 py-0.5 text-xs">{learner.spendable_stars} ⭐</span>
-          </button>
-          <button type="button" className="chip" onClick={onExit}>🚪 Switch reader</button>
-          <button type="button" className="chip" onClick={() => setLogOpen(true)}>📊 Log</button>
-          <button type="button" className="chip" title="Full screen" onClick={() => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => {})}>⛶</button>
+        <div className="mt-1.5 flex items-center gap-2 pl-[3.1rem] sm:pl-[3.4rem]">
+          <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800"
+            title="Change Reading or Spanish with ✏️ Edit on the reader list">
+            {spanish ? '🇪🇸 Spanish' : '📖 Reading'}
+          </span>
+          <span className={`text-[11px] font-semibold ${saveStatus === 'saved' ? 'text-emerald-700' : saveStatus === 'saving' ? 'text-slate-500' : 'text-rose-700'}`}>{saveLabel}</span>
         </div>
       </header>
 
-      <main className="relative z-20 mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center gap-4 px-3 py-3 sm:px-6">
+      <main className="relative z-20 mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-start gap-4 px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:justify-center sm:px-6">
         {!recognitionSupported() && (
           <p className="w-full max-w-2xl rounded-2xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-            This browser can’t listen to speech. Use Chrome, Edge or Safari for the microphone. The AI Coach and Next still work.
+            This browser can’t listen to speech. Use Chrome, Edge or Safari for the microphone. Ask Iris and Next still work.
           </p>
         )}
         <div className="flex w-full max-w-2xl flex-col gap-2 rounded-2xl border border-indigo-100 bg-white/90 p-3 shadow-sm backdrop-blur-sm">
@@ -426,18 +435,18 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
             <div className="mt-0.5 text-xs opacity-80 sm:text-sm">{feedback.sub}</div>
           </div>
 
-          <div className="flex w-full flex-wrap items-center justify-center gap-3">
+          <div className="grid w-full max-w-lg grid-cols-2 gap-2.5 sm:gap-3">
             <button type="button" onClick={() => engineRef.current?.listenNow()}
-              className={`flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-3.5 font-kids text-base font-bold text-white shadow-lg transition hover:from-emerald-600 hover:to-teal-700 active:scale-95 sm:text-lg ${mic.state === 'listening' ? 'animate-pulse-ring' : ''}`}>
+              className={`col-span-2 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4 font-kids text-lg font-bold text-white shadow-lg transition hover:from-emerald-600 hover:to-teal-700 active:scale-95 ${mic.state === 'listening' ? 'animate-pulse-ring' : ''}`}>
               <span className={`h-3 w-3 rounded-full ${mic.state === 'listening' ? 'animate-ping bg-emerald-200' : mic.state === 'warming' ? 'bg-amber-200' : 'bg-white/90'}`} />
-              <span>{mic.label}</span>
-              <span className="rounded-full bg-black/15 px-2 py-0.5 font-sans text-xs">{isMac ? 'Return' : 'Enter'}</span>
+              <span>{mic.label === 'Listen Now' ? '🎤 Listen' : mic.label}</span>
+              <span className="hidden rounded-full bg-black/15 px-2 py-0.5 font-sans text-xs [@media(pointer:fine)]:inline">{isMac ? 'Return' : 'Enter'}</span>
             </button>
             <button type="button" onClick={() => engineRef.current?.coach()}
-              className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-600 px-5 py-3.5 font-kids text-base font-bold text-white shadow-md transition hover:from-indigo-600 hover:to-blue-700 active:scale-95 sm:text-lg">
-              🎧 AI Coach <span className="rounded-full bg-black/15 px-2 py-0.5 font-sans text-xs">Space</span>
+              className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-600 px-4 py-3.5 font-kids text-base font-bold text-white shadow-md transition hover:from-indigo-600 hover:to-blue-700 active:scale-95 sm:text-lg">
+              💬 Ask Iris <span className="hidden rounded-full bg-black/15 px-2 py-0.5 font-sans text-xs [@media(pointer:fine)]:inline">Space</span>
             </button>
-            <button type="button" onClick={skip} className="rounded-2xl bg-slate-100 px-4 py-3.5 text-sm font-bold text-slate-700 transition hover:bg-slate-200">Next ➡️</button>
+            <button type="button" onClick={skip} className="rounded-2xl bg-slate-100 px-4 py-3.5 font-kids text-base font-bold text-slate-700 transition hover:bg-slate-200 active:scale-95 sm:text-lg">Next ➡️</button>
           </div>
         </section>
       </main>
