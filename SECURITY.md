@@ -18,9 +18,9 @@ or GitHub · **Owner** = a setting or practice the account owner must keep up ·
 ## Access control (AC)
 | Control | Status | How |
 |---|---|---|
-| AC-2 Account management | Implemented + Owner | Supabase Auth accounts with confirmed email. Owner closes public sign-up after family accounts exist and invites anyone new (README step 4). Deleting a user in Supabase deletes their readers (`on delete cascade`). |
+| AC-2 Account management | Implemented + Owner | Supabase Auth accounts with confirmed email. Owner closes public sign-up after family accounts exist and invites anyone new (README step 4). Deleting a user in Supabase deletes their readers and practice history (`on delete cascade`). Super admins are listed in `app_admins`, which the app can neither read nor change; admins are added only by the owner in the SQL editor. |
 | AC-3 Access enforcement | Implemented | Postgres row-level security on `learners` and `audit_log` (`force row level security`); policies tested for cross-account reads, writes and owner changes. |
-| AC-6 Least privilege | Implemented | `anon` role has no table access; `authenticated` gets only select/insert/update/delete on its own rows and read-only access to its own audit entries. Trigger functions run with an empty `search_path` and are not callable by users. The `service_role` key is never used by the app. |
+| AC-6 Least privilege | Implemented | `anon` role has no table access; `authenticated` gets only select/insert/update/delete on its own rows and read-only access to its own audit entries. Trigger functions run with an empty `search_path` and are not callable by users. The `service_role` key is never used by the app. Practice history is insert/select only on your own readers (no edits or deletes). The admin dashboard is a single function that returns aggregated counts only and requires an admin account plus a two-step / Face ID session. |
 | AC-7 Unsuccessful logon attempts | Inherited + Owner | Supabase Auth rate-limits sign-in and verification attempts (Authentication → Rate Limits). Error messages don't reveal whether an email exists. |
 | AC-8 System use notification | Implemented | Sign-in screen notice: private family app, authorized users only, activity logged. |
 | AC-11 / AC-12 Session lock and termination | Implemented | Automatic sign-out after 30 minutes without taps, keys or words read; "Sign out on all devices" revokes every session. |
@@ -30,7 +30,7 @@ or GitHub · **Owner** = a setting or practice the account owner must keep up ·
 ## Audit and accountability (AU)
 | Control | Status | How |
 |---|---|---|
-| AU-2 / AU-12 Event logging | Implemented + Inherited | Database trigger logs reader create/delete and every change to stars, balance, levels, sticker count and profile fields. Supabase Auth logs sign-ins, MFA events and password changes (Dashboard → Logs). |
+| AU-2 / AU-12 Event logging | Implemented + Inherited | Database trigger logs reader create/delete and every change to stars, balance, levels, sticker count and profile fields. Supabase Auth logs sign-ins, MFA events and password changes (Dashboard → Logs). Every admin-dashboard view is logged as `admin.view_kpis`. |
 | AU-3 Content of records | Implemented | Time, account ID, reader ID, action, MFA level of the session (`aal1`/`aal2`) and before → after values. No personal content is copied into the log. |
 | AU-6 Review | Implemented + Owner | Account → Activity shows the account's own log. Owner reviews periodically. |
 | AU-9 Protection of audit information | Implemented | Users can read only their own entries and cannot insert, update or delete any; only the trigger writes. |

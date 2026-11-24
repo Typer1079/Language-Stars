@@ -1,16 +1,17 @@
 import type { Session } from '@supabase/supabase-js'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Account from './components/Account'
+import Admin from './components/Admin'
 import Auth, { NewPassword } from './components/Auth'
 import LearnerPicker from './components/LearnerPicker'
 import { MfaChallenge, MfaEnroll } from './components/Mfa'
 import Practice, { type SaveStatus } from './components/Practice'
-import { createLearner, dbMessage, listLearners, saveLearner } from './lib/learnersApi'
+import { checkIsAdmin, createLearner, dbMessage, listLearners, saveLearner } from './lib/learnersApi'
 import { primeVoices } from './lib/speech'
 import { isConfigured, supabase } from './lib/supabase'
 import type { Learner, LearnerDraft } from './lib/types'
 
-type View = 'picker' | 'account' | 'practice' | 'mfa-challenge' | 'mfa-enroll' | 'recovery'
+type View = 'picker' | 'account' | 'practice' | 'mfa-challenge' | 'mfa-enroll' | 'recovery' | 'admin'
 
 /** Signed-in sessions end after this long without any taps, keys or words read (NIST 800-53 AC-11, AC-12). */
 const FACE_ID_METHODS = ['passkey', 'webauthn', 'mfa/webauthn']
@@ -32,6 +33,8 @@ export default function App() {
   const [notice, setNotice] = useState('')
   // Readers chosen before two-step sign-in was set up; added as soon as it succeeds.
   const [pendingAdd, setPendingAdd] = useState<LearnerDraft[] | null>(null)
+  // Super admin (set only in the database, and only with a two-step / Face ID session).
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const pending = useRef(new Map<string, Learner>())
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -64,6 +67,7 @@ export default function App() {
         pending.current.clear()
         setLearners([])
         setActiveId(null)
+        setIsAdmin(false)
         setView('picker')
       }
     })
@@ -237,6 +241,19 @@ export default function App() {
     setView('picker')
   }
 
+  // The database decides who is an admin; re-check whenever the sign-in strength changes.
+  const userId = session?.user.id
+  useEffect(() => {
+    let live = true
+    if (!userId || !aal.verified) {
+      // eslint-disable-next-line react/set-state-in-effect
+      setIsAdmin(false)
+      return
+    }
+    void checkIsAdmin().then((v) => { if (live) setIsAdmin(v) })
+    return () => { live = false }
+  }, [userId, aal.verified])
+
   // ---- screens -------------------------------------------------------------------------------
 
   if (!isConfigured) {
@@ -266,6 +283,7 @@ export default function App() {
   if (view === 'practice' && active) {
     return <Practice learner={active} onChange={updateLearner} onExit={exitPractice} saveStatus={saveStatus} onActivity={touch} />
   }
+  if (view === 'admin' && isAdmin) return <Admin onBack={() => setView('picker')} />
   if (view === 'account') {
     return (
       <Account
@@ -300,6 +318,7 @@ export default function App() {
         onImport={importDrafts}
         onUnlockKids={(pending) => { setPendingAdd(pending?.length ? pending : null); setEnrollMode('choose'); setView(aal.hasMfa ? 'mfa-challenge' : 'mfa-enroll') }}
         onAccount={() => setView('account')}
+        onAdmin={isAdmin ? () => setView('admin') : undefined}
       />
     </>
   )

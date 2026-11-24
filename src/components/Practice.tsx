@@ -12,6 +12,8 @@ import { wordHelp } from '../lib/phonics'
 import { makeConfetti, type ConfettiPiece } from '../lib/confetti'
 import { Confetti, StickerBoard, StickerCanvas, StickerShop } from './Stickers'
 import { useWideScreen } from '../lib/useWideScreen'
+import { ProgressView } from './Progress'
+import { logRound } from '../lib/learnersApi'
 
 export type SaveStatus = 'saved' | 'saving' | 'offline' | 'error'
 
@@ -50,6 +52,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const wide = useWideScreen()
   const [roundDone, setRoundDone] = useState(false)
   const [logOpen, setLogOpen] = useState(false)
+  const [progressOpen, setProgressOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [logLines, setLogLines] = useState<string[]>([])
   const [confetti, setConfetti] = useState<ConfettiPiece[]>([])
@@ -78,6 +81,28 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     shopRef.current = shop
   })
   const solvedRef = useRef(false)
+  // This round's record for the progress graphs (counts and time only).
+  const roundLog = useRef({ start: 0, level: 1, mode: learner.mode, items: 0, clean: 0, coached: 0, skipped: 0, stars0: learner.lifetime_stars, questions: 0, questionsRight: 0 })
+  const beginLog = useCallback(() => {
+    const l = learnerRef.current
+    roundLog.current = { start: Date.now(), level: activeLevel(l), mode: l.mode, items: 0, clean: 0, coached: 0, skipped: 0, stars0: l.lifetime_stars, questions: 0, questionsRight: 0 }
+  }, [])
+  const flushLog = useCallback(() => {
+    const r = roundLog.current
+    const l = learnerRef.current
+    if (r.items > 0 || r.questions > 0) {
+      void logRound({
+        learner_id: l.id, mode: r.mode, level: r.level,
+        level_after: r.mode === 'spanish' ? l.spanish_level : l.reading_level,
+        items: r.items, clean: r.clean, coached: r.coached, skipped: r.skipped,
+        stars: Math.max(0, l.lifetime_stars - r.stars0),
+        questions: r.questions, questions_right: r.questionsRight,
+        // Counted time per round is capped, so a reader who walks away doesn't inflate it.
+        seconds: Math.min(Math.round((Date.now() - r.start) / 1000), 20 * 60),
+      }).catch(() => { /* graphs are best effort; practice never waits on them */ })
+    }
+    r.items = r.clean = r.coached = r.skipped = r.questions = r.questionsRight = 0
+  }, [])
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const engineRef = useRef<PracticeEngine | null>(null)
 
@@ -116,6 +141,8 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
 
   const startRound = useCallback((opts: { autoBegin: boolean; welcome?: boolean; challengeLevel?: number | null }) => {
     paceRef.current = paceFor(learnerRef.current, lastRoundRef.current)
+    flushLog()
+    beginLog()
     setRoundDone(false)
     setRoundNote(null)
     cleanRef.current = 0
@@ -132,7 +159,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       engineRef.current?.setPaused(false)
       engineRef.current?.welcome()
     }
-  }, [loadWord])
+  }, [loadWord, flushLog, beginLog])
 
   /** Perfect round: say so, then start a short challenge a few levels up. */
   const startChallenge = useCallback((target: number, headline: string) => {
@@ -154,6 +181,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       onChange(r.learner)
       starsSinceStop.current += r.bonus ?? 0
     }
+    flushLog()
     if (r.challengeAt) {
       startChallenge(r.challengeAt, `Perfect round! Up to Level ${r.movedUpTo}${r.bonus ? ` +${r.bonus} ⭐` : ''}`)
       return
@@ -182,7 +210,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     setRoundNote({ clean, attempts, movedDownTo: r.movedDownTo, note })
     const l = learnerRef.current
     if (l.spendable_stars > 0) setShop(`🎉 Round complete! Spend your ${l.spendable_stars} ⭐ or tap Keep Reading.`)
-  }, [log, onChange, startRound, startChallenge])
+  }, [log, onChange, startRound, startChallenge, flushLog])
 
   const advance = useCallback((afterCoach: boolean) => {
     if (shopRef.current) return
@@ -208,6 +236,9 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     onActivity()
     const before = learnerRef.current
     const r = solveWord(before, it, coached, { challenge: Boolean(challengeRef.current) })
+    roundLog.current.items += 1
+    if (coached) roundLog.current.coached += 1
+    else roundLog.current.clean += 1
     // Stretch items don't count for or against this level's round score.
     if (it.stretchLevel) {
       if (!coached) stretchClearedRef.current.push(it.stretchLevel)
@@ -262,6 +293,8 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       advance: (afterCoach) => {
         // The coach gave up on this word: it counts as tried, not said (stretch items don't count).
         if (!roundRef.current[indexRef.current]?.stretchLevel) attemptsRef.current += 1
+        roundLog.current.items += 1
+        roundLog.current.skipped += 1
         advanceCb.current(afterCoach)
       },
       revealSpanish: () => setRevealed(true),
@@ -274,15 +307,16 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     startRound({ autoBegin: false, welcome: true })
     return () => {
       clearTimeout(advanceTimer.current)
+      flushLog()
       engine.dispose()
       engineRef.current = null
     }
     // Start once per reader.
-  }, [learner.id, log, startRound])
+  }, [learner.id, log, startRound, flushLog])
 
   // ---- controls ------------------------------------------------------------------------------
 
-  const anyModal = Boolean(shop) || roundDone || logOpen || Boolean(quiz)
+  const anyModal = Boolean(shop) || roundDone || logOpen || Boolean(quiz) || progressOpen
 
   const answerQuiz = (i: number) => {
     if (!quiz || quiz.picked !== null) return
@@ -290,6 +324,8 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     setQuiz({ ...quiz, picked: i })
     cancelQuizVoice.current?.()
     log('ANSWER', `${right ? 'right' : 'wrong'}: ${quiz.q.choices[i]}`)
+    roundLog.current.questions += 1
+    if (right) roundLog.current.questionsRight += 1
     if (right) {
       const l = learnerRef.current
       const next = { ...l, lifetime_stars: l.lifetime_stars + 1, spendable_stars: l.spendable_stars + 1 }
@@ -326,6 +362,20 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     return () => clearTimeout(t)
   }, [quizQ])
 
+  /** Reading or Spanish today: progress in each is kept separately. */
+  const switchMode = (m: 'reading' | 'spanish') => {
+    if (m === learnerRef.current.mode) return
+    engineRef.current?.stopAll()
+    clearTimeout(advanceTimer.current)
+    flushLog()
+    setQuiz(null)
+    const next = { ...learnerRef.current, mode: m }
+    learnerRef.current = next
+    onChange(next)
+    log('MODE', m)
+    startRound({ autoBegin: false })
+  }
+
   const openShop = (reason: string) => {
     engineRef.current?.setPaused(true)
     setShop(reason)
@@ -338,6 +388,10 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const skip = () => {
     if (anyModal) return
     if (!solvedRef.current && !roundRef.current[indexRef.current]?.stretchLevel) attemptsRef.current += 1
+    if (!solvedRef.current) {
+      roundLog.current.items += 1
+      roundLog.current.skipped += 1
+    }
     engineRef.current?.stopAll()
     advance(false)
   }
@@ -378,6 +432,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     <div className="flex min-h-dvh flex-col">
       {wide && <StickerCanvas stickers={learner.stickers} onMove={moveOne} />}
       <Confetti pieces={confetti} />
+      {progressOpen && <ProgressView learner={learner} onClose={() => setProgressOpen(false)} />}
 
       <header className="relative z-30 mx-auto w-full max-w-5xl px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 sm:px-6">
         <div className="flex items-center justify-between gap-2">
@@ -405,6 +460,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
               {menuOpen && <div className="fixed inset-0 z-40" aria-hidden="true" onClick={() => setMenuOpen(false)} />}
               {menuOpen && (
                 <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm font-semibold shadow-xl" onClick={() => setMenuOpen(false)}>
+                  <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setProgressOpen(true)}>📈 My progress</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={onExit}>🚪 Switch reader</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setLogOpen(true)}>📊 Speech log</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50"
@@ -415,10 +471,14 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
           </div>
         </div>
         <div className="mt-1.5 flex items-center gap-2 pl-[3.1rem] sm:pl-[3.4rem]">
-          <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800"
-            title="Change Reading or Spanish with ✏️ Edit on the reader list">
-            {spanish ? '🇪🇸 Spanish' : '📖 Reading'}
-          </span>
+          <div className="inline-flex overflow-hidden rounded-full border border-amber-300 bg-white text-[11px] font-bold" role="group" aria-label="What to practice today">
+            {(['reading', 'spanish'] as const).map((m) => (
+              <button key={m} type="button" aria-pressed={learner.mode === m} onClick={() => switchMode(m)}
+                className={`px-2.5 py-1 transition ${learner.mode === m ? 'bg-amber-400 text-slate-900' : 'text-amber-800 hover:bg-amber-50'}`}>
+                {m === 'spanish' ? '🇪🇸 Spanish' : '📖 Reading'}
+              </button>
+            ))}
+          </div>
           <span className={`text-[11px] font-semibold ${saveStatus === 'saved' ? 'text-emerald-700' : saveStatus === 'saving' ? 'text-slate-500' : 'text-rose-700'}`}>{saveLabel}</span>
         </div>
       </header>

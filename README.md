@@ -160,7 +160,7 @@ src/
     validate.ts           cleans everything read from files (SI-10)
     learnersApi.ts        database reads/writes
     wordBanks.ts          reading and Spanish word lists
-supabase/migrations/      database schema, row-level security, audit log
+supabase/migrations/      database schema, row-level security, audit log, practice history, admin dashboard
 .github/workflows/        audit + lint + test + build + deploy
 ```
 
@@ -172,3 +172,22 @@ supabase/migrations/      database schema, row-level security, audit log
   30-minute idle sign-out covers the first.
 - The AI Coach uses the browser's built-in voices. A higher-quality voice would need a small server
   function (Supabase Edge Function) holding a speech API key; never put such a key in this app.
+
+## Progress graphs and the admin dashboard
+
+Migration `005_activity_and_admin.sql` stores one row per finished round (counts and times only: no audio,
+no answers) so readers and parents can see graphs (📈 Progress on the reader list, or ⋯ → My progress
+while practicing). Kids' history follows the same two-step / Face ID rule as their profiles.
+
+To make an account the super admin, run this in the SQL Editor (use the email you sign in with):
+
+```sql
+insert into public.app_admins (user_id)
+select id from auth.users where lower(email) = lower('you@example.com')
+on conflict do nothing;
+```
+
+Sign in with Face ID or your authenticator code and a **📊 Admin** button appears on the reader list.
+The dashboard only receives site-wide totals (no names or emails), and each visit is written to the audit log.
+To remove an admin: `delete from public.app_admins where user_id = '…';`
+

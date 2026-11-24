@@ -4,7 +4,8 @@
 // built from graded vocabulary and sentence patterns. Generation is deterministic (seeded by mode and
 // level), so a level always contains the same items and mastered-word records stay valid.
 
-import { SPANISH_WORD_BANKS, WORD_BANKS, type SpanishEntry } from './wordBanks'
+import { WORD_BANKS, type SpanishEntry } from './wordBanks'
+import { TOURIST_LEVELS } from './spanishTourist'
 import { ADVANCED_FROM, advancedLevels, bandFor } from './readingAdvanced'
 
 export const MAX_LEVEL = 100
@@ -69,6 +70,7 @@ export function stageName(level: number, mode: 'reading' | 'spanish'): string {
     if (level < ADVANCED_FROM) return 'Sentences'
     return bandFor(level)?.name ?? 'Doctorate'
   }
+  if (level <= 6) return 'Travel basics'
   if (level <= 15) return 'Words'
   if (level <= 35) return 'Phrases'
   return 'Sentences'
@@ -533,7 +535,8 @@ function spanishItem(r: () => number, level: number): SpanishEntry {
 
 function buildSpanish(): Record<number, SpanishEntry[]> {
   const out: Record<number, SpanishEntry[]> = {}
-  for (let l = 1; l <= 6; l++) out[l] = SPANISH_WORD_BANKS[l]
+  // Levels 1-6: traveler's essentials first (greetings, help, numbers, food, directions, emergencies).
+  for (let l = 1; l <= 6; l++) out[l] = TOURIST_LEVELS[l]
   const used = new Set<string>()
   for (let l = 1; l <= 6; l++) out[l].forEach((e) => used.add(e.en.toLowerCase()))
   fillLevels(out, 7, MAX_LEVEL, 'spanish', (e) => e.en, used, spanishItem)

@@ -58,3 +58,89 @@ export function dbMessage(err: unknown): string {
   if (/Failed to fetch|NetworkError|network/i.test(msg)) return 'No connection. Progress will save when you’re back online.'
   return msg || 'Something went wrong.'
 }
+
+// ---- practice history (graphs) ---------------------------------------------------------------
+
+/** One finished round, as stored for progress graphs (counts and timing only). */
+export interface RoundRecord {
+  learner_id: string
+  mode: 'reading' | 'spanish'
+  level: number
+  level_after: number
+  items: number
+  clean: number
+  coached: number
+  skipped: number
+  stars: number
+  questions: number
+  questions_right: number
+  seconds: number
+  created_at?: string
+}
+
+const clampInt = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(Number(n) || 0)))
+
+/** Saves a round for the progress graphs. Best effort: practice never waits on it. */
+export async function logRound(r: RoundRecord): Promise<void> {
+  const items = clampInt(r.items, 0, 100)
+  const clean = clampInt(r.clean, 0, items)
+  const coached = clampInt(r.coached, 0, items - clean)
+  const row = {
+    ...r,
+    level: clampInt(r.level, 1, 100),
+    level_after: clampInt(r.level_after, 1, 100),
+    items, clean, coached,
+    skipped: clampInt(r.skipped, 0, items - clean - coached),
+    stars: clampInt(r.stars, 0, 100000),
+    questions: clampInt(r.questions, 0, 100),
+    questions_right: clampInt(r.questions_right, 0, clampInt(r.questions, 0, 100)),
+    seconds: clampInt(r.seconds, 0, 14400),
+  }
+  delete row.created_at
+  const { error } = await supabase.from('practice_rounds').insert(row)
+  if (error) throw error
+}
+
+export async function listRounds(learnerId: string, days = 90): Promise<RoundRecord[]> {
+  const since = new Date(Date.now() - days * 86400000).toISOString()
+  const { data, error } = await supabase
+    .from('practice_rounds')
+    .select('learner_id, mode, level, level_after, items, clean, coached, skipped, stars, questions, questions_right, seconds, created_at')
+    .eq('learner_id', learnerId)
+    .gte('created_at', since)
+    .order('created_at', { ascending: true })
+    .limit(5000)
+  if (error) throw error
+  return (data ?? []) as RoundRecord[]
+}
+
+// ---- super admin -----------------------------------------------------------------------------
+
+export async function checkIsAdmin(): Promise<boolean> {
+  const { data, error } = await supabase.rpc('is_admin')
+  return !error && data === true
+}
+
+export interface AdminKpis {
+  generated_at: string
+  days: number
+  accounts: number
+  accounts_new: number
+  learners: number
+  learners_kids: number
+  learners_reading: number
+  learners_spanish: number
+  active_accounts_1d: number
+  active_accounts_7d: number
+  active_accounts_30d: number
+  active_learners_7d: number
+  totals: { rounds: number; items: number; clean: number; stars: number; minutes: number; questions: number; questions_right: number }
+  daily: { day: string; rounds: number; items: number; clean: number; stars: number; minutes: number; learners: number; accounts: number }[]
+  levels: { band: number; reading: number; spanish: number }[]
+}
+
+export async function adminKpis(days = 30): Promise<AdminKpis> {
+  const { data, error } = await supabase.rpc('admin_kpis', { days })
+  if (error) throw error
+  return data as AdminKpis
+}
