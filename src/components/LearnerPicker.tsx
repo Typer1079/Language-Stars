@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type React from 'react'
-import { activeLevel } from '../lib/progress'
+import { activeLevel, levelOf } from '../lib/progress'
 import { FaceIdOffer } from './FaceId'
 import { ProgressView } from './Progress'
 import { AVATAR_GROUPS, SKIN_TONES, avatarFor, toneOf, withTone } from '../lib/avatars'
-import { avatarsAvailable } from '../lib/learnersApi'
+import { avatarsAvailable, spellingAvailable } from '../lib/learnersApi'
 import { MAX_LEVEL, stageName } from '../lib/curriculum'
 import { cleanName, parseSaveFile } from '../lib/validate'
 import { newLearnerDraft, type AgeGroup, type Learner, type LearnerDraft, type LearnerKind, type Mode, type StickerStyle } from '../lib/types'
@@ -50,7 +50,7 @@ export default function LearnerPicker(p: Props) {
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {p.learners.map((l) => (
-          <LearnerCard key={l.id} learner={l} onPlay={() => p.onPick(l)} onProgress={() => setViewing(l)} onEdit={() => { setPanel('none'); setEditing(l) }} />
+          <LearnerCard key={l.id} learner={l} onMode={(m) => { void p.onUpdate({ ...l, mode: m }).catch(() => {}) }} onPlay={() => p.onPick(l)} onProgress={() => setViewing(l)} onEdit={() => { setPanel('none'); setEditing(l) }} />
         ))}
         {!p.loading && p.learners.length === 0 && (
           <p className="card text-sm text-slate-600 sm:col-span-2">No readers yet. Add one below, or import a backup from the old app.</p>
@@ -94,13 +94,23 @@ const THEMES = {
     { band: 'from-amber-400 via-orange-500 to-rose-500', bar: 'from-amber-400 to-rose-500', ring: 'ring-amber-200', play: 'from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600', soft: 'bg-amber-50 text-amber-900' },
     { band: 'from-rose-400 via-pink-500 to-purple-500', bar: 'from-rose-400 to-purple-500', ring: 'ring-rose-200', play: 'from-rose-500 to-purple-600 hover:from-rose-600 hover:to-purple-700', soft: 'bg-rose-50 text-rose-800' },
   ],
+  spelling: [
+    { band: 'from-emerald-400 via-lime-400 to-yellow-400', bar: 'from-emerald-500 to-lime-400', ring: 'ring-emerald-200', play: 'from-emerald-500 to-lime-600 hover:from-emerald-600 hover:to-lime-700', soft: 'bg-emerald-50 text-emerald-800' },
+    { band: 'from-teal-400 via-emerald-500 to-green-500', bar: 'from-teal-400 to-green-500', ring: 'ring-teal-200', play: 'from-teal-500 to-green-600 hover:from-teal-600 hover:to-green-700', soft: 'bg-teal-50 text-teal-800' },
+  ],
 }
 
-function LearnerCard({ learner: l, onPlay, onProgress, onEdit }: { learner: Learner; onPlay: () => void; onProgress: () => void; onEdit: () => void }) {
+const SUBJECTS: { m: Mode; icon: string; label: string }[] = [
+  { m: 'reading', icon: '📖', label: 'Reading' },
+  { m: 'spanish', icon: '🇪🇸', label: 'Spanish' },
+  { m: 'spelling', icon: '🐝', label: 'Spelling' },
+]
+const subjectsAvailable = () => SUBJECTS.filter((x) => x.m !== 'spelling' || spellingAvailable())
+
+function LearnerCard({ learner: l, onPlay, onProgress, onEdit, onMode }: { learner: Learner; onPlay: () => void; onProgress: () => void; onEdit: () => void; onMode: (m: Mode) => void }) {
   // Each learner keeps the same colors (picked from their name), so cards are easy to tell apart.
   const t = THEMES[l.mode][[...l.display_name].reduce((n, c) => n + c.charCodeAt(0), 0) % 2]
   const level = activeLevel(l)
-  const other = l.mode === 'spanish' ? { label: '📖 Reading', level: l.reading_level } : { label: '🇪🇸 Spanish', level: l.spanish_level }
   const shown = l.stickers.slice(-6).reverse()
   return (
     <article className="group relative overflow-hidden rounded-3xl border border-white/70 bg-white shadow-lg ring-1 ring-slate-200/60 transition duration-200 hover:-translate-y-1 hover:shadow-xl">
@@ -114,7 +124,7 @@ function LearnerCard({ learner: l, onPlay, onProgress, onEdit }: { learner: Lear
           ))}
         </span>
         <span className="absolute left-3 top-2.5 rounded-full bg-white/25 px-2.5 py-0.5 text-[11px] font-bold text-white backdrop-blur-sm">
-          {l.mode === 'spanish' ? '🇪🇸 Spanish' : '📖 Reading'}
+          {SUBJECTS.find((x) => x.m === l.mode)?.icon} {SUBJECTS.find((x) => x.m === l.mode)?.label}
         </span>
       </button>
 
@@ -139,7 +149,17 @@ function LearnerCard({ learner: l, onPlay, onProgress, onEdit }: { learner: Lear
         <div className="mt-3 flex flex-wrap gap-1.5 text-xs font-bold">
           <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-900">⭐ {l.lifetime_stars.toLocaleString()}</span>
           <span className="rounded-full bg-fuchsia-50 px-2.5 py-1 text-fuchsia-800">🎨 {l.stickers.length} sticker{l.stickers.length === 1 ? '' : 's'}</span>
-          {other.level > 1 && <span className={`rounded-full px-2.5 py-1 ${t.soft}`}>{other.label} L{other.level}</span>}
+        </div>
+
+        {/* Today's subject: one tap to switch (each keeps its own level). */}
+        <div className="mt-3 grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1" role="group" aria-label={`What ${l.display_name} practices today`}>
+          {subjectsAvailable().map((x) => (
+            <button key={x.m} type="button" aria-pressed={l.mode === x.m} onClick={() => l.mode !== x.m && onMode(x.m)}
+              className={`flex flex-col items-center rounded-xl px-1 py-1.5 text-[11px] font-bold leading-tight transition ${l.mode === x.m ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:bg-white/60'}`}>
+              <span className="text-base">{x.icon}</span>
+              <span>{x.label} <span className="font-semibold opacity-70">L{levelOf(l, x.m)}</span></span>
+            </button>
+          ))}
         </div>
 
         <div className="mt-4 flex items-center gap-2">
@@ -257,6 +277,7 @@ export interface ReaderFields {
   style: StickerStyle
   readingLevel: number
   spanishLevel: number
+  spellingLevel: number
   avatar: string | null
 }
 
@@ -297,15 +318,16 @@ export function ReaderForm({ initial, isNew, busy, error, submitLabel, onSubmit,
       <div>
         <span className="label">What do they practice?</span>
         <Choice label="Practice" value={f.mode} onChange={(v) => set('mode', v)}
-          options={[{ v: 'reading', label: '📖 Reading (English)' }, { v: 'spanish', label: '🇪🇸 Spanish (English → Spanish)' }]} />
+          options={subjectsAvailable().map((x) => ({ v: x.m, label: x.m === 'reading' ? '📖 Reading (English)' : x.m === 'spanish' ? '🇪🇸 Spanish (English → Spanish)' : '🐝 Spelling bee' }))} />
         <p className="mt-1 text-xs text-slate-500">
-          {f.mode === 'reading' ? 'Read words, phrases and sentences out loud, then answer what they mean.' : 'See an English word and say it in Spanish, with example phrases.'}
+          {f.mode === 'reading' ? 'Read words, phrases and sentences out loud, then answer what they mean.' : f.mode === 'spanish' ? 'See an English word and say it in Spanish, with example phrases.' : 'Hear a word and spell it out loud, letter by letter, with spelling bee rules.'}
           {!isNew && ' Progress in the other one is kept if you switch back.'}
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <LevelPicker id="reading-level" label="📖 Reading level" mode="reading" value={f.readingLevel} onChange={(v) => set('readingLevel', v)} />
         <LevelPicker id="spanish-level" label="🇪🇸 Spanish level" mode="spanish" value={f.spanishLevel} onChange={(v) => set('spanishLevel', v)} />
+        {spellingAvailable() && <LevelPicker id="spelling-level" label="🐝 Spelling level" mode="spelling" value={f.spellingLevel} onChange={(v) => set('spellingLevel', v)} />}
         <p className="text-xs text-slate-500 sm:col-span-2">Start anywhere from 1 to {MAX_LEVEL}. The app still moves up or down from there based on how practice goes.</p>
       </div>
       <div>
@@ -333,7 +355,7 @@ function AddReader({ verified, onUnlockKids, onCreate, onCancel }: { verified: b
   async function submit(f: ReaderFields) {
     if (!f.name) return setError('Enter a first name or nickname.')
     const base = newLearnerDraft(f.name, f.kind, f.age, f.style)
-    const draft: LearnerDraft = { ...base, mode: f.mode, reading_level: f.readingLevel, spanish_level: f.spanishLevel, reading_best: f.readingLevel, spanish_best: f.spanishLevel, ...(f.avatar ? { avatar: f.avatar } : {}) }
+    const draft: LearnerDraft = { ...base, mode: f.mode, reading_level: f.readingLevel, spanish_level: f.spanishLevel, reading_best: f.readingLevel, spanish_best: f.spanishLevel, spelling_level: f.spellingLevel, spelling_best: f.spellingLevel, ...(f.avatar ? { avatar: f.avatar } : {}) }
     // Managed profiles are protected by two-step sign-in; set it up first, then add automatically.
     if (f.kind === 'child' && !verified) return onUnlockKids([draft])
     setBusy(true)
@@ -350,7 +372,7 @@ function AddReader({ verified, onUnlockKids, onCreate, onCancel }: { verified: b
   return (
     <ReaderForm isNew busy={busy} error={error} onSubmit={submit} onCancel={onCancel}
       submitLabel={verified ? 'Add reader' : 'Add reader (sets up two-step sign-in)'}
-      initial={{ name: '', kind: 'child', mode: 'reading', age: '5-6', style: 'any', readingLevel: 1, spanishLevel: 1, avatar: null }} />
+      initial={{ name: '', kind: 'child', mode: 'reading', age: '5-6', style: 'any', readingLevel: 1, spanishLevel: 1, spellingLevel: 1, avatar: null }} />
   )
 }
 
@@ -375,6 +397,7 @@ function EditReader({ learner, onSave, onCancel }: { learner: Learner; onSave: (
       let next: Learner = { ...learner, display_name: f.name, mode: f.mode, age_group: f.age, sticker_style: f.style, ...(f.avatar ? { avatar: f.avatar } : {}) }
       // A new starting level: the best level only ever goes up (the database requires it).
       if (f.readingLevel !== learner.reading_level) next = { ...next, reading_level: f.readingLevel, reading_best: Math.max(learner.reading_best ?? 1, f.readingLevel) }
+      if (f.spellingLevel !== (learner.spelling_level ?? 1)) next = { ...next, spelling_level: f.spellingLevel, spelling_best: Math.max(learner.spelling_best ?? 1, f.spellingLevel) }
       if (f.spanishLevel !== learner.spanish_level) next = { ...next, spanish_level: f.spanishLevel, spanish_best: Math.max(learner.spanish_best ?? 1, f.spanishLevel) }
       await onSave(next)
     } catch (err) {
@@ -388,7 +411,7 @@ function EditReader({ learner, onSave, onCancel }: { learner: Learner; onSave: (
     <div ref={ref}>
       <h2 className="mt-6 font-kids text-xl font-bold">Edit {learner.display_name}</h2>
       <ReaderForm isNew={false} busy={busy} error={error} onSubmit={submit} onCancel={onCancel} submitLabel="Save changes"
-        initial={{ name: learner.display_name, kind: learner.kind, mode: learner.mode, age: learner.age_group, style: learner.sticker_style, readingLevel: learner.reading_level, spanishLevel: learner.spanish_level, avatar: learner.avatar ?? null }}
+        initial={{ name: learner.display_name, kind: learner.kind, mode: learner.mode, age: learner.age_group, style: learner.sticker_style, readingLevel: learner.reading_level, spanishLevel: learner.spanish_level, spellingLevel: learner.spelling_level ?? 1, avatar: learner.avatar ?? null }}
         footer={<p className="text-xs text-slate-500">Stars and stickers aren’t changed. To delete a reader, use ⚙️ Account.</p>} />
     </div>
   )

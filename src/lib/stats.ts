@@ -17,6 +17,7 @@ export interface DayStats {
   /** Level at the end of the day (carried forward from earlier days), per mode. */
   reading: number | null
   spanish: number | null
+  spelling: number | null
 }
 
 /** One entry per day for the last `days` days (oldest first), including days with no practice. */
@@ -33,9 +34,11 @@ export function dailySeries(rounds: RoundRecord[], days: number, now = new Date(
   // Levels before the window start, so lines don't begin empty.
   let reading: number | null = null
   let spanish: number | null = null
+  let spelling: number | null = null
   for (const r of rounds) {
     if (r.created_at && new Date(r.created_at) < start) {
       if (r.mode === 'reading') reading = r.level_after
+      else if (r.mode === 'spelling') spelling = r.level_after
       else spanish = r.level_after
     }
   }
@@ -47,6 +50,7 @@ export function dailySeries(rounds: RoundRecord[], days: number, now = new Date(
     const list = byDay.get(k) ?? []
     for (const r of list) {
       if (r.mode === 'reading') reading = r.level_after
+      else if (r.mode === 'spelling') spelling = r.level_after
       else spanish = r.level_after
     }
     out.push({
@@ -60,6 +64,7 @@ export function dailySeries(rounds: RoundRecord[], days: number, now = new Date(
       questionsRight: sum(list, 'questions_right'),
       reading,
       spanish,
+      spelling,
     })
   }
   return out

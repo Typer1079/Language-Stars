@@ -5,6 +5,7 @@ export const RANK_METRICS: { id: RankMetric; label: string; icon: string; unit: 
   { id: 'stars_week', label: 'Stars this week', icon: '🌟', unit: (n) => `${n.toLocaleString()} stars` },
   { id: 'reading', label: 'Reading level', icon: '📖', unit: (n) => `Level ${n}` },
   { id: 'spanish', label: 'Spanish level', icon: '🇪🇸', unit: (n) => `Level ${n}` },
+  { id: 'spelling', label: 'Spelling level', icon: '🐝', unit: (n) => `Level ${n}` },
   { id: 'words', label: 'Words said', icon: '🗣️', unit: (n) => `${n.toLocaleString()} words` },
   { id: 'questions', label: 'Meanings right', icon: '🧠', unit: (n) => `${n.toLocaleString()} right` },
   { id: 'minutes_week', label: 'Minutes this week', icon: '⏱️', unit: (n) => `${n} min` },

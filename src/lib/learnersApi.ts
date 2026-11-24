@@ -4,37 +4,53 @@ import type { Learner, LearnerDraft } from './types'
 const BASE_COLUMNS =
   'id, display_name, kind, age_group, sticker_style, mode, reading_level, spanish_level, reading_best, spanish_best, lifetime_stars, spendable_stars, mastered, stickers, updated_at'
 
-// Profile characters need migration 006 (the `avatar` column). Until it's run, the app keeps
-// working without them instead of failing.
-let avatarColumn = true
-const columns = () => (avatarColumn ? `${BASE_COLUMNS}, avatar` : BASE_COLUMNS)
-const missingAvatar = (e: { message?: string; code?: string } | null) => Boolean(e && /avatar/i.test(e.message ?? '') && /column|schema cache/i.test(e.message ?? ''))
-function withoutAvatar<T extends { avatar?: unknown }>(row: T): Omit<T, 'avatar'> | T {
-  if (avatarColumn) return row
-  const { avatar: _a, ...rest } = row
-  void _a
-  return rest
+// Newer columns come from later database updates. Until an update is run, the app keeps
+// working without that feature instead of failing: 006 adds avatars, 008 adds the spelling bee.
+const OPTIONAL: Record<string, string[]> = { avatar: ['avatar'], spelling: ['spelling_level', 'spelling_best'] }
+const missing = new Set<string>()
+const columns = () => [BASE_COLUMNS, ...Object.entries(OPTIONAL).filter(([g]) => !missing.has(g)).flatMap(([, c]) => c)].join(', ')
+
+/** Which optional column group an error is complaining about, if any. */
+function missingGroup(e: { message?: string } | null): string | null {
+  const msg = e?.message ?? ''
+  if (!/column|schema cache/i.test(msg)) return null
+  for (const [g, cols] of Object.entries(OPTIONAL)) if (!missing.has(g) && cols.some((c) => msg.includes(c))) return g
+  return null
 }
 
-/** True once the database can store profile characters. */
-export const avatarsAvailable = () => avatarColumn
+function strip<T extends object>(row: T): T {
+  const out = { ...row } as Record<string, unknown>
+  for (const g of missing) for (const c of OPTIONAL[g]) delete out[c]
+  // Without the spelling update the database only accepts Reading or Spanish.
+  if (missing.has('spelling') && out.mode === 'spelling') out.mode = 'reading'
+  return out as T
+}
+
+/** Retries a request without whichever newer column the database doesn't have yet. */
+async function withFallback<R extends { error: { message?: string } | null }>(run: () => PromiseLike<R>): Promise<R> {
+  let res = await run()
+  for (let i = 0; i < 3; i++) {
+    const g = missingGroup(res.error)
+    if (!g) break
+    missing.add(g)
+    res = await run()
+  }
+  return res
+}
+
+/** True once the database can store profile avatars (update 006). */
+export const avatarsAvailable = () => !missing.has('avatar')
+/** True once the database has the spelling bee (update 008). */
+export const spellingAvailable = () => !missing.has('spelling')
 
 export async function listLearners(): Promise<Learner[]> {
-  let { data, error } = await supabase.from('learners').select(columns()).order('created_at', { ascending: true })
-  if (missingAvatar(error)) {
-    avatarColumn = false
-    ;({ data, error } = await supabase.from('learners').select(columns()).order('created_at', { ascending: true }))
-  }
+  const { data, error } = await withFallback(() => supabase.from('learners').select(columns()).order('created_at', { ascending: true }))
   if (error) throw error
   return (data ?? []) as unknown as Learner[]
 }
 
 export async function createLearner(d: LearnerDraft): Promise<Learner> {
-  let { data, error } = await supabase.from('learners').insert(withoutAvatar(d)).select(columns()).single()
-  if (missingAvatar(error)) {
-    avatarColumn = false
-    ;({ data, error } = await supabase.from('learners').insert(withoutAvatar(d)).select(columns()).single())
-  }
+  const { data, error } = await withFallback(() => supabase.from('learners').insert(strip(d)).select(columns()).single())
   if (error) throw error
   return data as unknown as Learner
 }
@@ -43,11 +59,7 @@ export async function createLearner(d: LearnerDraft): Promise<Learner> {
 export async function saveLearner(l: Learner): Promise<void> {
   const { id, updated_at: _u, ...fields } = l
   void _u
-  let { error } = await supabase.from('learners').update(withoutAvatar(fields)).eq('id', id)
-  if (missingAvatar(error)) {
-    avatarColumn = false
-    ;({ error } = await supabase.from('learners').update(withoutAvatar(fields)).eq('id', id))
-  }
+  const { error } = await withFallback(() => supabase.from('learners').update(strip(fields)).eq('id', id))
   if (error) throw error
 }
 
@@ -91,7 +103,7 @@ export function dbMessage(err: unknown): string {
 /** One finished round, as stored for progress graphs (counts and timing only). */
 export interface RoundRecord {
   learner_id: string
-  mode: 'reading' | 'spanish'
+  mode: 'reading' | 'spanish' | 'spelling'
   level: number
   level_after: number
   items: number
@@ -157,13 +169,14 @@ export interface AdminKpis {
   learners_kids: number
   learners_reading: number
   learners_spanish: number
+  learners_spelling?: number
   active_accounts_1d: number
   active_accounts_7d: number
   active_accounts_30d: number
   active_learners_7d: number
   totals: { rounds: number; items: number; clean: number; stars: number; minutes: number; questions: number; questions_right: number }
   daily: { day: string; rounds: number; items: number; clean: number; stars: number; minutes: number; learners: number; accounts: number }[]
-  levels: { band: number; reading: number; spanish: number }[]
+  levels: { band: number; reading: number; spanish: number; spelling?: number }[]
 }
 
 export async function adminKpis(days = 30): Promise<AdminKpis> {
@@ -174,7 +187,7 @@ export async function adminKpis(days = 30): Promise<AdminKpis> {
 
 // ---- worldwide rankings (names are never returned: others appear as codenames) ---------------
 
-export type RankMetric = 'stars' | 'stars_week' | 'reading' | 'spanish' | 'biggest_sticker' | 'stickers' | 'words' | 'minutes_week' | 'days30' | 'questions'
+export type RankMetric = 'stars' | 'stars_week' | 'reading' | 'spanish' | 'spelling' | 'biggest_sticker' | 'stickers' | 'words' | 'minutes_week' | 'days30' | 'questions'
 
 export interface MyRank { rank: number | null; total: number; value: number }
 export type MyRanks = Partial<Record<RankMetric, MyRank>>

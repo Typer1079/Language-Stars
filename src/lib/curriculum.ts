@@ -6,6 +6,7 @@
 
 import { WORD_BANKS, type SpanishEntry } from './wordBanks'
 import { TOURIST_LEVELS } from './spanishTourist'
+import { SPELLING_WORDS, type SpellEntry } from './spellingWords'
 import { ADVANCED_FROM, advancedLevels, bandFor } from './readingAdvanced'
 
 export const MAX_LEVEL = 100
@@ -63,7 +64,19 @@ function fillLevels<T>(
   }
 }
 
-export function stageName(level: number, mode: 'reading' | 'spanish'): string {
+export function stageName(level: number, mode: 'reading' | 'spanish' | 'spelling'): string {
+  if (mode === 'spelling') {
+    if (level <= 10) return 'First words'
+    if (level <= 20) return 'Word builder'
+    if (level <= 30) return 'Tricky words'
+    if (level <= 40) return 'Classroom bee'
+    if (level <= 50) return 'School bee'
+    if (level <= 60) return 'District bee'
+    if (level <= 70) return 'Regional bee'
+    if (level <= 80) return 'National prelims'
+    if (level <= 90) return 'National finals'
+    return 'Championship'
+  }
   if (mode === 'reading') {
     if (level <= 15) return 'Words'
     if (level <= 40) return 'Phrases'
@@ -545,3 +558,18 @@ function buildSpanish(): Record<number, SpanishEntry[]> {
 
 export const READING_LEVELS: Record<number, string[]> = buildReading()
 export const SPANISH_LEVELS: Record<number, SpanishEntry[]> = buildSpanish()
+
+/**
+ * Spelling bee: 100 levels of 10 words, easiest to championship. Each level overlaps the one
+ * before it by about half, so every word comes up twice for review.
+ */
+function buildSpelling(): Record<number, SpellEntry[]> {
+  const out: Record<number, SpellEntry[]> = {}
+  const n = SPELLING_WORDS.length
+  for (let level = 1; level <= MAX_LEVEL; level++) {
+    const start = Math.round(((level - 1) * (n - ITEMS_PER_LEVEL)) / (MAX_LEVEL - 1))
+    out[level] = SPELLING_WORDS.slice(start, start + ITEMS_PER_LEVEL)
+  }
+  return out
+}
+export const SPELLING_LEVELS: Record<number, SpellEntry[]> = buildSpelling()

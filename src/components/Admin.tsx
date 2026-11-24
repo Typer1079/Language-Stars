@@ -53,7 +53,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Tile label="Accounts" value={k.accounts} sub={`+${k.accounts_new} in ${k.days}d`} />
             <Tile label="Readers" value={k.learners} sub={`${k.learners_kids} managed kids`} />
-            <Tile label="Reading / Spanish" value={`${k.learners_reading} / ${k.learners_spanish}`} sub="current choice" />
+            <Tile label="Reading / Spanish / Spelling" value={`${k.learners_reading} / ${k.learners_spanish} / ${k.learners_spelling ?? 0}`} sub="current choice" />
             <Tile label="Active readers" value={k.active_learners_7d} sub="last 7 days" />
             <Tile label="Active today" value={k.active_accounts_1d} sub="accounts, last 24h" />
             <Tile label="Weekly active" value={k.active_accounts_7d} sub="accounts" />
@@ -90,18 +90,18 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <div className="mb-2 text-xs font-bold text-slate-700">Where readers are (current level)</div>
             <table className="w-full text-left text-xs">
               <thead className="text-[11px] uppercase tracking-wide text-slate-500">
-                <tr><th className="py-1">Levels</th><th className="py-1">📖 Reading</th><th className="py-1">🇪🇸 Spanish</th></tr>
+                <tr><th className="py-1">Levels</th><th className="py-1">📖 Reading</th><th className="py-1">🇪🇸 Spanish</th><th className="py-1">🐝 Spelling</th></tr>
               </thead>
               <tbody>
                 {k.levels.map((b) => {
-                  const most = Math.max(1, ...k.levels.map((x) => Math.max(x.reading, x.spanish)))
+                  const most = Math.max(1, ...k.levels.map((x) => Math.max(x.reading, x.spanish, x.spelling ?? 0)))
                   return (
                     <tr key={b.band} className="border-t border-slate-100">
                       <td className="py-1.5 pr-2 whitespace-nowrap">{b.band * 10 + 1}–{b.band * 10 + 10}</td>
-                      {[b.reading, b.spanish].map((n, i) => (
+                      {[b.reading, b.spanish, b.spelling ?? 0].map((n, i) => (
                         <td key={i} className="py-1.5 pr-3">
                           <div className="flex items-center gap-2">
-                            <div className={`h-2.5 rounded-full ${i ? 'bg-amber-400' : 'bg-indigo-500'}`} style={{ width: `${Math.max(n ? 4 : 0, (n / most) * 140)}px` }} />
+                            <div className={`h-2.5 rounded-full ${i === 2 ? 'bg-emerald-500' : i ? 'bg-amber-400' : 'bg-indigo-500'}`} style={{ width: `${Math.max(n ? 4 : 0, (n / most) * 110)}px` }} />
                             <span>{n}</span>
                           </div>
                         </td>

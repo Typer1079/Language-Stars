@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { dbMessage, listRounds, type RoundRecord } from '../lib/learnersApi'
 import { dailySeries, summarize } from '../lib/stats'
 import { stageName } from '../lib/curriculum'
+import { levelOf } from '../lib/progress'
 import type { Learner } from '../lib/types'
 import { BarChart, LineChart, Tile } from './Charts'
 import { RanksSection } from './Ranks'
@@ -38,7 +39,8 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
   const accuracy = series.map((d) => (d.items ? Math.round((d.clean / d.items) * 100) : null))
   const qPct = s.questions ? Math.round((s.questionsRight / s.questions) * 100) : null
   const usesSpanish = learner.spanish_level > 1 || (rounds ?? []).some((r) => r.mode === 'spanish')
-  const usesReading = learner.reading_level > 1 || (rounds ?? []).some((r) => r.mode === 'reading') || !usesSpanish
+  const usesSpelling = (learner.spelling_level ?? 1) > 1 || learner.mode === 'spelling' || (rounds ?? []).some((r) => r.mode === 'spelling')
+  const usesReading = learner.reading_level > 1 || (rounds ?? []).some((r) => r.mode === 'reading') || (!usesSpanish && !usesSpelling)
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 p-3 backdrop-blur-[2px] sm:p-6" role="dialog" aria-modal="true" aria-labelledby="progress-title"
@@ -51,6 +53,7 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
               {usesReading && <>📖 Reading Level {learner.reading_level} ({stageName(learner.reading_level, 'reading')}, best {learner.reading_best ?? learner.reading_level}) </>}
               {usesReading && usesSpanish && ' • '}
               {usesSpanish && <>🇪🇸 Spanish Level {learner.spanish_level} (best {learner.spanish_best ?? learner.spanish_level})</>}
+              {usesSpelling && <>{(usesReading || usesSpanish) && ' • '}🐝 Spelling Level {learner.spelling_level ?? 1} ({stageName(learner.spelling_level ?? 1, 'spelling')})</>}
               {' • '}{learner.lifetime_stars} ⭐ lifetime • {learner.stickers.length} stickers
             </p>
           </div>
@@ -72,13 +75,13 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
           <>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <Tile label="Practice time" value={`${s.minutes} min`} sub={`${s.rounds} rounds`} />
-              <Tile label={learner.mode === 'spanish' && !usesReading ? 'Words said' : 'Words read'} value={s.items} sub={`${s.clean} on their own`} />
+              <Tile label={learner.mode === 'spelling' ? 'Words tried' : learner.mode === 'spanish' && !usesReading ? 'Words said' : 'Words read'} value={s.items} sub={`${s.clean} on their own`} />
               <Tile label="On their own" value={s.accuracy === null ? '–' : `${s.accuracy}%`} sub="without Iris or Next" />
               <Tile label="Stars earned" value={s.stars} />
               <Tile label="Days practiced" value={`${s.daysActive} / ${days}`} />
               <Tile label="Streak" value={`${s.streak} ${s.streak === 1 ? 'day' : 'days'}`} />
               <Tile label="Meaning questions" value={qPct === null ? '–' : `${qPct}%`} sub={s.questions ? `${s.questionsRight} of ${s.questions} right` : 'from Reading Level 31'} />
-              <Tile label="Now at" value={`L${learner.mode === 'spanish' ? learner.spanish_level : learner.reading_level}`} sub={learner.mode === 'spanish' ? 'Spanish' : 'Reading'} />
+              <Tile label="Now at" value={`L${levelOf(learner, learner.mode)}`} sub={learner.mode === 'spanish' ? 'Spanish' : learner.mode === 'spelling' ? 'Spelling' : 'Reading'} />
             </div>
 
             <RanksSection learnerId={learner.id} name={learner.display_name} />
@@ -97,6 +100,7 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
                   series={[
                     ...(usesReading ? [{ name: 'Reading', values: series.map((d) => d.reading), className: 'stroke-indigo-500', dot: 'bg-indigo-500', fill: 'fill-indigo-500' }] : []),
                     ...(usesSpanish ? [{ name: 'Spanish', values: series.map((d) => d.spanish), className: 'stroke-amber-500', dot: 'bg-amber-500', fill: 'fill-amber-500' }] : []),
+                    ...(usesSpelling ? [{ name: 'Spelling', values: series.map((d) => d.spelling), className: 'stroke-emerald-500', dot: 'bg-emerald-500', fill: 'fill-emerald-500' }] : []),
                   ]} />
                 <BarChart title="Stars earned" days={labels} values={series.map((d) => d.stars)} />
                 {s.questions > 0 && (
@@ -121,7 +125,7 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
                     {recent.map((r, i) => (
                       <tr key={i} className="border-t border-slate-100">
                         <td className="px-3 py-1.5 whitespace-nowrap">{r.created_at ? new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}</td>
-                        <td className="px-2 py-1.5">{r.mode === 'spanish' ? '🇪🇸 Spanish' : '📖 Reading'}</td>
+                        <td className="px-2 py-1.5">{r.mode === 'spanish' ? '🇪🇸 Spanish' : r.mode === 'spelling' ? '🐝 Spelling' : '📖 Reading'}</td>
                         <td className="px-2 py-1.5 whitespace-nowrap">{r.level}{r.level_after !== r.level ? ` → ${r.level_after}` : ''}</td>
                         <td className="px-2 py-1.5">{r.items}</td>
                         <td className="px-2 py-1.5">{r.clean}</td>

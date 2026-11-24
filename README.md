@@ -199,3 +199,13 @@ minutes this week, days practiced, biggest sticker and sticker count. Names are 
 appears under a fixed made-up codename (like "Brave Otter 47"), and only your own row shows your name, on
 your own device. The admin sees codenames too.
 
+## Spelling bee
+
+Migration `008_spelling_bee.sql` adds the 🐝 Spelling path (Levels 1-100, from first words to Scripps
+championship words). Iris acts as the pronouncer: she says the word, and the speller spells it out loud
+letter by letter (letters appear as they're said). As National Spelling Bee rules allow, the speller can
+ask to hear the word again, the definition, a sentence, the part of speech, and the language of origin.
+A wrong spelling shows the right one; "The mic misheard me" retries the word, and "Type it instead" is a
+backup when the microphone struggles. Spelling shows up in progress graphs, world ranks and the admin dashboard.
+Run 005, 006 and 007 first.
+

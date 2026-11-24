@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { PracticeEngine, type MicState, type Pace, type Tone } from '../lib/practiceEngine'
 import { MAX_LEVEL, stageName } from '../lib/curriculum'
-import { activeLevel, bestLevel, CHALLENGE_JUMP, CHALLENGE_PASS, CHALLENGE_SIZE, endRound, newMilestone, pickChallenge, pickRound, ROUND_SIZE, solveWord, STRETCH_STEPS, type PracticeItem } from '../lib/progress'
+import { activeLevel, levelOf, bestLevel, CHALLENGE_JUMP, CHALLENGE_PASS, CHALLENGE_SIZE, endRound, newMilestone, pickChallenge, pickRound, ROUND_SIZE, solveWord, STRETCH_STEPS, type PracticeItem } from '../lib/progress'
 import { playChime } from '../lib/sfx'
 import { moveSticker } from '../lib/stickers'
 import { recognitionSupported, speakSegments } from '../lib/speech'
 import { COMPREHENSION_FROM, questionFor, type Question } from '../lib/comprehension'
 import { ADVANCED_FROM } from '../lib/readingAdvanced'
-import type { Learner } from '../lib/types'
+import { MODES, type Learner, type Mode } from '../lib/types'
 import { wordHelp } from '../lib/phonics'
 import { makeConfetti, type ConfettiPiece } from '../lib/confetti'
 import { Confetti, StickerBoard, StickerCanvas, StickerShop } from './Stickers'
@@ -39,6 +39,12 @@ function paceFor(l: Learner, lastRound: { clean: number; attempts: number } | nu
   return 'guided'
 }
 
+const MODE_STYLE: Record<Mode, { icon: string; label: string; on: string }> = {
+  reading: { icon: '📖', label: 'Reading', on: 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow' },
+  spanish: { icon: '🇪🇸', label: 'Spanish', on: 'bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow' },
+  spelling: { icon: '🐝', label: 'Spelling', on: 'bg-gradient-to-r from-emerald-500 to-lime-500 text-white shadow' },
+}
+
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
 export default function Practice({ learner, onChange, onExit, saveStatus, onActivity }: Props) {
@@ -54,6 +60,11 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const [roundDone, setRoundDone] = useState(false)
   const [logOpen, setLogOpen] = useState(false)
   const [progressOpen, setProgressOpen] = useState(false)
+  // Spelling bee: letters heard so far, a wrong spelling to show, help Iris gave, and typing.
+  const [spelled, setSpelled] = useState<string[]>([])
+  const [spellMiss, setSpellMiss] = useState<string[] | null>(null)
+  const [beeInfo, setBeeInfo] = useState<{ label: string; text: string }[]>([])
+  const [typing, setTyping] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [logLines, setLogLines] = useState<string[]>([])
   const [confetti, setConfetti] = useState<ConfettiPiece[]>([])
@@ -94,7 +105,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     if (r.items > 0 || r.questions > 0) {
       void logRound({
         learner_id: l.id, mode: r.mode, level: r.level,
-        level_after: r.mode === 'spanish' ? l.spanish_level : l.reading_level,
+        level_after: levelOf(l, r.mode),
         items: r.items, clean: r.clean, coached: r.coached, skipped: r.skipped,
         stars: Math.max(0, l.lifetime_stars - r.stars0),
         questions: r.questions, questions_right: r.questionsRight,
@@ -114,6 +125,8 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
 
   const item = round[index]
   const spanish = learner.mode === 'spanish'
+  const spellingMode = learner.mode === 'spelling'
+  const reading = learner.mode === 'reading'
   const level = activeLevel(learner)
 
   // ---- word flow ----------------------------------------------------------------------------
@@ -129,6 +142,10 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     setRevealed(false)
     setPhraseShown(false)
     setSuccess(false)
+    setSpelled([])
+    setSpellMiss(null)
+    setBeeInfo([])
+    setTyping(null)
     const l = learnerRef.current
     const engine = engineRef.current!
     engine.load(it, l.mode, l.display_name, paceRef.current)
@@ -136,6 +153,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       engine.setPaused(false)
       engine.begin(opts.promptType ?? 'quick_listen')
     }
+    else if (l.mode === 'spelling') setFeedback({ title: 'Spell the word out loud!', sub: 'Tap 🎤 Listen to hear your word', tone: 'neutral' })
     else if (l.mode === 'spanish' && it.spanish) setFeedback({ title: `Say "${it.spanish.en}" in Spanish!`, sub: 'Shift shows the word • Space asks Iris • Return to listen', tone: 'neutral' })
     else setFeedback({ title: 'Say the word out loud!', sub: `Press ${isMac ? 'Return' : 'Enter'} or tap Listen Now`, tone: 'neutral' })
   }, [])
@@ -254,7 +272,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     playChime()
     setConfetti(makeConfetti(coached ? 14 : 22))
     setSuccess(true)
-    const shown = before.mode === 'spanish' && it.spanish ? `${it.spanish.en} → ${it.spanish.es}` : it.target
+    const shown = before.mode === 'spanish' && it.spanish ? `${it.spanish.en} → ${it.spanish.es}` : before.mode === 'spelling' ? it.target.toUpperCase().split('').join('-') : it.target
     const bonus = r.leveledUpTo ? ` • Level up to ${r.leveledUpTo}!${r.bonus ? ` +${r.bonus} bonus ⭐` : ''}` : ''
     setFeedback({ title: `⭐ ${shown}!`, sub: `Heard "${heard}"${bonus}`, tone: 'success' })
     log('SOLVED', `word="${shown}" coached=${coached} bonus=${r.bonus}`)
@@ -279,11 +297,74 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   }, [advance, log, onActivity, onChange])
 
   // Latest callbacks for the engine (created once).
+  /** Spelling bee: the word was spelled wrong. Show the right spelling; the reader can say the mic misheard. */
+  const handleSpellWrong = useCallback((letters: string[]) => {
+    const it = roundRef.current[indexRef.current]
+    if (!it || solvedRef.current) return
+    solvedRef.current = true
+    setSpellMiss(letters)
+    setRevealed(true)
+    setFeedback({ title: `It’s spelled ${it.target.toUpperCase().split('').join('-')}`, sub: letters.length ? `Heard ${letters.join('-').toUpperCase()}` : '', tone: 'coach' })
+    log('SPELL_MISS', `heard=${letters.join('')} target=${it.target}`)
+    if (!it.stretchLevel) attemptsRef.current += 1
+    roundLog.current.items += 1
+    roundLog.current.skipped += 1
+    engineRef.current?.announce(`That's not quite it. ${it.target} is spelled ${it.target.toUpperCase().split('').join('. ')}.`)
+    advanceTimer.current = setTimeout(() => advance(false), 4500)
+  }, [advance, log])
+
+  /** "The mic misheard me": undo the miss and spell the same word again. */
+  const misheard = () => {
+    const it = roundRef.current[indexRef.current]
+    if (!it || !spellMiss) return
+    clearTimeout(advanceTimer.current)
+    if (!it.stretchLevel) attemptsRef.current = Math.max(0, attemptsRef.current - 1)
+    roundLog.current.items = Math.max(0, roundLog.current.items - 1)
+    roundLog.current.skipped = Math.max(0, roundLog.current.skipped - 1)
+    solvedRef.current = false
+    setSpellMiss(null)
+    setRevealed(false)
+    log('SPELL_RETRY', it.target)
+    engineRef.current?.retryWord()
+  }
+
+  /** Spelling bee: typed instead of spoken (when the microphone struggles). */
+  const submitTyped = (text: string) => {
+    const it = roundRef.current[indexRef.current]
+    if (!it || solvedRef.current) return
+    const letters = text.toLowerCase().replace(/[^a-z]/g, '').split('')
+    setTyping(null)
+    setSpelled(letters)
+    engineRef.current?.stopAll()
+    if (letters.join('') === it.target.toLowerCase()) handleSolved(letters.join('-').toUpperCase(), Boolean(engineRef.current?.usedHelp))
+    else handleSpellWrong(letters)
+  }
+
+  /** Spelling bee help, as the National Spelling Bee allows: no penalty. */
+  const askBee = (kind: 'repeat' | 'definition' | 'pos' | 'sentence' | 'origin') => {
+    const it = roundRef.current[indexRef.current]
+    const e = it?.spell
+    if (!e || solvedRef.current) return
+    const info: Record<typeof kind, { label: string; text: string; say: string }> = {
+      repeat: { label: '🔊 Word', text: '', say: `${e.word}.` },
+      definition: { label: '📖 Definition', text: e.definition, say: `Definition: ${e.definition}.` },
+      pos: { label: '🏷️ Part of speech', text: e.pos, say: `It's ${/^[aeiou]/.test(e.pos) ? 'an' : 'a'} ${e.pos}.` },
+      sentence: { label: '🗣️ Sentence', text: e.sentence.replace(new RegExp(e.word, 'ig'), '_____'), say: e.sentence },
+      origin: { label: '🌍 Origin', text: e.origin, say: `It comes from ${e.origin}.` },
+    }
+    const x = info[kind]
+    if (x.text) setBeeInfo((list) => [...list.filter((b) => b.label !== x.label), { label: x.label, text: x.text }])
+    log('BEE_ASK', kind)
+    engineRef.current?.sayInfo(x.say)
+  }
+
   const solvedCb = useRef(handleSolved)
+  const spellWrongCb = useRef(handleSpellWrong)
   const advanceCb = useRef(advance)
   useLayoutEffect(() => {
     solvedCb.current = handleSolved
     advanceCb.current = advance
+    spellWrongCb.current = handleSpellWrong
   })
 
   useEffect(() => {
@@ -299,6 +380,8 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
         advanceCb.current(afterCoach)
       },
       revealSpanish: () => setRevealed(true),
+      spelling: (letters) => setSpelled(letters),
+      spellWrong: (letters) => spellWrongCb.current(letters),
       showPhrase: () => setPhraseShown(true),
       log,
     })
@@ -364,7 +447,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   }, [quizQ])
 
   /** Reading or Spanish today: progress in each is kept separately. */
-  const switchMode = (m: 'reading' | 'spanish') => {
+  const switchMode = (m: Mode) => {
     if (m === learnerRef.current.mode) return
     engineRef.current?.stopAll()
     clearTimeout(advanceTimer.current)
@@ -472,14 +555,6 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
           </div>
         </div>
         <div className="mt-1.5 flex items-center gap-2 pl-[3.1rem] sm:pl-[3.4rem]">
-          <div className="inline-flex overflow-hidden rounded-full border border-amber-300 bg-white text-[11px] font-bold" role="group" aria-label="What to practice today">
-            {(['reading', 'spanish'] as const).map((m) => (
-              <button key={m} type="button" aria-pressed={learner.mode === m} onClick={() => switchMode(m)}
-                className={`px-2.5 py-1 transition ${learner.mode === m ? 'bg-amber-400 text-slate-900' : 'text-amber-800 hover:bg-amber-50'}`}>
-                {m === 'spanish' ? '🇪🇸 Spanish' : '📖 Reading'}
-              </button>
-            ))}
-          </div>
           <span className={`text-[11px] font-semibold ${saveStatus === 'saved' ? 'text-emerald-700' : saveStatus === 'saving' ? 'text-slate-500' : 'text-rose-700'}`}>{saveLabel}</span>
         </div>
       </header>
@@ -490,6 +565,15 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
             This browser can’t listen to speech. Use Chrome, Edge or Safari for the microphone. Ask Iris and Next still work.
           </p>
         )}
+        <div className="grid w-full max-w-2xl grid-cols-3 gap-1.5 rounded-2xl border border-slate-200 bg-white/90 p-1.5 shadow-sm" role="group" aria-label="What to practice today">
+          {MODES.map((m) => (
+            <button key={m} type="button" aria-pressed={learner.mode === m} onClick={() => switchMode(m)}
+              className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 font-kids text-sm font-bold transition sm:text-base ${learner.mode === m ? MODE_STYLE[m].on : 'text-slate-600 hover:bg-slate-100'}`}>
+              <span className="text-lg">{MODE_STYLE[m].icon}</span>{MODE_STYLE[m].label}
+              <span className={`hidden rounded-full px-1.5 text-[10px] sm:inline ${learner.mode === m ? 'bg-white/25' : 'bg-slate-100'}`}>L{levelOf(learner, m)}</span>
+            </button>
+          ))}
+        </div>
         <div className="flex w-full max-w-2xl flex-col gap-2 rounded-2xl border border-indigo-100 bg-white/90 p-3 shadow-sm backdrop-blur-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2" title="Master every word in a level to move up">
@@ -514,7 +598,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
         </div>
 
         <section className={`relative flex w-full max-w-2xl flex-col items-center justify-center rounded-3xl border-4 bg-white/95 p-6 text-center shadow-xl backdrop-blur-md transition-all duration-300 sm:p-8 ${success ? 'border-emerald-400' : 'border-indigo-100'}`}>
-          {item && !spanish && !item.target.includes(' ') && (
+          {item && reading && !item.target.includes(' ') && (
             <div key={`${learner.id}-${index}-${item.key}`} className="my-3 flex min-h-[120px] flex-wrap items-center justify-center gap-3 sm:min-h-[145px] sm:gap-4">
               {(() => {
                 const help = wordHelp(item.target, '')
@@ -540,7 +624,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
             </div>
           )}
 
-          {item && !spanish && item.target.includes(' ') && (
+          {item && reading && item.target.includes(' ') && (
             <div key={`${learner.id}-${index}-${item.key}`} className="my-3 flex min-h-[120px] flex-wrap items-center justify-center gap-2 sm:min-h-[145px] sm:gap-3" aria-label={item.target}>
               {item.target.split(' ').map((w, i, all) => (
                 <span key={i} className={`animate-tile-pop rounded-2xl border-2 border-indigo-200 bg-gradient-to-b from-indigo-50 to-white px-3 py-2 font-kids font-bold text-indigo-900 shadow-sm ${all.length <= 4 ? 'text-4xl sm:text-5xl' : all.length <= 8 ? 'text-2xl sm:text-4xl' : 'text-xl sm:text-3xl'}`}
@@ -548,6 +632,53 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
                   {w}
                 </span>
               ))}
+            </div>
+          )}
+
+          {item?.spell && spellingMode && (
+            <div className="my-3 flex w-full max-w-lg flex-col items-center rounded-3xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 via-lime-50 to-amber-50 p-5">
+              <span className="mb-2 text-xs font-bold uppercase tracking-widest text-emerald-700">🐝 Spelling bee • listen, then spell it</span>
+              <button type="button" onClick={() => askBee('repeat')} className="flex items-center gap-2 rounded-2xl bg-white px-5 py-3 font-kids text-xl font-bold text-emerald-800 shadow-sm ring-1 ring-emerald-200 transition hover:bg-emerald-50 active:scale-95">
+                🔊 Hear the word
+              </button>
+              <div className="mt-4 flex min-h-[64px] flex-wrap items-center justify-center gap-1.5" aria-live="polite" aria-label="Letters you spelled">
+                {(revealed ? item.target.split('') : spelled).map((c, i) => {
+                  const wrongHere = spellMiss && spellMiss[i] !== undefined && spellMiss[i] !== item.target[i]?.toLowerCase()
+                  return (
+                    <span key={i} className={`animate-tile-pop flex h-14 w-11 items-center justify-center rounded-xl border-2 font-kids text-3xl font-bold uppercase shadow-sm sm:h-16 sm:w-12 sm:text-4xl ${success ? 'border-emerald-400 bg-emerald-100 text-emerald-900' : revealed ? (wrongHere ? 'border-rose-300 bg-rose-50 text-rose-900' : 'border-emerald-300 bg-white text-emerald-900') : 'border-emerald-200 bg-white text-slate-900'}`}>{c}</span>
+                  )
+                })}
+                {!revealed && spelled.length === 0 && <span className="text-sm font-semibold text-emerald-800/70">Your letters will appear here as you say them</span>}
+              </div>
+              {spellMiss && spellMiss.length > 0 && <p className="mt-1 text-xs font-semibold text-rose-700">You spelled: {spellMiss.join('').toUpperCase()}</p>}
+              <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+                {([['definition', '📖 Definition'], ['sentence', '🗣️ Sentence'], ['pos', '🏷️ Part of speech'], ['origin', '🌍 Origin']] as const).map(([k, label]) => (
+                  <button key={k} type="button" onClick={() => askBee(k)} disabled={Boolean(spellMiss) || success}
+                    className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-emerald-900 shadow-sm ring-1 ring-emerald-200 transition hover:bg-emerald-50 disabled:opacity-50">{label}</button>
+                ))}
+              </div>
+              {beeInfo.length > 0 && (
+                <dl className="mt-3 w-full space-y-1.5 text-left text-sm">
+                  {beeInfo.map((b) => (
+                    <div key={b.label} className="rounded-xl bg-white/80 px-3 py-2 ring-1 ring-emerald-100">
+                      <dt className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">{b.label}</dt>
+                      <dd className="text-slate-800">{b.text}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs font-bold">
+                {!spellMiss && !success && spelled.length > 0 && <button type="button" className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 hover:bg-slate-200" onClick={() => engineRef.current?.retryWord()}>↺ Start over</button>}
+                {!spellMiss && !success && typing === null && <button type="button" className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 hover:bg-slate-200" onClick={() => { engineRef.current?.stopAll(); setTyping('') }}>⌨️ Type it instead</button>}
+                {spellMiss && <button type="button" className="rounded-full bg-amber-100 px-3 py-1.5 text-amber-900 hover:bg-amber-200" onClick={misheard}>🎤 The mic misheard me, try again</button>}
+              </div>
+              {typing !== null && (
+                <form className="mt-3 flex w-full max-w-xs gap-2" onSubmit={(e) => { e.preventDefault(); submitTyped(typing) }}>
+                  <input className="input flex-1 text-center font-kids text-xl uppercase tracking-widest" autoFocus autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off"
+                    aria-label="Type the spelling" value={typing} onChange={(e) => setTyping(e.target.value.replace(/[^A-Za-z]/g, ''))} />
+                  <button className="btn-primary px-4">Check</button>
+                </form>
+              )}
             </div>
           )}
 
@@ -630,7 +761,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
             <h2 className="font-kids text-2xl font-bold">Round Complete!</h2>
             {roundNote && roundNote.attempts > 0 && (
               <p className="mt-2 text-sm font-semibold text-slate-700">
-                {roundNote.clean} of {roundNote.attempts} {spanish ? 'said' : 'read'} without help
+                {roundNote.clean} of {roundNote.attempts} {spanish ? 'said' : spellingMode ? 'spelled' : 'read'} without help
               </p>
             )}
             {roundNote?.note && (
@@ -642,7 +773,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
               </p>
             )}
             <p className="mt-2 mb-5 text-sm text-slate-600">
-              {learner.display_name} finished the round! Lifetime stars: {learner.lifetime_stars} ⭐ • Balance: {learner.spendable_stars} ⭐ • {spanish ? 'Spanish' : 'Reading'} level: {level}.
+              {learner.display_name} finished the round! Lifetime stars: {learner.lifetime_stars} ⭐ • Balance: {learner.spendable_stars} ⭐ • {spanish ? 'Spanish' : spellingMode ? 'Spelling' : 'Reading'} level: {level}.
             </p>
             <div className="flex flex-col gap-2.5">
               <button type="button" className="btn bg-gradient-to-r from-fuchsia-500 to-purple-600 font-kids text-base text-white" onClick={() => setShop(`Spend your ${learner.spendable_stars} ⭐ in the Sticker Shop!`)}>🏪 Spend stars in the Sticker Shop</button>

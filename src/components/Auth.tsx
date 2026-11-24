@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { faceIdMessage, faceIdOnDevice, faceIdSupported, signInWithFaceId, wasCancelled } from '../lib/faceid'
 import { supabase } from '../lib/supabase'
+import InstallApp from './InstallApp'
 
 type Mode = 'signin' | 'signup' | 'reset'
 
@@ -57,7 +58,7 @@ export default function Auth() {
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-3xl shadow-md">⭐</div>
       <h1 className="font-kids text-3xl font-bold">Language Stars</h1>
       <p className="mt-1 text-sm text-slate-600">
-        {mode === 'signin' ? 'Sign in to practice reading and Spanish.' : mode === 'signup' ? 'Create your account.' : 'Reset your password.'}
+        {mode === 'signin' ? 'Sign in to practice reading, Spanish and spelling.' : mode === 'signup' ? 'Create your account.' : 'Reset your password.'}
       </p>
 
       {mode === 'signin' && canFaceId && (
@@ -109,6 +110,8 @@ export default function Auth() {
           <button type="button" className="text-slate-600 underline" onClick={() => setMode('signin')}>Back to sign in</button>
         )}
       </div>
+
+      {mode === 'signin' && <InstallApp />}
 
       {/* System use notification (NIST 800-53 AC-8). */}
       <p className="mt-10 text-center text-[11px] leading-relaxed text-slate-500">

@@ -4,6 +4,7 @@ import { canFilterNoise, createRecognition, getCleanMicTrack, releaseCleanMic, s
 import type { Mode } from './types'
 import { ENCOURAGING_NICKNAMES } from './wordBanks'
 import { wordHelp } from './phonics'
+import { extractLetters, judgeSpelling, sayLetters, wantsRestart } from './spelling'
 
 export type Tone = 'neutral' | 'listening' | 'success' | 'coach'
 /**
@@ -28,6 +29,10 @@ export interface EngineHooks {
   revealSpanish(): void
   showPhrase(): void
   log(tag: string, detail?: string): void
+  /** Spelling bee: the letters heard so far for this word. */
+  spelling?(letters: string[]): void
+  /** Spelling bee: the word was spelled wrong (these letters were heard). */
+  spellWrong?(letters: string[]): void
 }
 
 const LISTEN_MS = 5200
@@ -82,7 +87,7 @@ export class PracticeEngine {
    * the coach only speaks when asked (AI Coach button / Space).
    */
   private get autoCoach(): boolean {
-    return this.mode !== 'spanish'
+    return this.mode === 'reading'
   }
 
   /** What happens when a listening window ends without the word (reading mode only). */
@@ -95,6 +100,11 @@ export class PracticeEngine {
   private get listenMs(): number {
     const words = this.item ? this.item.target.split(' ').length : 1
     return this.pace === 'brisk' ? LISTEN_MS + 2800 + (words - 1) * 500 : LISTEN_MS + (words - 1) * 700
+  }
+
+  /** Iris spelled or said the answer for this item. */
+  get usedHelp(): boolean {
+    return this.usedCoach
   }
 
   get isCoaching(): boolean {
@@ -132,6 +142,15 @@ export class PracticeEngine {
     this.stopAll()
     this.gen = gen
     const spanish = this.mode === 'spanish'
+    if (this.mode === 'spelling') {
+      if (this.pace === 'brisk') return this.pronounce(gen)
+      this.hooks.feedback(`Hi ${this.name}! Spelling bee time`, 'Iris is your pronouncer…', 'coach')
+      this.say([{ text: `Hi ${this.name}! I'm Iris, your pronouncer. I'll say a word, and you spell it out loud, one letter at a time. You can ask for the definition, a sentence, or where the word comes from.`, lang: 'en-US' }], () => {
+        if (gen !== this.gen || this.solved) return
+        this.pronounce(gen)
+      })
+      return
+    }
     if (this.pace === 'brisk') {
       // No spoken welcome: straight to the first item.
       this.listenWindow(this.listenMs, this.onSilence(gen))
@@ -151,6 +170,7 @@ export class PracticeEngine {
     const gen = ++this.gen
     this.stopAll()
     this.gen = gen
+    if (this.mode === 'spelling') return this.pronounce(gen)
     if (promptType === 'quick_listen' || this.pace === 'brisk') {
       this.listenWindow(this.listenMs, this.onSilence(gen))
       return
@@ -164,6 +184,50 @@ export class PracticeEngine {
       if (gen !== this.gen || this.solved) return
       this.listenWindow(this.listenMs, this.onSilence(gen))
     })
+  }
+
+  /** Spelling bee: Iris says the word (twice for younger spellers), then listens. */
+  private pronounce(gen: number) {
+    const w = this.item?.target ?? ''
+    this.hooks.spelling?.([])
+    this.say([{ text: this.pace === 'brisk' ? `${w}.` : `Your word is: ${w}. ${w}.`, lang: 'en-US' }], () => {
+      if (gen !== this.gen || this.solved) return
+      this.listenWindow(this.listenMs)
+    })
+  }
+
+  /** Spelling bee help (say it again, definition, sentence, origin): Iris answers, then listens again. No penalty. */
+  sayInfo(text: string) {
+    if (this.solved || this.paused || !this.item) return
+    const gen = ++this.gen
+    this.stopListening(true)
+    this.stopVoice()
+    this.gen = gen
+    this.say([{ text, lang: 'en-US' }], () => {
+      if (gen !== this.gen || this.solved) return
+      this.listenWindow(this.listenMs)
+    })
+  }
+
+  /** Iris says something without listening afterwards (e.g. the right spelling after a miss). */
+  announce(text: string) {
+    const gen = ++this.gen
+    this.stopListening(true)
+    this.stopVoice()
+    this.gen = gen
+    this.say([{ text, lang: 'en-US' }])
+  }
+
+  /** Spelling bee: clear the letters and spell this word again (start over, or the mic misheard). */
+  retryWord() {
+    if (this.paused || !this.item) return
+    const gen = ++this.gen
+    this.stopAll()
+    this.gen = gen
+    this.solved = false
+    this.baseline = this.seenResults
+    this.hooks.spelling?.([])
+    this.listenWindow(this.listenMs)
   }
 
   /** Listen Now / Return key. */
@@ -219,6 +283,17 @@ export class PracticeEngine {
     }
 
     const word = item.target
+    if (this.mode === 'spelling') {
+      this.hooks.revealSpanish()
+      this.hooks.spelling?.([])
+      this.hooks.feedback(`Iris: ${word.toUpperCase().split('').join('-')}`, 'Listen, then spell it yourself', 'coach')
+      this.baseline = this.seenResults
+      this.coachSequence(gen,
+        [{ text: `${word}. ${sayLetters(word)} ${word}. Now you spell it, ${callout}.`, lang: 'en-US' }],
+        [{ text: `Spell ${word}.`, lang: 'en-US' }],
+        'Next word coming up!', word)
+      return
+    }
     if (this.pace === 'brisk') {
       this.hooks.feedback(`Iris: "${word}"`, 'Listen, then say it', 'coach')
       this.coachSequence(gen, [{ text: word, lang: 'en-US' }], [{ text: word, lang: 'en-US' }], 'Next one!', word)
@@ -353,7 +428,9 @@ export class PracticeEngine {
     if (this.solved || this.paused || !this.item) return
     this.listening = true
     this.hooks.mic('warming', 'Opening microphone...')
-    if (this.mode === 'spanish' && this.item.spanish) {
+    if (this.mode === 'spelling') {
+      this.hooks.feedback('Spell the word out loud!', 'One letter at a time • ask for the definition, a sentence or the origin', 'listening')
+    } else if (this.mode === 'spanish' && this.item.spanish) {
       this.hooks.feedback(`Say "${this.item.spanish.en}" in Spanish!`, 'Listening until you say it • Shift shows the word • Space asks Iris • Next to move on', 'listening')
     } else {
       this.hooks.feedback(`Say "${this.item.target}"!`, 'Listening for the word...', 'listening')
@@ -364,6 +441,47 @@ export class PracticeEngine {
       this.turnTimer = setTimeout(() => {
         if (this.listening && !this.solved && !this.paused) onTimeout()
       }, durationMs)
+    }
+  }
+
+  /** Spelling bee: show letters as they're said; judge once the word is complete. */
+  private onSpelling(results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }>, from: number) {
+    const item = this.item!
+    const tops: string[] = []
+    for (let i = from; i < results.length; i++) tops.push(results[i][0]?.transcript ?? '')
+    const all = tops.join(' ')
+    this.hooks.log('HEARD', `"${all.trim()}" target="${item.target}"`)
+    if (wantsRestart(all)) {
+      this.baseline = this.seenResults
+      this.hooks.spelling?.([])
+      this.hooks.feedback('Starting over', 'Spell the word from the beginning.', 'listening')
+      return
+    }
+    // The recognizer's other guesses for the newest part, too ("bee" vs "dee").
+    const last = results[results.length - 1]
+    const prefix = tops.slice(0, -1).join(' ')
+    const options = [all]
+    for (let a = 1; a < (last?.length ?? 0); a++) if (last[a]?.transcript) options.push(`${prefix} ${last[a].transcript}`)
+    for (const o of options) {
+      if (judgeSpelling(extractLetters(o, item.target), item.target) === 'correct') {
+        this.solved = true
+        const coached = this.usedCoach
+        this.hooks.spelling?.(item.target.toLowerCase().split(''))
+        this.stopAll()
+        this.hooks.solved(item.target.toUpperCase().split('').join('-'), coached)
+        return
+      }
+    }
+    const letters = extractLetters(all, item.target)
+    const j = judgeSpelling(letters, item.target)
+    this.hooks.spelling?.(letters)
+    const final = Boolean(last?.isFinal)
+    if (j === 'wrong' && final) {
+      this.solved = true
+      this.stopAll()
+      this.hooks.spellWrong?.(letters)
+    } else if (j === 'empty' && final) {
+      this.hooks.feedback('Spell it one letter at a time', 'Say each letter clearly, like “C… A… T…”', 'listening')
     }
   }
 
@@ -407,6 +525,10 @@ export class PracticeEngine {
       }
       top = top.trim()
       if (!top) return
+      if (this.mode === 'spelling') {
+        this.onSpelling(event.results, from)
+        return
+      }
       // Single words: a long run of words is background talk (TV, other people), not the reader,
       // so it can't count as a match — but a short result inside it still can.
       const words = (t: string) => t.trim().split(/\s+/).filter(Boolean).length

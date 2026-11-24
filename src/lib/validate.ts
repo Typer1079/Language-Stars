@@ -55,7 +55,7 @@ export function cleanMastered(v: unknown): Record<string, string[]> {
   const out: Record<string, string[]> = {}
   if (!v || typeof v !== 'object' || Array.isArray(v)) return out
   for (const [k, list] of Object.entries(v as Record<string, unknown>)) {
-    if (!/^(100|[1-9][0-9]?)(_es)?$/.test(k) || !Array.isArray(list)) continue
+    if (!/^(100|[1-9][0-9]?)(_es|_sp)?$/.test(k) || !Array.isArray(list)) continue
     const words = [...new Set(list.map((w) => str(w, 160).toLowerCase()).filter(Boolean))].slice(0, 200)
     if (words.length) out[k] = words
   }
@@ -73,11 +73,12 @@ export function cleanLearnerDraft(v: Record<string, unknown>, kind: LearnerKind)
   const styleRaw = v.sticker_style ?? v.gender
   const sticker_style: StickerStyle = styleRaw === 'boy' || styleRaw === 'girl' ? styleRaw : 'any'
   const mode: Mode =
-    v.mode === 'spanish' || v.mode === 'reading' ? v.mode : v.adultModeEnabled === true || age_group === 'adult' ? 'spanish' : 'reading'
+    v.mode === 'spanish' || v.mode === 'reading' || v.mode === 'spelling' ? v.mode : v.adultModeEnabled === true || age_group === 'adult' ? 'spanish' : 'reading'
   const lifetime_stars = int(v.lifetime_stars ?? v.lifetimeStars, 0, 1_000_000, 0)
   const spendable_stars = Math.min(lifetime_stars, int(v.spendable_stars ?? v.spendableStars, 0, 1_000_000, 0))
   const reading_level = int(v.reading_level ?? v.readingLevel, 1, maxLevel('reading'), 1)
   const spanish_level = int(v.spanish_level ?? v.spanishLevel, 1, maxLevel('spanish'), 1)
+  const spelling_level = int(v.spelling_level, 1, maxLevel('spelling'), 1)
   return {
     display_name,
     kind,
@@ -89,6 +90,8 @@ export function cleanLearnerDraft(v: Record<string, unknown>, kind: LearnerKind)
     spanish_level,
     reading_best: Math.max(reading_level, int(v.reading_best, 1, maxLevel('reading'), 1)),
     spanish_best: Math.max(spanish_level, int(v.spanish_best, 1, maxLevel('spanish'), 1)),
+    spelling_level,
+    spelling_best: Math.max(spelling_level, int(v.spelling_best, 1, maxLevel('spelling'), 1)),
     lifetime_stars,
     spendable_stars,
     mastered: cleanMastered(v.mastered ?? v.masteredWordsByLevel),

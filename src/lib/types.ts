@@ -1,4 +1,5 @@
-export type Mode = 'reading' | 'spanish'
+export type Mode = 'reading' | 'spanish' | 'spelling'
+export const MODES: Mode[] = ['reading', 'spanish', 'spelling']
 export type AgeGroup = '3-4' | '5-6' | '7-8' | '9+' | 'adult'
 export type StickerStyle = 'boy' | 'girl' | 'any'
 export type LearnerKind = 'child' | 'self'
@@ -35,6 +36,9 @@ export interface Learner {
   /** Highest level ever reached; level-up bonuses are only paid for new highs. */
   reading_best: number
   spanish_best: number
+  /** Spelling bee path (needs database update 008; missing on older databases). */
+  spelling_level?: number
+  spelling_best?: number
   lifetime_stars: number
   spendable_stars: number
   /** Mastered words per level: "1".."5" for reading, "1_es".."6_es" for Spanish. */
