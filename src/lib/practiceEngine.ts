@@ -1,4 +1,4 @@
-import { isWordMatch } from './match'
+import { isSpanishMatch, isWordMatch } from './match'
 import type { PracticeItem } from './progress'
 import { createRecognition, speakSegments, cancelSpeech, IS_IOS, type RecognitionLike, type VoiceSegment } from './speech'
 import type { Mode } from './types'
@@ -403,7 +403,8 @@ export class PracticeEngine {
       if (!top) return
       const all = [top, ...candidates.filter((c) => c.trim() !== top)]
       this.hooks.log('HEARD', `${all.map((c) => `"${c.trim()}"`).join(' / ')} target="${this.item.target}"`)
-      const hit = all.find((c) => isWordMatch(c, this.item!.target, this.item!.spanish?.variants))
+      const it = this.item
+      const hit = all.find((c) => (this.mode === 'spanish' && it.spanish ? isSpanishMatch(c, it.target, it.spanish.variants) : isWordMatch(c, it.target)))
       if (hit) {
         this.solved = true
         const coached = this.usedCoach
@@ -444,7 +445,8 @@ export class PracticeEngine {
   private startRecognition(attempt = 0) {
     const r = this.ensureRecognition()
     if (!r || this.coachSpeaking || !this.listening || this.paused || this.solved) return
-    const lang = this.mode === 'spanish' ? 'es-ES' : 'en-US'
+    // US Spanish recognition is more forgiving of an American accent than Spain's.
+    const lang = this.mode === 'spanish' ? 'es-US' : 'en-US'
     if (this.recActive) {
       if (r.lang === lang) {
         // Already listening: just ignore anything said before this turn.

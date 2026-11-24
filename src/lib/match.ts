@@ -126,3 +126,78 @@ export function isWordMatch(transcript: string, targetWord: string, variants?: s
   if (target.includes(' ')) return isPhraseMatch(transcript, targetWord)
   return false
 }
+
+// ---------------------------------------------------------------------------------------------
+// Spanish: forgive an American accent
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Spanish "sound key": spells a word the way it sounds, so spellings an English speaker's accent
+ * produces in the transcript still line up ("baca" / "vaca", "ola" / "hola", "sapato" / "zapato",
+ * "yamo" / "llamo", "kiero" / "quiero", "hente" / "gente").
+ */
+export function spanishKey(s: string): string {
+  return fold(s)
+    .replace(/[^a-z\s]/g, ' ')
+    .replace(/ch/g, 'C')
+    .replace(/ph/g, 'f')
+    .replace(/h/g, '')
+    .replace(/ll/g, 'y')
+    .replace(/qu/g, 'k')
+    .replace(/gu(?=[ei])/g, 'g')
+    .replace(/g(?=[ei])/g, 'H')
+    .replace(/j/g, 'H')
+    .replace(/c(?=[ei])/g, 's')
+    .replace(/[cq]/g, 'k')
+    .replace(/z/g, 's')
+    .replace(/v/g, 'b')
+    .replace(/w/g, 'u')
+    .replace(/x/g, 'ks')
+    .replace(/y\b/g, 'i')
+    .replace(/(.)\1+/g, '$1')
+    .replace(/\s+/g, '')
+}
+
+/** Smallest edit distance between `needle` and any stretch of `hay` (extra words around it are fine). */
+function bestWindowDistance(needle: string, hay: string): number {
+  const prev = new Array<number>(hay.length + 1).fill(0)
+  for (let i = 1; i <= needle.length; i++) {
+    let diag = prev[0]
+    prev[0] = i
+    for (let j = 1; j <= hay.length; j++) {
+      const up = prev[j]
+      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (needle[i - 1] === hay[j - 1] ? 0 : 1))
+      diag = up
+    }
+  }
+  return Math.min(...prev)
+}
+
+/** How many sound slips are forgiven: none for tiny words, about one in five for long ones. */
+function spanishTolerance(len: number): number {
+  if (len <= 3) return 0
+  if (len <= 6) return 1
+  if (len <= 10) return 2
+  return Math.floor(len * 0.2)
+}
+
+/**
+ * True when what was heard counts as the Spanish target, forgiving an English-speaking accent:
+ * exact/variant matches first, then a sound-alike comparison of the whole thing.
+ */
+export function isSpanishMatch(transcript: string, target: string, variants?: string[]): boolean {
+  if (isWordMatch(transcript, target, variants)) return true
+  const t = spanishKey(target)
+  const h = spanishKey(transcript)
+  if (!t || !h) return false
+  if (h === t || h.includes(t)) return true
+  for (const v of variants ?? []) {
+    const vk = spanishKey(v)
+    if (vk.length >= 3 && (h === vk || h.includes(vk))) return true
+  }
+  // Too short to judge by sound (sí, no, tú): needs an exact match above.
+  if (t.length <= 3) return false
+  // Way too little was heard for a long target.
+  if (h.length < t.length * 0.7) return false
+  return bestWindowDistance(t, h) <= spanishTolerance(t.length)
+}

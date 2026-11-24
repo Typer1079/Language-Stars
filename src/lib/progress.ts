@@ -8,9 +8,15 @@ export interface PracticeItem {
   key: string
   target: string
   spanish?: SpanishEntry
+  /** Stretch item from a higher level, mixed in to spot readers who are ready to jump ahead. */
+  stretchLevel?: number
 }
 
 export const ROUND_SIZE = 10
+/** Each round mixes in this many items from higher levels (at +2, +4 and +6). */
+export const STRETCH_STEPS = [2, 4, 6]
+/** Master this many of a level's 10 items (without help) to move up. */
+export const LEVEL_UP_AT = 8
 
 export function maxLevel(_mode?: Mode): number {
   return MAX_LEVEL
@@ -45,17 +51,34 @@ export function shuffle<T>(arr: T[], rand: () => number = Math.random): T[] {
   return copy
 }
 
-/** Up to 10 words the reader hasn't mastered yet; the whole level again once all are mastered. */
+/** Higher-level items to test whether the reader can skip ahead (one each from +2, +4, +6). */
+export function pickStretch(l: Learner, rand: () => number = Math.random): PracticeItem[] {
+  const level = activeLevel(l)
+  const out: PracticeItem[] = []
+  for (const step of STRETCH_STEPS) {
+    const at = Math.min(level + step, maxLevel(l.mode))
+    if (at <= level || out.some((o) => o.stretchLevel === at)) continue
+    const pool = unmasteredItems(l, at)
+    const it = shuffle(pool.length ? pool : levelItems(at, l.mode), rand)[0]
+    if (it) out.push({ ...it, stretchLevel: at })
+  }
+  return out
+}
+
 /**
- * A round is always 10 items when the level has them: words not yet mastered first,
- * topped up with already-mastered words from the same level as review.
+ * A round is always 10 items: up to 7 from this level (not-yet-mastered first, then review)
+ * plus 3 stretch items from higher levels, mixed in at spots 3, 6 and 9.
  */
 export function pickRound(l: Learner, rand: () => number = Math.random): PracticeItem[] {
   const level = activeLevel(l)
+  const stretch = pickStretch(l, rand)
   const fresh = shuffle(unmasteredItems(l, level), rand)
   const freshKeys = new Set(fresh.map((i) => i.key))
   const review = shuffle(levelItems(level, l.mode).filter((i) => !freshKeys.has(i.key)), rand)
-  return [...fresh, ...review].slice(0, ROUND_SIZE)
+  const base = [...fresh, ...review].slice(0, ROUND_SIZE - stretch.length)
+  const out = [...base]
+  stretch.forEach((it, i) => out.splice(Math.min(2 + i * 3, out.length), 0, it))
+  return out
 }
 
 /** Challenge rounds: a short test a few levels up, offered after a perfect round. */
@@ -98,19 +121,27 @@ export interface SolveResult {
 
 /**
  * A word was said correctly: +1 star. Words said without the coach's help count as mastered.
- * Mastering every word in a level moves up a level with a bonus of (level x 5) stars.
+ * Mastering 8 of a level's 10 words moves up a level with a bonus of (level x 5) stars.
  */
 export function solveWord(l: Learner, item: PracticeItem, coached: boolean, opts: { challenge?: boolean } = {}): SolveResult {
   let next: Learner = { ...l, lifetime_stars: l.lifetime_stars + 1, spendable_stars: l.spendable_stars + 1 }
   // Challenge items belong to a higher level: they earn a star but don't count toward this level.
   if (coached || opts.challenge) return { learner: next, leveledUpTo: null, bonus: 0 }
+  // Stretch items: remembered as mastered in their own (higher) level, for when the reader gets there.
+  if (item.stretchLevel) {
+    const sk = masteryKey(item.stretchLevel, l.mode)
+    const sl = next.mastered[sk] ?? []
+    if (!sl.includes(item.key)) next = { ...next, mastered: { ...next.mastered, [sk]: [...sl, item.key] } }
+    return { learner: next, leveledUpTo: null, bonus: 0 }
+  }
 
   const level = activeLevel(l)
   const key = masteryKey(level, l.mode)
   const list = next.mastered[key] ?? []
   if (!list.includes(item.key)) next = { ...next, mastered: { ...next.mastered, [key]: [...list, item.key] } }
 
-  if (unmasteredItems(next, level).length === 0 && level < maxLevel(l.mode)) {
+  const total = levelItems(level, l.mode).length
+  if (total - unmasteredItems(next, level).length >= Math.min(LEVEL_UP_AT, total) && level < maxLevel(l.mode)) {
     // Bonus only for reaching a new high, so dropping back and re-climbing doesn't pay twice.
     const bonus = level + 1 > bestLevel(l) ? level * 5 : 0
     // Finished levels don't need their word lists any more; keep the record small.
@@ -135,6 +166,8 @@ export interface RoundResult {
   /** After a perfect round: try a short challenge at this level next. */
   challengeAt?: number | null
   challenge?: 'passed' | 'missed' | null
+  /** Jumped ahead because the stretch items were easy. */
+  jumped?: boolean
 }
 
 function withBonus(l: Learner, bonus: number): Learner {
@@ -154,9 +187,17 @@ function moveUp(l: Learner, to: number): { learner: Learner; bonus: number } {
  * stuck yet, so step back one level to practice it again. The reader climbs back up the same
  * way as before, by mastering every item in that level. Stars are never taken away.
  */
-export function endRound(l: Learner, clean: number, attempts: number, opts: { challengeLevel?: number | null } = {}): RoundResult {
+export function endRound(l: Learner, clean: number, attempts: number, opts: { challengeLevel?: number | null; stretchCleared?: number[] } = {}): RoundResult {
   const level = activeLevel(l)
   const top = maxLevel(l.mode)
+
+  // Stretch items said without help: two cleared means jump to the lower of them; all three, to the highest.
+  const cleared = [...new Set(opts.stretchCleared ?? [])].filter((n) => n > level).sort((a, b) => a - b)
+  if (!opts.challengeLevel && cleared.length >= 2) {
+    const to = cleared.length >= 3 ? cleared[cleared.length - 1] : cleared[0]
+    const up = moveUp(l, Math.min(to, top))
+    return { learner: up.learner, movedDownTo: null, movedUpTo: to, bonus: up.bonus, jumped: true }
+  }
 
   // Result of a challenge round.
   if (opts.challengeLevel) {
@@ -168,7 +209,7 @@ export function endRound(l: Learner, clean: number, attempts: number, opts: { ch
   }
 
   // Perfect full round with no coach help: move up now, then offer a challenge a few levels higher.
-  if (attempts >= ROUND_SIZE && clean === attempts && level < top) {
+  if (attempts >= ROUND_SIZE - STRETCH_STEPS.length && clean === attempts && level < top) {
     const up = moveUp(l, level + 1)
     const target = Math.min(level + CHALLENGE_JUMP, top)
     return { learner: up.learner, movedDownTo: null, movedUpTo: level + 1, bonus: up.bonus, challengeAt: target > level + 1 ? target : null }

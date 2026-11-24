@@ -90,7 +90,7 @@ const READING_WORDS: Record<number, string[]> = {
   15: ['banana', 'elephant', 'computer', 'umbrella', 'dinosaur', 'butterfly', 'kangaroo', 'tomato', 'potato', 'family', 'animal', 'octopus'],
 }
 
-const R = {
+export const R = {
   noun1: ['cat', 'dog', 'sun', 'hat', 'bed', 'cup', 'pig', 'fox', 'hen', 'bus', 'box', 'bug', 'map', 'pen', 'van', 'mop'],
   adj1: ['big', 'red', 'hot', 'wet', 'sad', 'tan'],
   noun2: ['ball', 'fish', 'duck', 'frog', 'tree', 'bird', 'cake', 'kite', 'boat', 'ship', 'star', 'shell', 'sock', 'rock', 'bell', 'drum', 'book', 'chair'],
@@ -157,7 +157,7 @@ const R = {
   funVerb: ['play', 'read', 'swim', 'draw', 'build', 'sing'],
 }
 
-function third(verb: string): string {
+export function third(verb: string): string {
   if (verb === 'fly') return 'flies'
   if (verb === 'go') return 'goes'
   if (/(s|sh|ch|x|z)$/.test(verb)) return verb + 'es'

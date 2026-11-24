@@ -113,3 +113,27 @@ describe('full rounds and the fast lane', () => {
     expect(r.challengeAt).toBeNull()
   })
 })
+
+import { pickRound as _pickRound, endRound as _endRound, solveWord as _solveWord, levelItems as _levelItems, STRETCH_STEPS as _ST } from './progress'
+import type { Learner as _L } from './types'
+describe('faster progress', () => {
+  const base: _L = { id: 'x', display_name: 'T', kind: 'child', age_group: '7-8', sticker_style: 'any', mode: 'reading',
+    reading_level: 10, spanish_level: 1, reading_best: 10, spanish_best: 1, lifetime_stars: 0, spendable_stars: 0, mastered: {}, stickers: [] }
+  it('mixes 3 higher-level items into every round of 10', () => {
+    const r = _pickRound(base)
+    expect(r).toHaveLength(10)
+    expect(r.filter((i) => i.stretchLevel).map((i) => i.stretchLevel)).toEqual(_ST.map((s) => 10 + s))
+  })
+  it('moves up after 8 of 10 mastered', () => {
+    let l = base
+    const items = _levelItems(10, 'reading')
+    let up: number | null = null
+    for (let i = 0; i < 8; i++) up = _solveWord(l = _solveWord(l, items[i], false).learner, items[i], false).leveledUpTo ?? up
+    expect(l.reading_level === 11 || up === 11).toBe(true)
+  })
+  it('jumps ahead when the stretch items are easy', () => {
+    expect(_endRound(base, 5, 7, { stretchCleared: [12, 14] }).learner.reading_level).toBe(12)
+    expect(_endRound(base, 5, 7, { stretchCleared: [12, 14, 16] }).learner.reading_level).toBe(16)
+    expect(_endRound(base, 5, 7, { stretchCleared: [12] }).learner.reading_level).toBe(10)
+  })
+})

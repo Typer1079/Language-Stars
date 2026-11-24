@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { PracticeEngine, type MicState, type Pace, type Tone } from '../lib/practiceEngine'
 import { MAX_LEVEL, stageName } from '../lib/curriculum'
-import { activeLevel, bestLevel, CHALLENGE_JUMP, CHALLENGE_PASS, CHALLENGE_SIZE, endRound, newMilestone, pickChallenge, pickRound, ROUND_SIZE, solveWord, type PracticeItem } from '../lib/progress'
+import { activeLevel, bestLevel, CHALLENGE_JUMP, CHALLENGE_PASS, CHALLENGE_SIZE, endRound, newMilestone, pickChallenge, pickRound, ROUND_SIZE, solveWord, STRETCH_STEPS, type PracticeItem } from '../lib/progress'
 import { playChime } from '../lib/sfx'
 import { moveSticker } from '../lib/stickers'
-import { recognitionSupported } from '../lib/speech'
+import { recognitionSupported, speakSegments } from '../lib/speech'
+import { COMPREHENSION_FROM, questionFor, type Question } from '../lib/comprehension'
 import type { Learner } from '../lib/types'
 import { wordHelp } from '../lib/phonics'
 import { makeConfetti, type ConfettiPiece } from '../lib/confetti'
@@ -53,6 +54,10 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const [confetti, setConfetti] = useState<ConfettiPiece[]>([])
   const [roundNote, setRoundNote] = useState<{ clean: number; attempts: number; movedDownTo: number | null; note?: string } | null>(null)
   const [challenge, setChallenge] = useState<number | null>(null)
+  // Reading comprehension: a multiple-choice question after reading a phrase or sentence (Level 31+).
+  const [quiz, setQuiz] = useState<{ q: Question; picked: number | null } | null>(null)
+  // Stretch (higher-level) items said without help this round, by level.
+  const stretchClearedRef = useRef<number[]>([])
   const challengeRef = useRef<number | null>(null)
   // This round's results: words said without help vs. all words tried (skips and give-ups count as tried).
   const cleanRef = useRef(0)
@@ -114,6 +119,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     setRoundNote(null)
     cleanRef.current = 0
     attemptsRef.current = 0
+    stretchClearedRef.current = []
     levelUpPending.current = false
     challengeRef.current = opts.challengeLevel ?? null
     setChallenge(challengeRef.current)
@@ -140,7 +146,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     const clean = cleanRef.current
     const attempts = attemptsRef.current
     const wasChallenge = challengeRef.current
-    const r = endRound(learnerRef.current, clean, attempts, { challengeLevel: wasChallenge })
+    const r = endRound(learnerRef.current, clean, attempts, { challengeLevel: wasChallenge, stretchCleared: stretchClearedRef.current })
     lastRoundRef.current = { clean, attempts }
     if (r.learner !== learnerRef.current) {
       learnerRef.current = r.learner
@@ -152,7 +158,11 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       return
     }
     let note = ''
-    if (r.challenge === 'passed') {
+    if (r.jumped) {
+      setConfetti(makeConfetti(30))
+      note = `Those harder ones were easy! Jumped to Level ${r.movedUpTo}${r.bonus ? ` +${r.bonus} ⭐` : ''}`
+      log('JUMPED', `to L${r.movedUpTo} stretch=${stretchClearedRef.current.join(',')}`)
+    } else if (r.challenge === 'passed') {
       setConfetti(makeConfetti(30))
       note = `Challenge passed! Jumped to Level ${r.movedUpTo}${r.bonus ? ` +${r.bonus} ⭐` : ''}`
     } else if (r.challenge === 'missed') {
@@ -177,7 +187,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     if (shopRef.current) return
     // Just moved up a level by mastering it.
     if (levelUpPending.current) {
-      const perfect = attemptsRef.current >= ROUND_SIZE && cleanRef.current === attemptsRef.current
+      const perfect = attemptsRef.current >= ROUND_SIZE - STRETCH_STEPS.length && cleanRef.current === attemptsRef.current
       const now = activeLevel(learnerRef.current)
       const target = Math.min(now - 1 + CHALLENGE_JUMP, MAX_LEVEL)
       lastRoundRef.current = { clean: cleanRef.current, attempts: attemptsRef.current }
@@ -197,8 +207,13 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     onActivity()
     const before = learnerRef.current
     const r = solveWord(before, it, coached, { challenge: Boolean(challengeRef.current) })
-    attemptsRef.current += 1
-    if (!coached) cleanRef.current += 1
+    // Stretch items don't count for or against this level's round score.
+    if (it.stretchLevel) {
+      if (!coached) stretchClearedRef.current.push(it.stretchLevel)
+    } else {
+      attemptsRef.current += 1
+      if (!coached) cleanRef.current += 1
+    }
     starsSinceStop.current += r.learner.lifetime_stars - before.lifetime_stars
     if (r.leveledUpTo) levelUpPending.current = true
     learnerRef.current = r.learner
@@ -215,6 +230,16 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     if (m) {
       setShop(`🎉 Milestone! You reached ${m} lifetime ${m === 1 ? 'star' : 'stars'}! Pick a sticker!`)
       return
+    }
+    // Reading phrases and sentences: every other one, ask what it means.
+    const itemLevel = it.stretchLevel ?? activeLevel(before)
+    if (before.mode === 'reading' && itemLevel >= COMPREHENSION_FROM && indexRef.current % 2 === 1) {
+      const q = questionFor(it.target)
+      if (q) {
+        log('QUESTION', q.prompt)
+        advanceTimer.current = setTimeout(() => { if (!shopRef.current) setQuiz({ q, picked: null }) }, 700)
+        return
+      }
     }
     if (coached) engineRef.current?.praiseThen(() => { if (!shopRef.current) advanceTimer.current = setTimeout(() => advance(false), 150) })
     else advanceTimer.current = setTimeout(() => advance(false), paceRef.current === 'brisk' ? 250 : 550)
@@ -234,8 +259,8 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       mic: (state, label) => setMic({ state, label: label ?? (state === 'listening' ? 'Listening...' : 'Listen Now') }),
       solved: (heard, coached) => solvedCb.current(heard, coached),
       advance: (afterCoach) => {
-        // The coach gave up on this word: it counts as tried, not said.
-        attemptsRef.current += 1
+        // The coach gave up on this word: it counts as tried, not said (stretch items don't count).
+        if (!roundRef.current[indexRef.current]?.stretchLevel) attemptsRef.current += 1
         advanceCb.current(afterCoach)
       },
       revealSpanish: () => setRevealed(true),
@@ -256,7 +281,30 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
 
   // ---- controls ------------------------------------------------------------------------------
 
-  const anyModal = Boolean(shop) || roundDone || logOpen
+  const anyModal = Boolean(shop) || roundDone || logOpen || Boolean(quiz)
+
+  const answerQuiz = (i: number) => {
+    if (!quiz || quiz.picked !== null) return
+    const right = i === quiz.q.answer
+    setQuiz({ ...quiz, picked: i })
+    cancelQuizVoice.current?.()
+    log('ANSWER', `${right ? 'right' : 'wrong'}: ${quiz.q.choices[i]}`)
+    if (right) {
+      const l = learnerRef.current
+      const next = { ...l, lifetime_stars: l.lifetime_stars + 1, spendable_stars: l.spendable_stars + 1 }
+      learnerRef.current = next
+      onChange(next)
+      starsSinceStop.current += 1
+      playChime()
+      setConfetti(makeConfetti(18))
+    } else if (paceRef.current === 'guided') {
+      cancelQuizVoice.current = speakSegments([{ text: `It was ${quiz.q.choices[quiz.q.answer]}.`, lang: 'en-US' }], () => {})
+    }
+    advanceTimer.current = setTimeout(() => {
+      setQuiz(null)
+      advance(false)
+    }, right ? 1000 : 2200)
+  }
 
   const closeShop = useCallback(() => {
     setShop(null)
@@ -265,6 +313,17 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     if (solvedRef.current) advance(false)
     else engineRef.current?.resume()
   }, [advance, roundDone])
+
+  // Iris reads the question and choices to younger readers.
+  const cancelQuizVoice = useRef<(() => void) | null>(null)
+  const quizQ = quiz?.q
+  useEffect(() => {
+    if (!quizQ || paceRef.current !== 'guided') return
+    const t = setTimeout(() => {
+      cancelQuizVoice.current = speakSegments([{ text: `${quizQ.prompt} ${quizQ.choices.join(', or ')}?`, lang: 'en-US' }], () => {})
+    }, 250)
+    return () => clearTimeout(t)
+  }, [quizQ])
 
   const openShop = (reason: string) => {
     engineRef.current?.setPaused(true)
@@ -277,7 +336,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
 
   const skip = () => {
     if (anyModal) return
-    if (!solvedRef.current) attemptsRef.current += 1
+    if (!solvedRef.current && !roundRef.current[indexRef.current]?.stretchLevel) attemptsRef.current += 1
     engineRef.current?.stopAll()
     advance(false)
   }
@@ -375,6 +434,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
               <span className="rounded-xl bg-indigo-600 px-3 py-1 font-kids text-sm font-bold text-white shadow-sm">Level {level} <span className="font-sans text-xs font-semibold opacity-80">of {MAX_LEVEL}</span></span>
               <span className="rounded-xl bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">{stageName(level, learner.mode)}</span>
               {challenge && <span className="rounded-xl bg-fuchsia-600 px-2.5 py-1 text-xs font-bold text-white">🚀 Challenge: Level {challenge}</span>}
+              {!challenge && item?.stretchLevel && <span className="rounded-xl bg-fuchsia-100 px-2.5 py-1 text-xs font-bold text-fuchsia-800">🚀 Bonus: Level {item.stretchLevel}</span>}
             </div>
             <span className="text-xs font-bold text-indigo-700">Word {Math.min(index + 1, round.length || 1)} of {round.length || 10}</span>
           </div>
@@ -435,9 +495,14 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
               <div className={`font-kids font-bold tracking-tight ${item.spanish.en.length <= 14 ? 'text-4xl sm:text-6xl' : item.spanish.en.length <= 30 ? 'text-3xl sm:text-4xl' : 'text-2xl sm:text-3xl'}`}>{item.spanish.en}</div>
               <div className="mt-2.5 flex w-full flex-col items-center gap-2 text-xs sm:text-sm">
                 <span className="rounded-full border border-indigo-200 bg-white px-3 py-1 font-semibold text-indigo-700">
-                  {revealed ? `Spanish: "${item.spanish.es}"${item.spanish.phonetic ? ` (${item.spanish.phonetic})` : ''}` : 'Press Shift (or tap Reveal) to see the Spanish'}
+                  {revealed ? `Spanish: "${item.spanish.es}"${item.spanish.phonetic ? ` (${item.spanish.phonetic})` : ''}` : 'Stuck? Tap Reveal (or press Shift)'}
                 </span>
-                {!revealed && <button type="button" className="text-xs text-indigo-600 underline" onClick={() => setRevealed(true)}>Reveal</button>}
+                {!revealed && (
+                  <button type="button" onClick={() => setRevealed(true)}
+                    className="mt-1 w-full max-w-xs rounded-2xl border-2 border-indigo-300 bg-white px-6 py-3 font-kids text-lg font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-50 active:scale-95">
+                    👀 Reveal the Spanish
+                  </button>
+                )}
                 {phraseShown && item.spanish.phraseEs && (
                   <div className="w-full max-w-md rounded-2xl border border-amber-300 bg-amber-50/90 px-3.5 py-2 text-center text-amber-950">
                     <div className="text-sm font-bold sm:text-base">💬 “{item.spanish.phraseEs}”</div>
@@ -448,12 +513,31 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
             </div>
           )}
 
-          <div role="status" aria-live="polite" className={`mt-2 mb-5 w-full max-w-lg rounded-2xl border px-4 py-3 transition-colors ${toneClass[feedback.tone]}`}>
+          {quiz && (
+            <div className="mt-2 mb-5 w-full max-w-lg rounded-2xl border-2 border-violet-300 bg-violet-50 p-4" role="group" aria-label="Question">
+              <div className="mb-3 font-kids text-lg font-bold text-violet-900 sm:text-xl">🤔 {quiz.q.prompt}</div>
+              <div className="grid gap-2">
+                {quiz.q.choices.map((c, i) => {
+                  const done = quiz.picked !== null
+                  const state = !done ? 'border-violet-200 bg-white hover:bg-violet-100' : i === quiz.q.answer ? 'border-emerald-400 bg-emerald-100 text-emerald-900' : i === quiz.picked ? 'border-rose-300 bg-rose-100 text-rose-900' : 'border-slate-200 bg-white opacity-50'
+                  return (
+                    <button key={i} type="button" disabled={done} onClick={() => answerQuiz(i)}
+                      className={`rounded-2xl border-2 px-4 py-3 text-left font-kids text-base font-bold transition active:scale-[0.98] sm:text-lg ${state}`}>
+                      {done && i === quiz.q.answer ? '✅ ' : done && i === quiz.picked ? '❌ ' : ''}{c}
+                    </button>
+                  )
+                })}
+              </div>
+              {quiz.picked !== null && <div className="mt-2 text-sm font-semibold text-violet-800">{quiz.picked === quiz.q.answer ? 'Yes! +1 ⭐' : 'Good try — the green one is right.'}</div>}
+            </div>
+          )}
+
+          <div role="status" aria-live="polite" className={`mt-2 mb-5 ${quiz ? 'hidden' : ''} w-full max-w-lg rounded-2xl border px-4 py-3 transition-colors ${toneClass[feedback.tone]}`}>
             <div className="font-kids text-lg font-bold sm:text-xl">{feedback.title}</div>
             <div className="mt-0.5 text-xs opacity-80 sm:text-sm">{feedback.sub}</div>
           </div>
 
-          <div className="grid w-full max-w-lg grid-cols-2 gap-2.5 sm:gap-3">
+          <div className={`grid w-full max-w-lg grid-cols-2 gap-2.5 sm:gap-3 ${quiz ? 'hidden' : ''}`}>
             <button type="button" onClick={() => engineRef.current?.listenNow()}
               className={`col-span-2 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4 font-kids text-lg font-bold text-white shadow-lg transition hover:from-emerald-600 hover:to-teal-700 active:scale-95 ${mic.state === 'listening' ? 'animate-pulse-ring' : ''}`}>
               <span className={`h-3 w-3 rounded-full ${mic.state === 'listening' ? 'animate-ping bg-emerald-200' : mic.state === 'warming' ? 'bg-amber-200' : 'bg-white/90'}`} />
