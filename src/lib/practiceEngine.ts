@@ -1,6 +1,6 @@
 import { isSpanishMatch, isWordMatch } from './match'
 import type { PracticeItem } from './progress'
-import { createRecognition, speakSegments, cancelSpeech, IS_IOS, type RecognitionLike, type VoiceSegment } from './speech'
+import { canFilterNoise, createRecognition, getCleanMicTrack, releaseCleanMic, speakSegments, cancelSpeech, IS_IOS, type RecognitionLike, type VoiceSegment } from './speech'
 import type { Mode } from './types'
 import { ENCOURAGING_NICKNAMES } from './wordBanks'
 import { wordHelp } from './phonics'
@@ -61,6 +61,10 @@ export class PracticeEngine {
   private micOn = false
   private startWatchdog: ReturnType<typeof setTimeout> | undefined
   private noStartCount = 0
+  // Noise-suppressed microphone (where the browser supports it) and a count of noisy misses.
+  private cleanTrack: MediaStreamTrack | null = null
+  private cleanMicTried = false
+  private noisyMisses: number[] = []
   private seenResults = 0
   private baseline = 0
   private cancelVoice: (() => void) | null = null
@@ -113,6 +117,7 @@ export class PracticeEngine {
     if (paused) {
       this.stopAll()
       this.stopListening(true, true)
+      this.dropCleanMic()
     }
   }
 
@@ -268,6 +273,7 @@ export class PracticeEngine {
   dispose() {
     this.stopAll()
     this.gen++
+    this.dropCleanMic()
     if (this.recognition) {
       this.recognition.onend = null
       try {
@@ -401,7 +407,11 @@ export class PracticeEngine {
       }
       top = top.trim()
       if (!top) return
-      const all = [top, ...candidates.filter((c) => c.trim() !== top)]
+      // Single words: a long run of words is background talk (TV, other people), not the reader,
+      // so it can't count as a match — but a short result inside it still can.
+      const words = (t: string) => t.trim().split(/\s+/).filter(Boolean).length
+      const single = !this.item.target.trim().includes(' ')
+      const all = [top, ...candidates.filter((c) => c.trim() !== top)].filter((c) => !single || words(c) <= 6)
       this.hooks.log('HEARD', `${all.map((c) => `"${c.trim()}"`).join(' / ')} target="${this.item.target}"`)
       const it = this.item
       const hit = all.find((c) => (this.mode === 'spanish' && it.spanish ? isSpanishMatch(c, it.target, it.spanish.variants) : isWordMatch(c, it.target)))
@@ -415,7 +425,15 @@ export class PracticeEngine {
       // Finished hearing something else: show what was heard, keep listening.
       if (event.results[event.results.length - 1]?.isFinal) {
         const prompt = this.mode === 'spanish' && this.item.spanish ? `Say "${this.item.spanish.en}" in Spanish!` : `Say "${this.item.target}"!`
-        this.hooks.feedback(prompt, `Heard “${top}”. Try again, still listening…`, 'listening')
+        const now = Date.now()
+        const noisy = words(top) > words(this.item.target) + 4
+        if (noisy) this.noisyMisses = [...this.noisyMisses.filter((t) => now - t < 15000), now]
+        if (noisy && this.noisyMisses.length >= 2) {
+          this.hooks.log('NOISY', `"${top.slice(0, 60)}"`)
+          this.hooks.feedback(prompt, 'It’s noisy here. Hold the device close and say it clearly.', 'listening')
+        } else if (!noisy) {
+          this.hooks.feedback(prompt, `Heard “${top}”. Try again, still listening…`, 'listening')
+        }
       }
     }
     r.onerror = (e) => {
@@ -424,6 +442,12 @@ export class PracticeEngine {
         this.hooks.feedback('Microphone is blocked', 'Allow the microphone for this site in your browser settings, then tap Listen Now.', 'neutral')
       }
       this.hooks.log('MIC_ERR', e.error)
+      // If the filtered microphone is the problem, the next restart uses the normal one.
+      if (this.cleanTrack && !['no-speech', 'aborted', 'not-allowed', 'service-not-allowed'].includes(e.error)) {
+        this.hooks.log('MIC_FILTER', `off (${e.error})`)
+        releaseCleanMic()
+        this.cleanTrack = null
+      }
     }
     r.onend = () => {
       this.recActive = false
@@ -462,9 +486,20 @@ export class PracticeEngine {
       }
       return
     }
+    // First time: get the noise-suppressed microphone, then start (falls back to the normal mic).
+    if (canFilterNoise() && !this.cleanMicTried) {
+      this.cleanMicTried = true
+      void getCleanMicTrack().then((t) => {
+        this.cleanTrack = t
+        this.hooks.log('MIC_FILTER', t ? 'noise suppression on' : 'not available')
+        this.startRecognition(attempt)
+      })
+      return
+    }
     r.lang = lang
     try {
-      r.start()
+      if (this.cleanTrack?.readyState === 'live') r.start(this.cleanTrack)
+      else r.start()
       this.recActive = true
       // If the browser never confirms the mic is on (iPhones sometimes need a tap), say so
       // instead of showing "Listening" while nothing is heard.
@@ -490,10 +525,22 @@ export class PracticeEngine {
         this.baseline = this.seenResults
         return
       }
+      if (this.cleanTrack) {
+        // This browser won't take a microphone track after all: use the normal microphone.
+        this.hooks.log('MIC_FILTER', `off (${err instanceof Error ? err.name : 'error'})`)
+        releaseCleanMic()
+        this.cleanTrack = null
+      }
       clearTimeout(this.micTimer)
       if (attempt < 8) this.micTimer = setTimeout(() => this.startRecognition(attempt + 1), 300)
       else this.hooks.log('MIC_START_FAILED', String(err))
     }
+  }
+
+  private dropCleanMic() {
+    releaseCleanMic()
+    this.cleanTrack = null
+    this.cleanMicTried = false
   }
 
   /** hard: also switch the microphone off (while the coach talks, or when leaving the screen). */

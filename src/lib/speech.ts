@@ -18,7 +18,8 @@ interface RecognitionLike {
   onresult: ((e: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }> }) => void) | null
   onerror: ((e: { error: string }) => void) | null
   onend: (() => void) | null
-  start(): void
+  /** Newer Chrome/Edge accept a microphone track, so the app can hand it a noise-suppressed one. */
+  start(track?: MediaStreamTrack): void
   stop(): void
   abort(): void
 }
@@ -50,6 +51,40 @@ export function createRecognition(): RecognitionLike | null {
 }
 
 export type { RecognitionLike }
+
+// ---- noise-filtered microphone -------------------------------------------------------------
+// Browsers can clean up the microphone (noise suppression, echo cancellation, steady volume)
+// before speech recognition hears it. Newer Chrome and Edge let the app pass that cleaned-up
+// track to the recognizer. iPhones/iPads use Apple's dictation, which filters noise on its own.
+
+let cleanTrack: MediaStreamTrack | null = null
+let pending: Promise<MediaStreamTrack | null> | null = null
+
+/** True where the recognizer can take a microphone track (unprefixed SpeechRecognition, not iOS). */
+export function canFilterNoise(): boolean {
+  return !IS_IOS && typeof window !== 'undefined' && 'SpeechRecognition' in window && Boolean(navigator.mediaDevices?.getUserMedia)
+}
+
+/** A noise-suppressed microphone track, or null if the browser can't provide one. */
+export function getCleanMicTrack(): Promise<MediaStreamTrack | null> {
+  if (cleanTrack && cleanTrack.readyState === 'live') return Promise.resolve(cleanTrack)
+  if (pending) return pending
+  pending = navigator.mediaDevices
+    .getUserMedia({ audio: { noiseSuppression: true, echoCancellation: true, autoGainControl: true, channelCount: 1 } })
+    .then((stream) => {
+      cleanTrack = stream.getAudioTracks()[0] ?? null
+      return cleanTrack
+    })
+    .catch(() => null)
+    .finally(() => { pending = null })
+  return pending
+}
+
+/** Turns the filtered microphone off (leaving the screen, pop-ups, sign-out). */
+export function releaseCleanMic() {
+  try { cleanTrack?.stop() } catch { /* already stopped */ }
+  cleanTrack = null
+}
 
 // Iris's voice: the most natural-sounding female voice the device has.
 // Apple's "Premium"/"Enhanced" voices, Google's and Microsoft's "Natural" voices sound far less robotic.
