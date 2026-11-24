@@ -4,7 +4,10 @@ import { activeLevel, levelOf } from '../lib/progress'
 import { FaceIdOffer } from './FaceId'
 import { ProgressView } from './Progress'
 import { AVATAR_GROUPS, SKIN_TONES, avatarFor, toneOf, withTone } from '../lib/avatars'
-import { avatarsAvailable, spellingAvailable } from '../lib/learnersApi'
+import { avatarsAvailable, myRanks, spellingAvailable } from '../lib/learnersApi'
+import { medal } from '../lib/ranks'
+import { gradeFor } from '../lib/levelGuide'
+import { HelpGuide } from './HelpGuide'
 import { MAX_LEVEL, stageName } from '../lib/curriculum'
 import { cleanName, parseSaveFile } from '../lib/validate'
 import { newLearnerDraft, type AgeGroup, type Learner, type LearnerDraft, type LearnerKind, type Mode, type StickerStyle } from '../lib/types'
@@ -31,6 +34,7 @@ export default function LearnerPicker(p: Props) {
   const [panel, setPanel] = useState<'none' | 'add' | 'import'>('none')
   const [editing, setEditing] = useState<Learner | null>(null)
   const [viewing, setViewing] = useState<Learner | null>(null)
+  const [help, setHelp] = useState(false)
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col px-4 py-8">
@@ -43,6 +47,7 @@ export default function LearnerPicker(p: Props) {
           </div>
         </div>
         <div className="flex gap-2">
+          <button type="button" className="chip" onClick={() => setHelp(true)}>❓ Help</button>
           {p.onAdmin && <button type="button" className="chip" onClick={p.onAdmin}>📊 Admin</button>}
           <button type="button" className="chip" onClick={p.onAccount}>⚙️ Account</button>
         </div>
@@ -76,6 +81,7 @@ export default function LearnerPicker(p: Props) {
         <button type="button" className="btn-secondary" onClick={() => { setEditing(null); setPanel(panel === 'import' ? 'none' : 'import') }}>📂 Import backup</button>
       </div>
 
+      {help && <HelpGuide onClose={() => setHelp(false)} />}
       {viewing && <ProgressView learner={viewing} parentView onClose={() => setViewing(null)} />}
       {editing && <EditReader key={editing.id} learner={editing} onCancel={() => setEditing(null)} onSave={async (l) => { await p.onUpdate(l); setEditing(null) }} />}
       {panel === 'add' && <AddReader verified={p.verified} onUnlockKids={p.onUnlockKids} onCancel={() => setPanel('none')} onCreate={async (d) => { await p.onCreate(d); setPanel('none') }} />}
@@ -112,6 +118,15 @@ function LearnerCard({ learner: l, onPlay, onProgress, onEdit, onMode }: { learn
   const t = THEMES[l.mode][[...l.display_name].reduce((n, c) => n + c.charCodeAt(0), 0) % 2]
   const level = activeLevel(l)
   const shown = l.stickers.slice(-6).reverse()
+  // Overall worldwide rank = rank by lifetime stars (needs database update 007; hidden until then).
+  const [overall, setOverall] = useState<{ rank: number; total: number } | null>(null)
+  useEffect(() => {
+    let live = true
+    myRanks(l.id)
+      .then((r) => { if (live && r.stars?.rank) setOverall({ rank: r.stars.rank, total: r.stars.total }) })
+      .catch(() => {})
+    return () => { live = false }
+  }, [l.id, l.lifetime_stars])
   return (
     <article className="group relative overflow-hidden rounded-3xl border border-white/70 bg-white shadow-lg ring-1 ring-slate-200/60 transition duration-200 hover:-translate-y-1 hover:shadow-xl">
       {/* Colored header with the learner's avatar and their newest stickers */}
@@ -134,7 +149,7 @@ function LearnerCard({ learner: l, onPlay, onProgress, onEdit, onMode }: { learn
         <div className="mt-2 flex items-end justify-between gap-2">
           <div className="min-w-0">
             <h2 className="truncate font-kids text-2xl font-bold leading-tight text-slate-900">{l.display_name}</h2>
-            <p className="text-xs font-semibold text-slate-500">{stageName(level, l.mode)}{l.kind === 'self' ? ' • me' : ''}</p>
+            <p className="text-xs font-semibold text-slate-500">{stageName(level, l.mode)} • <span className="text-slate-700">{gradeFor(level, l.mode)}</span>{l.kind === 'self' ? ' • me' : ''}</p>
           </div>
           <div className="text-right">
             <div className="font-kids text-3xl font-bold leading-none text-slate-900">{level}</div>
@@ -149,6 +164,12 @@ function LearnerCard({ learner: l, onPlay, onProgress, onEdit, onMode }: { learn
         <div className="mt-3 flex flex-wrap gap-1.5 text-xs font-bold">
           <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-900">⭐ {l.lifetime_stars.toLocaleString()}</span>
           <span className="rounded-full bg-fuchsia-50 px-2.5 py-1 text-fuchsia-800">🎨 {l.stickers.length} sticker{l.stickers.length === 1 ? '' : 's'}</span>
+          {overall && (
+            <span className={`rounded-full px-2.5 py-1 ${overall.rank <= 3 ? 'bg-gradient-to-r from-amber-200 to-yellow-100 text-amber-900 ring-1 ring-amber-300' : 'bg-indigo-50 text-indigo-800'}`}
+              title="Overall world rank (by lifetime stars). Everyone else's names stay private.">
+              {medal(overall.rank) || '🏆'} #{overall.rank.toLocaleString()} of {overall.total.toLocaleString()} worldwide
+            </span>
+          )}
         </div>
 
         {/* Today's subject: one tap to switch (each keeps its own level). */}
@@ -196,7 +217,7 @@ function Choice<T extends string>({ value, options, onChange, label }: { value: 
 function LevelPicker({ id, label, mode, value, onChange }: { id: string; label: string; mode: Mode; value: number; onChange: (v: number) => void }) {
   return (
     <div>
-      <label className="label" htmlFor={id}>{label}: <span className="text-indigo-700">{value}</span> <span className="font-normal text-slate-500">({stageName(value, mode)})</span></label>
+      <label className="label" htmlFor={id}>{label}: <span className="text-indigo-700">{value}</span> <span className="font-normal text-slate-500">({stageName(value, mode)} · {gradeFor(value, mode)})</span></label>
       <div className="flex items-center gap-2">
         <button type="button" className="h-9 w-9 shrink-0 rounded-xl border border-slate-200 bg-white font-bold" aria-label={`${label} down`} onClick={() => onChange(Math.max(1, value - 1))}>−</button>
         <input id={id} type="range" min={1} max={MAX_LEVEL} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-indigo-600" />

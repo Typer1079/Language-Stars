@@ -13,6 +13,8 @@ import { makeConfetti, type ConfettiPiece } from '../lib/confetti'
 import { Confetti, StickerBoard, StickerCanvas, StickerShop } from './Stickers'
 import { useWideScreen } from '../lib/useWideScreen'
 import { ProgressView } from './Progress'
+import { HelpGuide } from './HelpGuide'
+import { gradeFor } from '../lib/levelGuide'
 import { logRound } from '../lib/learnersApi'
 import { avatarFor } from '../lib/avatars'
 
@@ -60,6 +62,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const [roundDone, setRoundDone] = useState(false)
   const [logOpen, setLogOpen] = useState(false)
   const [progressOpen, setProgressOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   // Spelling bee: letters heard so far, a wrong spelling to show, help Iris gave, and typing.
   const [spelled, setSpelled] = useState<string[]>([])
   const [spellMiss, setSpellMiss] = useState<string[] | null>(null)
@@ -293,7 +296,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       }
     }
     if (coached) engineRef.current?.praiseThen(() => { if (!shopRef.current) advanceTimer.current = setTimeout(() => advance(false), 150) })
-    else advanceTimer.current = setTimeout(() => advance(false), paceRef.current === 'brisk' ? 250 : 550)
+    else advanceTimer.current = setTimeout(() => advance(false), before.mode === 'spelling' ? 1600 : paceRef.current === 'brisk' ? 250 : 550)
   }, [advance, log, onActivity, onChange])
 
   // Latest callbacks for the engine (created once).
@@ -346,7 +349,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     const e = it?.spell
     if (!e || solvedRef.current) return
     const info: Record<typeof kind, { label: string; text: string; say: string }> = {
-      repeat: { label: '🔊 Word', text: '', say: `${e.word}.` },
+      repeat: { label: '🔊 Word', text: '', say: `${e.word}. ${e.word}.` },
       definition: { label: '📖 Definition', text: e.definition, say: `Definition: ${e.definition}.` },
       pos: { label: '🏷️ Part of speech', text: e.pos, say: `It's ${/^[aeiou]/.test(e.pos) ? 'an' : 'a'} ${e.pos}.` },
       sentence: { label: '🗣️ Sentence', text: e.sentence.replace(new RegExp(e.word, 'ig'), '_____'), say: e.sentence },
@@ -355,16 +358,18 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     const x = info[kind]
     if (x.text) setBeeInfo((list) => [...list.filter((b) => b.label !== x.label), { label: x.label, text: x.text }])
     log('BEE_ASK', kind)
-    engineRef.current?.sayInfo(x.say)
+    engineRef.current?.sayInfo(x.say, kind === 'repeat')
   }
 
   const solvedCb = useRef(handleSolved)
   const spellWrongCb = useRef(handleSpellWrong)
+  const askBeeCb = useRef(askBee)
   const advanceCb = useRef(advance)
   useLayoutEffect(() => {
     solvedCb.current = handleSolved
     advanceCb.current = advance
     spellWrongCb.current = handleSpellWrong
+    askBeeCb.current = askBee
   })
 
   useEffect(() => {
@@ -382,6 +387,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       revealSpanish: () => setRevealed(true),
       spelling: (letters) => setSpelled(letters),
       spellWrong: (letters) => spellWrongCb.current(letters),
+      beeAsk: (kind) => askBeeCb.current(kind),
       showPhrase: () => setPhraseShown(true),
       log,
     })
@@ -400,7 +406,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
 
   // ---- controls ------------------------------------------------------------------------------
 
-  const anyModal = Boolean(shop) || roundDone || logOpen || Boolean(quiz) || progressOpen
+  const anyModal = Boolean(shop) || roundDone || logOpen || Boolean(quiz) || progressOpen || helpOpen
 
   const answerQuiz = (i: number) => {
     if (!quiz || quiz.picked !== null) return
@@ -517,6 +523,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       {wide && <StickerCanvas stickers={learner.stickers} onMove={moveOne} />}
       <Confetti pieces={confetti} />
       {progressOpen && <ProgressView learner={learner} onClose={() => setProgressOpen(false)} />}
+      {helpOpen && <HelpGuide start={learner.mode} highlight={{ mode: learner.mode, level }} onClose={() => setHelpOpen(false)} />}
 
       <header className="relative z-30 mx-auto w-full max-w-5xl px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 sm:px-6">
         <div className="flex items-center justify-between gap-2">
@@ -545,6 +552,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
               {menuOpen && (
                 <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm font-semibold shadow-xl" onClick={() => setMenuOpen(false)}>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setProgressOpen(true)}>📈 My progress</button>
+                  <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setHelpOpen(true)}>❓ How levels work</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={onExit}>🚪 Switch reader</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setLogOpen(true)}>📊 Speech log</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50"
@@ -578,7 +586,10 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2" title="Master every word in a level to move up">
               <span className="rounded-xl bg-indigo-600 px-3 py-1 font-kids text-sm font-bold text-white shadow-sm">Level {level} <span className="font-sans text-xs font-semibold opacity-80">of {MAX_LEVEL}</span></span>
-              <span className="rounded-xl bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">{stageName(level, learner.mode)}</span>
+              <button type="button" onClick={() => setHelpOpen(true)} title="What this level means"
+                className="rounded-xl bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900 hover:bg-amber-200">
+                {stageName(level, learner.mode)} · {gradeFor(level, learner.mode)} <span className="opacity-60">ⓘ</span>
+              </button>
               {challenge && <span className="rounded-xl bg-fuchsia-600 px-2.5 py-1 text-xs font-bold text-white">🚀 Challenge: Level {challenge}</span>}
               {!challenge && item?.stretchLevel && <span className="rounded-xl bg-fuchsia-100 px-2.5 py-1 text-xs font-bold text-fuchsia-800">🚀 Bonus: Level {item.stretchLevel}</span>}
             </div>

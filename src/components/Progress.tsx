@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { dbMessage, listRounds, type RoundRecord } from '../lib/learnersApi'
 import { dailySeries, summarize } from '../lib/stats'
-import { stageName } from '../lib/curriculum'
 import { levelOf } from '../lib/progress'
+import { gradeFor } from '../lib/levelGuide'
 import type { Learner } from '../lib/types'
 import { BarChart, LineChart, Tile } from './Charts'
 import { RanksSection } from './Ranks'
@@ -50,10 +50,10 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
           <div>
             <h2 id="progress-title" className="font-kids text-2xl font-bold">📈 {learner.display_name}’s progress</h2>
             <p className="text-xs text-slate-500">
-              {usesReading && <>📖 Reading Level {learner.reading_level} ({stageName(learner.reading_level, 'reading')}, best {learner.reading_best ?? learner.reading_level}) </>}
+              {usesReading && <>📖 Reading Level {learner.reading_level} ({gradeFor(learner.reading_level, 'reading')}, best {learner.reading_best ?? learner.reading_level}) </>}
               {usesReading && usesSpanish && ' • '}
-              {usesSpanish && <>🇪🇸 Spanish Level {learner.spanish_level} (best {learner.spanish_best ?? learner.spanish_level})</>}
-              {usesSpelling && <>{(usesReading || usesSpanish) && ' • '}🐝 Spelling Level {learner.spelling_level ?? 1} ({stageName(learner.spelling_level ?? 1, 'spelling')})</>}
+              {usesSpanish && <>🇪🇸 Spanish Level {learner.spanish_level} ({gradeFor(learner.spanish_level, 'spanish')})</>}
+              {usesSpelling && <>{(usesReading || usesSpanish) && ' • '}🐝 Spelling Level {learner.spelling_level ?? 1} ({gradeFor(learner.spelling_level ?? 1, 'spelling')})</>}
               {' • '}{learner.lifetime_stars} ⭐ lifetime • {learner.stickers.length} stickers
             </p>
           </div>

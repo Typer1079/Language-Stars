@@ -66,16 +66,15 @@ function fillLevels<T>(
 
 export function stageName(level: number, mode: 'reading' | 'spanish' | 'spelling'): string {
   if (mode === 'spelling') {
-    if (level <= 10) return 'First words'
-    if (level <= 20) return 'Word builder'
-    if (level <= 30) return 'Tricky words'
-    if (level <= 40) return 'Classroom bee'
-    if (level <= 50) return 'School bee'
-    if (level <= 60) return 'District bee'
-    if (level <= 70) return 'Regional bee'
-    if (level <= 80) return 'National prelims'
-    if (level <= 90) return 'National finals'
-    return 'Championship'
+    // Named after where the level's words sit in the list (see levelGuide.ts).
+    const n = SPELLING_WORDS.length
+    const mid = Math.round(((level - 1) * (n - ITEMS_PER_LEVEL)) / (MAX_LEVEL - 1)) + ITEMS_PER_LEVEL / 2
+    const bands: [string, string][] = [['cat', 'First words'], ['ship', 'Word builder'], ['because', 'Tricky words'], ['adventure', 'Classroom bee'],
+      ['brilliant', 'School bee'], ['accommodate', 'District bee'], ['acquiesce', 'Regional bee'], ['abecedarian', 'National prelims'],
+      ['chrysanthemum', 'National finals'], ['fibranne', 'Championship']]
+    let name = bands[0][1]
+    for (const [w, label] of bands) if (mid >= SPELLING_WORDS.findIndex((e) => e.word === w)) name = label
+    return name
   }
   if (mode === 'reading') {
     if (level <= 15) return 'Words'

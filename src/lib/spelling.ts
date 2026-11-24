@@ -32,6 +32,19 @@ const LETTER_NAMES: Record<string, string> = {
   z: 'z', zee: 'z', zed: 'z',
 }
 
+export type BeeRequest = 'repeat' | 'definition' | 'pos' | 'sentence' | 'origin'
+
+/** A spoken request, as the National Spelling Bee allows: "definition", "part of speech", "sentence", "origin", "repeat". */
+export function beeRequest(transcript: string): BeeRequest | null {
+  const t = transcript.toLowerCase()
+  if (/part of speech|what part|is it a (noun|verb)/.test(t)) return 'pos'
+  if (/definition|define|what does it mean|what does that mean|meaning/.test(t)) return 'definition'
+  if (/sentence|use it in/.test(t)) return 'sentence'
+  if (/origin|where does it come from|what language|etymology/.test(t)) return 'origin'
+  if (/repeat|say it again|say the word|one more time|pronounce|pronunciation|can you say/.test(t)) return 'repeat'
+  return null
+}
+
 /** Words that mean "let me start this word again". */
 export function wantsRestart(transcript: string): boolean {
   return /\b(start over|start again|restart|begin again)\b/i.test(transcript)

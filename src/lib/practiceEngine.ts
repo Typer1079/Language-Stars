@@ -4,7 +4,7 @@ import { canFilterNoise, createRecognition, getCleanMicTrack, releaseCleanMic, s
 import type { Mode } from './types'
 import { ENCOURAGING_NICKNAMES } from './wordBanks'
 import { wordHelp } from './phonics'
-import { extractLetters, judgeSpelling, sayLetters, wantsRestart } from './spelling'
+import { beeRequest, extractLetters, judgeSpelling, sayLetters, wantsRestart, type BeeRequest } from './spelling'
 
 export type Tone = 'neutral' | 'listening' | 'success' | 'coach'
 /**
@@ -33,6 +33,8 @@ export interface EngineHooks {
   spelling?(letters: string[]): void
   /** Spelling bee: the word was spelled wrong (these letters were heard). */
   spellWrong?(letters: string[]): void
+  /** Spelling bee: the speller asked out loud for the definition, a sentence, etc. */
+  beeAsk?(kind: BeeRequest): void
 }
 
 const LISTEN_MS = 5200
@@ -190,20 +192,24 @@ export class PracticeEngine {
   private pronounce(gen: number) {
     const w = this.item?.target ?? ''
     this.hooks.spelling?.([])
-    this.say([{ text: this.pace === 'brisk' ? `${w}.` : `Your word is: ${w}. ${w}.`, lang: 'en-US' }], () => {
+    this.say([
+      { text: 'Your word is:', lang: 'en-US' },
+      { text: `${w}.`, lang: 'en-US', rate: 0.72 },
+      { text: `${w}.`, lang: 'en-US', rate: 0.72 },
+    ], () => {
       if (gen !== this.gen || this.solved) return
       this.listenWindow(this.listenMs)
     })
   }
 
   /** Spelling bee help (say it again, definition, sentence, origin): Iris answers, then listens again. No penalty. */
-  sayInfo(text: string) {
+  sayInfo(text: string, slow = false) {
     if (this.solved || this.paused || !this.item) return
     const gen = ++this.gen
     this.stopListening(true)
     this.stopVoice()
     this.gen = gen
-    this.say([{ text, lang: 'en-US' }], () => {
+    this.say([{ text, lang: 'en-US', ...(slow ? { rate: 0.72 } : {}) }], () => {
       if (gen !== this.gen || this.solved) return
       this.listenWindow(this.listenMs)
     })
@@ -409,7 +415,8 @@ export class PracticeEngine {
       this.hooks.mic('idle')
       if (onEnd) setTimeout(onEnd, IOS ? 60 : 0)
     }
-    const words = segments.reduce((n, sgm) => n + sgm.text.split(/\s+/).length, 0)
+    // Slow parts (spelling words) take longer to say, so give the watchdog more time for them.
+    const words = segments.reduce((n, sgm) => n + sgm.text.split(/\s+/).length / (sgm.rate ?? 1), 0)
     const speed = this.pace === 'brisk' ? 1.12 : 1
     this.voiceWatchdog = setTimeout(finish, Math.min(12000, Math.max(2500, (words * 420) / speed + 1200)))
     this.cancelVoice = speakSegments(segments, finish, this.pace === 'brisk' ? 1.12 : 1)
@@ -429,7 +436,7 @@ export class PracticeEngine {
     this.listening = true
     this.hooks.mic('warming', 'Opening microphone...')
     if (this.mode === 'spelling') {
-      this.hooks.feedback('Spell the word out loud!', 'One letter at a time • ask for the definition, a sentence or the origin', 'listening')
+      this.hooks.feedback('Spell the word out loud!', 'One letter at a time • or say “definition”, “sentence”, “part of speech”, “origin” or “repeat”', 'listening')
     } else if (this.mode === 'spanish' && this.item.spanish) {
       this.hooks.feedback(`Say "${this.item.spanish.en}" in Spanish!`, 'Listening until you say it • Shift shows the word • Space asks Iris • Next to move on', 'listening')
     } else {
@@ -451,6 +458,15 @@ export class PracticeEngine {
     for (let i = from; i < results.length; i++) tops.push(results[i][0]?.transcript ?? '')
     const all = tops.join(' ')
     this.hooks.log('HEARD', `"${all.trim()}" target="${item.target}"`)
+    // Asking for help out loud ("definition", "use it in a sentence", "repeat"): answer it, and
+    // don't count those words as letters.
+    const ask = beeRequest(tops[tops.length - 1] ?? '')
+    if (ask) {
+      this.baseline = this.seenResults
+      this.hooks.spelling?.([])
+      this.hooks.beeAsk?.(ask)
+      return
+    }
     if (wantsRestart(all)) {
       this.baseline = this.seenResults
       this.hooks.spelling?.([])

@@ -4,6 +4,8 @@
 export interface VoiceSegment {
   text: string
   lang: 'en-US' | 'es-ES'
+  /** Slower or faster than normal for this part only (spelling words are said slowly). */
+  rate?: number
 }
 
 interface RecognitionLike {
@@ -181,7 +183,7 @@ export function speakSegments(segments: VoiceSegment[], done: () => void, speed 
     const voice = pickVoice(seg.lang)
     if (voice) u.voice = voice
     // A touch brighter and closer to a normal speaking pace sounds warmer than slow and flat.
-    u.rate = (seg.lang === 'es-ES' ? 0.9 : 1.0) * speed
+    u.rate = seg.rate ?? (seg.lang === 'es-ES' ? 0.9 : 1.0) * speed
     u.pitch = 1.1
     u.onend = next
     u.onerror = next
