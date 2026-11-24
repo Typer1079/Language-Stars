@@ -7,10 +7,10 @@ import type { Learner, PlacedSticker } from '../lib/types'
 
 type MoveFn = (id: string, x: number, y: number) => void
 
-/** Large screens: stickers float over the page and can be dragged anywhere. Pop-up screens sit above them. */
+/** Large screens: stickers sit behind the words, choices and buttons (never over them) and can be dragged around the open space. */
 export function StickerCanvas({ stickers, onMove }: { stickers: PlacedSticker[]; onMove: MoveFn }) {
   return (
-    <div className="pointer-events-none fixed inset-0 z-[35] overflow-hidden" aria-label="Your stickers">
+    <div className="pointer-events-none fixed inset-0 z-[5] overflow-hidden" aria-label="Your stickers">
       {stickers.map((st) => (
         <DraggableSticker key={st.id} st={st} onMove={onMove} size={1} />
       ))}

@@ -44,8 +44,8 @@ export function cleanStickers(v: unknown): PlacedSticker[] {
         rot: num(s.rot, -45, 45, 0),
       }
       if (s.scale !== undefined) out.scale = num(s.scale, 0.5, 6, 1)
-      if (s.growCount !== undefined) out.growCount = int(s.growCount, 0, 30, 0)
-      if (s.spent !== undefined) out.spent = int(s.spent, 1, 100000, 1)
+      if (s.growCount !== undefined) out.growCount = int(s.growCount, 0, 60, 0)
+      if (s.spent !== undefined) out.spent = int(s.spent, 1, 1_000_000_000, 1)
       return out
     })
 }

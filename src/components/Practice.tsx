@@ -422,7 +422,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
         </div>
       </header>
 
-      <main className="relative z-20 mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-start gap-4 px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:justify-center sm:px-6">
+      <main className="pointer-events-none relative z-20 mx-auto [&>*]:pointer-events-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-start gap-4 px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:justify-center sm:px-6">
         {!recognitionSupported() && (
           <p className="w-full max-w-2xl rounded-2xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
             This browser can’t listen to speech. Use Chrome, Edge or Safari for the microphone. Ask Iris and Next still work.

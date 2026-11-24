@@ -12,8 +12,8 @@ export function growCost(growCount = 0): number {
   return a
 }
 
-/** Biggest a sticker can get (12 grows = 4x its size). */
-export const MAX_GROW = 12
+/** Practically no limit: Fibonacci costs grow far faster than anyone earns stars. */
+export const MAX_GROW = 60
 
 /** Selling refunds exactly what was spent on the sticker. Older stickers (before costs were tracked) use the old 1, 2, 3 ... prices. */
 export function sellValue(st: Pick<PlacedSticker, 'growCount' | 'spent'>): number {
