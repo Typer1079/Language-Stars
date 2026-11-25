@@ -75,6 +75,9 @@ export class PracticeEngine {
   private cleanMicTried = false
   private noisyMisses: number[] = []
   private seenResults = 0
+  /** Everything heard for this item so far, across microphone sessions (iPhone restarts the mic after each pause). */
+  private heardSoFar = ''
+  private appendedIdx = -1
   private baseline = 0
   private cancelVoice: (() => void) | null = null
   private turnTimer: ReturnType<typeof setTimeout> | undefined
@@ -124,6 +127,7 @@ export class PracticeEngine {
     this.pace = pace
     this.solved = false
     this.usedCoach = false
+    this.heardSoFar = ''
   }
 
   setPaused(paused: boolean) {
@@ -234,6 +238,7 @@ export class PracticeEngine {
     this.gen = gen
     this.solved = false
     this.baseline = this.seenResults
+    this.heardSoFar = ''
     this.hooks.spelling?.([])
     this.listenWindow(this.listenMs)
   }
@@ -518,6 +523,7 @@ export class PracticeEngine {
       this.recActive = true
       this.seenResults = 0
       this.baseline = 0
+      this.appendedIdx = -1
       if (!this.listening || this.coachSpeaking) return
       this.hooks.mic('listening', 'Listening...')
       this.hooks.log('MIC_STARTED', `lang=${r.lang}`)
@@ -551,6 +557,16 @@ export class PracticeEngine {
       // so it can't count as a match — but a short result inside it still can.
       const words = (t: string) => t.trim().split(/\s+/).filter(Boolean).length
       const single = !this.item.target.trim().includes(' ')
+      // Sentences read with a pause in the middle arrive in pieces (on iPhone, in separate mic
+      // sessions), so also try everything heard for this item put together.
+      const prior = this.heardSoFar
+      for (let i = from; i < event.results.length; i++) {
+        if (event.results[i]?.isFinal && i > this.appendedIdx) {
+          this.heardSoFar = `${this.heardSoFar} ${event.results[i][0]?.transcript ?? ''}`.trim().split(/\s+/).slice(-80).join(' ')
+          this.appendedIdx = i
+        }
+      }
+      if (!single && prior) candidates.push(`${prior} ${top}`)
       const all = [top, ...candidates.filter((c) => c.trim() !== top)].filter((c) => !single || words(c) <= 6)
       this.hooks.log('HEARD', `${all.map((c) => `"${c.trim()}"`).join(' / ')} target="${this.item.target}"`)
       const it = this.item

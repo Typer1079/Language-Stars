@@ -53,17 +53,80 @@ export function editDistance(a: string, b: string): number {
   return dp[a.length][b.length]
 }
 
-function tokens(s: string): string[] {
-  return fold(s)
-    .replace(/[^a-z0-9'\s]/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean)
+const SMALL: Record<string, number> = {
+  zero: 0, oh: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+  twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+}
+const SCALE: Record<string, number> = { hundred: 100, thousand: 1000, million: 1000000, billion: 1000000000 }
+
+/**
+ * Turns runs of number words into digits, the way speech-to-text writes them:
+ * "five thousand" → "5000", "two hundred and forty" → "240", "twenty one" → "21", "a hundred" → "100".
+ */
+export function numbersToDigits(words: string[]): string[] {
+  const out: string[] = []
+  let i = 0
+  while (i < words.length) {
+    const w = words[i]
+    const startsNumber = w in SMALL || (w in SCALE && out.length > 0 && out[out.length - 1] === 'a')
+    if (!startsNumber || (w === 'oh' && !(words[i + 1] in SMALL))) { out.push(w); i++; continue }
+    if (w in SCALE) out.pop() // "a hundred"
+    let total = 0
+    let current = 0
+    let used = 0
+    while (i < words.length) {
+      const x = words[i]
+      if (x in SMALL) current += SMALL[x]
+      else if (x in SCALE) {
+        const sc = SCALE[x]
+        current = (current || 1) * sc
+        if (sc >= 1000) { total += current; current = 0 }
+      } else if (x === 'and' && used > 0 && (words[i + 1] in SMALL)) { /* "two hundred and forty" */ }
+      else break
+      used++
+      i++
+    }
+    out.push(String(total + current))
+  }
+  return out
 }
 
-/** Two words count as the same if equal, or one letter off for longer words (speech-to-text slips). */
+/**
+ * Words, normalized so speech-to-text spelling quirks don't matter: accents, apostrophes
+ * ("it's" = "its"), hyphens ("well-known" = "well known"), "%" = percent, "&" = and,
+ * "5,000" = "5000", and number words = digits ("five thousand" = "5000").
+ */
+function tokens(s: string): string[] {
+  const words = fold(s)
+    .replace(/(\d),(?=\d{3})/g, '$1')
+    .replace(/%/g, ' percent ')
+    .replace(/&/g, ' and ')
+    .replace(/['’]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+  return numbersToDigits(words)
+}
+
+/**
+ * Two words count as the same if equal, the same apart from a plural or possessive ending
+ * (city / city's / cities), a word ending away (run / runs / running), or a small
+ * slip: one letter off for words of 4-7 letters, two for 8+ ("heteroskedasticity").
+ */
+/** Plural / possessive ending dropped: "cities", "city's", "citys" → "city". */
+function stem(w: string): string {
+  if (w.length > 4 && w.endsWith('ies')) return w.slice(0, -3) + 'y'
+  if (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1)
+  return w
+}
+
 function sameWord(a: string, b: string): boolean {
-  if (a === b) return true
-  if (a.length >= 4 && b.length >= 4) return editDistance(a, b) <= 1
+  if (a === b || stem(a) === stem(b)) return true
+  const [s, l] = a.length <= b.length ? [a, b] : [b, a]
+  if (s.length >= 4 && l.startsWith(s) && l.length - s.length <= 3) return true
+  if (s.length >= 8) return editDistance(a, b) <= 2
+  if (s.length >= 4) return editDistance(a, b) <= 1
   return false
 }
 
@@ -85,12 +148,29 @@ export function phraseScore(heard: string, target: string): number {
 const OPTIONAL_LEAD = new Set(['yo', 'el', 'ella', 'nosotros', 'ellos', 'ellas', 'usted'])
 
 /**
- * True when a multi-word phrase or sentence was read / said well enough: every word for short
- * phrases (one small slip allowed), at least 85% of the words in order for longer sentences.
+ * How many of the target's words must be heard, in order. Long sentences get more room for the
+ * odd word the microphone misses (background noise, a fast reader): all of up to 6 words (a
+ * dropped little word aside, see isPhraseMatch), all but one for 7-12 words, about 4 in 5 for longer sentences.
  */
+export function phraseNeed(wordCount: number): number {
+  if (wordCount <= 6) return 1
+  if (wordCount <= 12) return 0.85
+  return 0.78
+}
+
+/** True when a multi-word phrase or sentence was read / said well enough (see phraseNeed). */
+const LITTLE_WORDS = new Set(['the', 'a', 'an', 'and', 'el', 'la', 'los', 'las', 'un', 'una', 'y'])
+
 export function isPhraseMatch(heard: string, target: string): boolean {
   const t = tokens(target)
-  const need = t.length <= 3 ? 1 : 0.85
+  // Short phrases (up to 6 words): every real word must be there; only a dropped little word
+  // (the, a, and) is forgiven, so "a hen and a cake" never passes for "a sun and a cake".
+  if (t.length <= 6) {
+    const content = t.filter((w) => !LITTLE_WORDS.has(w))
+    const h = tokens(heard)
+    if (content.length > 0 && phraseScore(h.join(' '), content.join(' ')) === 1 && phraseScore(heard, target) >= 0.6) return true
+  }
+  const need = phraseNeed(t.length)
   if (phraseScore(heard, target) >= need) return true
   if (t.length > 1 && OPTIONAL_LEAD.has(t[0])) return phraseScore(heard, t.slice(1).join(' ')) >= need
   return false
@@ -104,6 +184,8 @@ export function isPhraseMatch(heard: string, target: string): boolean {
 export function isWordMatch(transcript: string, targetWord: string, variants?: string[]): boolean {
   if (!transcript || !targetWord) return false
   const target = fold(targetWord).trim()
+  // Number words: the phone often writes "six" as "6".
+  if (target in SMALL && new RegExp(`(^|\\D)${SMALL[target]}(\\D|$)`).test(transcript)) return true
   const cleaned = fold(transcript).replace(/[^a-z'\s]/g, ' ').trim()
   if (!cleaned) return false
 

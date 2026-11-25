@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { editDistance, isWordMatch } from './match'
+import { editDistance, isPhraseMatch, isWordMatch } from './match'
 
 describe('isWordMatch', () => {
   it('matches the exact word inside a phrase', () => {
@@ -41,5 +41,57 @@ describe('short words speech-to-text gets wrong', () => {
     expect(isWordMatch('dog', 'hen')).toBe(false)
     expect(isWordMatch('elephant', 'pen')).toBe(false)
     expect(isWordMatch('happen', 'hen')).toBe(false)
+  })
+})
+
+describe('forgiving long sentences', () => {
+  const t = 'The meeting was ostensibly about budgets, but it was really about layoffs.'
+  it('allows a couple of missed or misheard words in long sentences', () => {
+    expect(isPhraseMatch('the meeting was ostensibly about budget but it was really about lay offs', t)).toBe(true)
+    expect(isPhraseMatch('the meeting was ostensibly about budgets but it was really about', t)).toBe(true)
+    expect(isPhraseMatch('the meeting was about', t)).toBe(false)
+  })
+  it('treats numbers, percent signs and apostrophes the same', () => {
+    expect(isPhraseMatch('the curve shows asymptotic growth toward 100%', 'The curve shows asymptotic growth toward one hundred percent.')).toBe(true)
+    expect(isPhraseMatch('its a nice day', "It's a nice day.")).toBe(true)
+  })
+  it('accepts two-letter slips on long words', () => {
+    expect(isPhraseMatch('the residual plot revealed heteroscedasticity in the regression model', 'The residual plot revealed heteroskedasticity in the regression model.')).toBe(true)
+  })
+  it('still rejects a different sentence', () => {
+    expect(isPhraseMatch('my dog likes to run in the park every day', 'My mom likes to read in the house every week.')).toBe(false)
+  })
+})
+
+import { numbersToDigits } from './match'
+describe('numbers said vs. written', () => {
+  it('reads number words the way the phone writes them', () => {
+    expect(numbersToDigits('five thousand people'.split(' '))).toEqual(['5000', 'people'])
+    expect(numbersToDigits('two hundred and forty'.split(' '))).toEqual(['240'])
+    expect(numbersToDigits('twenty one'.split(' '))).toEqual(['21'])
+    expect(numbersToDigits('a hundred percent'.split(' '))).toEqual(['100', 'percent'])
+    expect(numbersToDigits('one hundred percent'.split(' '))).toEqual(['100', 'percent'])
+  })
+  it('matches "five thousand" with 5000 and 5,000', () => {
+    expect(isPhraseMatch('the stadium holds 5000 people', 'The stadium holds five thousand people.')).toBe(true)
+    expect(isPhraseMatch('the stadium holds 5,000 people', 'The stadium holds five thousand people.')).toBe(true)
+    expect(isPhraseMatch('a longitudinal study tracked the same children for 20 years', 'A longitudinal study tracked the same children for twenty years.')).toBe(true)
+  })
+})
+describe('single number words', () => {
+  it('accepts digits for number words', () => {
+    expect(isWordMatch('6', 'six')).toBe(true)
+    expect(isWordMatch('ten', 'ten')).toBe(true)
+    expect(isWordMatch('16', 'six')).toBe(false)
+  })
+})
+describe("the city's infrastructure", () => {
+  const t = "The hurricane damaged the city's infrastructure."
+  it('accepts the ways a phone writes it', () => {
+    for (const h of ["the hurricane damaged the city's infrastructure", 'the hurricane damaged the cities infrastructure',
+      'the hurricane damaged the city infrastructure', 'the hurricane damage the citys infrastructure', 'hurricane damaged the cities infrastructure']) {
+      expect(isPhraseMatch(h, t), h).toBe(true)
+    }
+    expect(isPhraseMatch('the hurricane was big', t)).toBe(false)
   })
 })
