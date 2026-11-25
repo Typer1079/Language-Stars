@@ -15,6 +15,7 @@ import { useWideScreen } from '../lib/useWideScreen'
 import { ProgressView } from './Progress'
 import { HelpGuide } from './HelpGuide'
 import { gradeFor } from '../lib/levelGuide'
+import { setThemeChoice } from '../lib/theme'
 import { logRound } from '../lib/learnersApi'
 import { avatarFor } from '../lib/avatars'
 
@@ -555,6 +556,10 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
                 <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm font-semibold shadow-xl" onClick={() => setMenuOpen(false)}>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setProgressOpen(true)}>📈 My progress</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setHelpOpen(true)}>❓ How levels work</button>
+                  <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50"
+                    onClick={() => { const dark = document.documentElement.classList.contains('dark'); setThemeChoice(dark ? 'light' : 'dark'); setMenuOpen(false) }}>
+                    {typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? '☀️ Light mode' : '🌙 Dark mode'}
+                  </button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={onExit}>{deviceMode ? '🏠 Home' : '🚪 Switch learner'}</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setLogOpen(true)}>📊 Speech log</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50"

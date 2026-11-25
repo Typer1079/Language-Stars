@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { SignInMethods } from './FaceId'
 import type { Learner } from '../lib/types'
 import { LegalLinks } from './Legal'
+import { getThemeChoice, setThemeChoice, type ThemeChoice } from '../lib/theme'
 
 interface Props {
   email: string
@@ -91,6 +92,8 @@ export default function Account(p: Props) {
 
       <SignInMethods verified={p.verified} signedInWith={p.signedInWith} onAddApp={() => p.onEnrollMfa('totp')} onSetUp={() => p.onEnrollMfa('choose')} onVerify={p.onVerify} onChanged={p.onChanged} />
 
+      <AppearanceSection />
+
       <section className="card space-y-2">
         <h2 className="font-semibold">💬 Iris’s voice</h2>
         <p className="text-sm text-slate-600">On this device Iris uses: <b>{irisVoiceName()}</b></p>
@@ -146,5 +149,30 @@ export default function Account(p: Props) {
       </section>
       <p className="text-center text-[11px] text-slate-400">Version {__APP_VERSION__} · <LegalLinks /></p>
     </div>
+  )
+}
+
+/** Light, dark, or follow the device. Saved on this device. */
+function AppearanceSection() {
+  const [choice, setChoice] = useState<ThemeChoice>(getThemeChoice)
+  const options: { v: ThemeChoice; label: string }[] = [
+    { v: 'system', label: '📱 Match device' },
+    { v: 'light', label: '☀️ Light' },
+    { v: 'dark', label: '🌙 Dark' },
+  ]
+  return (
+    <section className="card space-y-2">
+      <h2 className="font-semibold">🎨 Appearance</h2>
+      <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Appearance">
+        {options.map((o) => (
+          <button key={o.v} type="button" role="radio" aria-checked={choice === o.v}
+            onClick={() => { setChoice(o.v); setThemeChoice(o.v) }}
+            className={`rounded-xl border-2 px-2 py-2.5 text-sm font-bold transition ${choice === o.v ? 'border-indigo-500 bg-indigo-50 text-indigo-800' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-slate-500">Saved on this device. “Match device” follows your phone or computer’s dark mode setting.</p>
+    </section>
   )
 }
