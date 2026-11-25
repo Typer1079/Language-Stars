@@ -18,11 +18,13 @@ const SECTIONS = [
   { id: 'sec-levels', label: '🎚️ Levels' },
 ] as const
 
+/** Scroll so the section starts just below the pinned header. */
 function jumpTo(id: string) {
   const el = document.getElementById(id)
   if (!el) return
+  const header = document.getElementById('admin-header')?.getBoundingClientRect().height ?? 0
   const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+  window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - header - 8, behavior: reduce ? 'auto' : 'smooth' })
 }
 
 /**
@@ -47,8 +49,10 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : '–')
 
   return (
-    <div className="mx-auto min-h-dvh max-w-5xl px-4 py-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <div className="mx-auto min-h-dvh max-w-5xl px-4 pb-6">
+      {/* Title, range and section chips stay pinned at the top while scrolling. */}
+      <div id="admin-header" className="sticky top-0 z-20 -mx-4 mb-4 border-b border-slate-200/70 bg-slate-50/95 px-4 pt-3 pb-2 backdrop-blur">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="font-kids text-2xl font-bold">📊 Admin dashboard</h1>
           <p className="text-xs text-slate-500">Site-wide numbers only. Each visit is recorded in the audit log.{k && ` Updated ${new Date(k.generated_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.`}</p>
@@ -65,7 +69,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       </div>
 
       {k && (
-        <nav aria-label="Admin sections" className="sticky top-0 z-20 -mx-4 mb-4 bg-slate-50/90 px-4 py-2 backdrop-blur">
+        <nav aria-label="Admin sections" className="mt-2">
           <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
             {SECTIONS.map((x) => (
               <button key={x.id} type="button" onClick={() => jumpTo(x.id)}
@@ -76,13 +80,14 @@ export default function Admin({ onBack }: { onBack: () => void }) {
           </div>
         </nav>
       )}
+      </div>
 
       {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
       {!k && !error && <p className="py-10 text-center text-sm text-slate-500">Loading…</p>}
 
       {k && (
         <>
-          <h2 id="sec-users" className="mb-2 scroll-mt-16 text-xs font-bold uppercase tracking-wider text-slate-500">Users</h2>
+          <h2 id="sec-users" className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Users</h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Tile label="Accounts" value={k.accounts} sub={`+${k.accounts_new} in ${k.days}d`} />
             <Tile label="Learners" value={k.learners} sub={`${k.learners_kids} managed by a parent`} />
@@ -94,7 +99,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <Tile label="Stickiness" value={pct(k.active_accounts_1d, k.active_accounts_30d)} sub="daily ÷ monthly active" />
           </div>
 
-          <h2 id="sec-learning" className="mt-5 mb-2 scroll-mt-16 text-xs font-bold uppercase tracking-wider text-slate-500">Learning ({k.days} days)</h2>
+          <h2 id="sec-learning" className="mt-5 mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Learning ({k.days} days)</h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Tile label="Rounds" value={k.totals.rounds} />
             <Tile label="Words / items" value={k.totals.items} sub={`${pct(k.totals.clean, k.totals.items)} on their own`} />
@@ -103,7 +108,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <Tile label="Meaning questions" value={pct(k.totals.questions_right, k.totals.questions)} sub={`${k.totals.questions} answered`} />
           </div>
 
-          <div id="sec-trends" className="mt-4 grid scroll-mt-16 gap-3 sm:grid-cols-2">
+          <div id="sec-trends" className="mt-4 grid gap-3 sm:grid-cols-2">
             <LineChart title="Active accounts per day" days={labels}
               series={[
                 { name: 'accounts', values: k.daily.map((d) => d.accounts), className: 'stroke-indigo-500', dot: 'bg-indigo-500', fill: 'fill-indigo-500' },
@@ -117,13 +122,13 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <BarChart title="Stars per day" days={labels} values={k.daily.map((d) => d.stars)} />
           </div>
 
-          <div id="sec-problems" className="scroll-mt-16"><AdminProblems /></div>
+          <div id="sec-problems"><AdminProblems /></div>
 
-          <div id="sec-accounts" className="scroll-mt-16"><AdminUsers /></div>
+          <div id="sec-accounts"><AdminUsers /></div>
 
-          <div id="sec-ranks" className="scroll-mt-16"><AdminLeaderboards /></div>
+          <div id="sec-ranks"><AdminLeaderboards /></div>
 
-          <div id="sec-levels" className="mt-4 scroll-mt-16 rounded-2xl border border-slate-200 bg-white p-3">
+          <div id="sec-levels" className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
             <div className="mb-2 text-xs font-bold text-slate-700">Where learners are (current level)</div>
             <table className="w-full text-left text-xs">
               <thead className="text-[11px] uppercase tracking-wide text-slate-500">
