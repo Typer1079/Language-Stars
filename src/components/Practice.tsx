@@ -14,6 +14,8 @@ import { Confetti, StickerBoard, StickerCanvas, StickerShop } from './Stickers'
 import { useWideScreen } from '../lib/useWideScreen'
 import { ProgressView } from './Progress'
 import { HelpGuide } from './HelpGuide'
+import { MicHelp } from './MicHelp'
+import { micBlocked } from '../lib/mic'
 import { gradeFor } from '../lib/levelGuide'
 import { setThemeChoice } from '../lib/theme'
 import { logRound } from '../lib/learnersApi'
@@ -66,6 +68,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const [logOpen, setLogOpen] = useState(false)
   const [progressOpen, setProgressOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [micHelp, setMicHelp] = useState<'blocked' | 'dictation' | null>(null)
   // Spelling bee: letters heard so far, a wrong spelling to show, help Iris gave, and typing.
   const [spelled, setSpelled] = useState<string[]>([])
   const [spellMiss, setSpellMiss] = useState<string[] | null>(null)
@@ -391,6 +394,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       spelling: (letters) => setSpelled(letters),
       spellWrong: (letters) => spellWrongCb.current(letters),
       beeAsk: (kind) => askBeeCb.current(kind),
+      micBlocked: (reason) => setMicHelp(reason),
       showPhrase: () => setPhraseShown(true),
       log,
     })
@@ -409,7 +413,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
 
   // ---- controls ------------------------------------------------------------------------------
 
-  const anyModal = Boolean(shop) || roundDone || logOpen || Boolean(quiz) || progressOpen || helpOpen
+  const anyModal = Boolean(shop) || roundDone || logOpen || Boolean(quiz) || progressOpen || helpOpen || Boolean(micHelp)
 
   const answerQuiz = (i: number) => {
     if (!quiz || quiz.picked !== null) return
@@ -526,6 +530,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       {wide && <StickerCanvas stickers={learner.stickers} onMove={moveOne} />}
       <Confetti pieces={confetti} />
       {progressOpen && <ProgressView learner={learner} onClose={() => setProgressOpen(false)} />}
+      {micHelp && <MicHelp reason={micHelp} onClose={() => setMicHelp(null)} onGranted={() => { setMicHelp(null); log('MIC', 'allowed after help'); setTimeout(() => engineRef.current?.listenNow(), 300) }} />}
       {helpOpen && <HelpGuide start={learner.mode} highlight={{ mode: learner.mode, level }} onClose={() => setHelpOpen(false)} />}
 
       <header className="relative z-30 mx-auto w-full max-w-5xl px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 sm:px-6">
@@ -749,7 +754,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
           </div>
 
           <div className={`grid w-full max-w-lg grid-cols-2 gap-2.5 sm:gap-3 ${quiz ? 'hidden' : ''}`}>
-            <button type="button" onClick={() => engineRef.current?.listenNow()}
+            <button type="button" onClick={async () => { if (micHelp === null && (await micBlocked())) setMicHelp('blocked'); else engineRef.current?.listenNow() }}
               className={`col-span-2 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4 font-kids text-lg font-bold text-white shadow-lg transition hover:from-emerald-600 hover:to-teal-700 active:scale-95 ${mic.state === 'listening' ? 'animate-pulse-ring' : ''}`}>
               <span className={`h-3 w-3 rounded-full ${mic.state === 'listening' ? 'animate-ping bg-emerald-200' : mic.state === 'warming' ? 'bg-amber-200' : 'bg-white/90'}`} />
               <span>{mic.label === 'Listen Now' ? '🎤 Listen' : mic.label}</span>

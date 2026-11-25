@@ -35,6 +35,8 @@ export interface EngineHooks {
   spellWrong?(letters: string[]): void
   /** Spelling bee: the speller asked out loud for the definition, a sentence, etc. */
   beeAsk?(kind: BeeRequest): void
+  /** The microphone (or iOS Dictation) is switched off for this site. */
+  micBlocked?(reason: 'blocked' | 'dictation'): void
 }
 
 const LISTEN_MS = 5200
@@ -577,7 +579,10 @@ export class PracticeEngine {
     r.onerror = (e) => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         this.listening = false
-        this.hooks.feedback('Microphone is blocked', 'Allow the microphone for this site in your browser settings, then tap Listen Now.', 'neutral')
+        this.hooks.mic('idle')
+        this.hooks.feedback('Microphone is off', 'Tap 🎤 Listen to see how to turn it on.', 'neutral')
+        // On iPhone, "service-not-allowed" usually means Dictation is turned off in Settings.
+        this.hooks.micBlocked?.(e.error === 'service-not-allowed' && IS_IOS ? 'dictation' : 'blocked')
       }
       this.hooks.log('MIC_ERR', e.error)
       // If the filtered microphone is the problem, the next restart uses the normal one.
