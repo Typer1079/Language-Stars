@@ -212,8 +212,34 @@ export function isWordMatch(transcript: string, targetWord: string, variants?: s
     const j = joined.replace(/[^a-z]/g, '')
     if (editDistance(j, t) <= Math.floor(t.length * 0.2)) return true
   }
+  // Long words the phone doesn't know turn into look-alike words ("epistemology" → "a pistol mology").
+  // Compare how they sound: the consonant outline, allowing about one slip in four.
+  if (target.length >= 7) {
+    const tk = soundKey(target)
+    const hk = soundKey(joined)
+    if (tk.length >= 6 && tk[0] === hk[0] && hk.length >= tk.length && hk.length <= tk.length + 2 &&
+        editDistance(tk, hk) <= (tk.length >= 10 ? 2 : 1)) return true
+  }
   return false
 }
+
+/**
+ * A rough "how it sounds" outline of an English word: spellings that sound alike become the same
+ * letters (ph=f, c/k/q, s/z, soft g=j, silent k/gh), vowels are dropped after the first sound, and
+ * doubled letters collapse. "epistemology" → "apstmlj".
+ */
+export function soundKey(word: string): string {
+  let w = fold(word).replace(/[^a-z]/g, '')
+  if (!w) return ''
+  w = w.replace(/^kn/, 'n').replace(/^wr/, 'r').replace(/^ps/, 's').replace(/^pn/, 'n')
+    .replace(/ph/g, 'f').replace(/gh/g, '').replace(/ck/g, 'k').replace(/sch/g, 'sk').replace(/tch/g, 'ch')
+    .replace(/c(?=[eiy])/g, 's').replace(/[cq]/g, 'k').replace(/x/g, 'ks').replace(/z/g, 's')
+    .replace(/dg/g, 'j').replace(/g(?=[eiy])/g, 'j').replace(/wh/g, 'w')
+  const first = /^[aeiouy]/.test(w) ? 'a' : w[0]
+  const rest = w.slice(1).replace(/[aeiouyhw]/g, '')
+  return (first + rest).replace(/(.)\1+/g, '$1')
+}
+
 
 // ---------------------------------------------------------------------------------------------
 // Spanish: forgive an American accent

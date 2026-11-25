@@ -95,3 +95,16 @@ describe("the city's infrastructure", () => {
     expect(isPhraseMatch('the hurricane was big', t)).toBe(false)
   })
 })
+
+import { soundKey } from './match'
+describe('long words the phone mishears', () => {
+  it('matches epistemology however it comes out', () => {
+    expect(soundKey('epistemology')).toBe('apstmlj')
+    for (const h of ['epistemology', 'Epistemology.', 'epistemologie', 'a pistol mology', 'episte mology', 'epistomology'])
+      expect(isWordMatch(h, 'epistemology'), h).toBe(true)
+  })
+  it('does not accept different words', () => {
+    for (const h of ['epidemiology', 'is to mallory', 'ontology', 'apology'])
+      expect(isWordMatch(h, 'epistemology'), h).toBe(false)
+  })
+})
