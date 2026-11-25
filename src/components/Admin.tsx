@@ -7,6 +7,24 @@ import { AdminProblems } from './AdminProblems'
 
 const RANGES = [7, 30, 90, 365] as const
 
+// Shortcut chips under the title: jump straight to a section.
+const SECTIONS = [
+  { id: 'sec-users', label: '👤 Users' },
+  { id: 'sec-learning', label: '📚 Learning' },
+  { id: 'sec-trends', label: '📈 Trends' },
+  { id: 'sec-problems', label: '🛠️ Problems' },
+  { id: 'sec-accounts', label: '👥 Accounts' },
+  { id: 'sec-ranks', label: '🏆 Leaderboards' },
+  { id: 'sec-levels', label: '🎚️ Levels' },
+] as const
+
+function jumpTo(id: string) {
+  const el = document.getElementById(id)
+  if (!el) return
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+}
+
 /**
  * Super-admin dashboard: site-wide totals and trends. Only aggregated numbers come back from the
  * database (no names or emails), every view is written to the audit log, and it requires an
@@ -46,12 +64,25 @@ export default function Admin({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
+      {k && (
+        <nav aria-label="Admin sections" className="sticky top-0 z-20 -mx-4 mb-4 bg-slate-50/90 px-4 py-2 backdrop-blur">
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+            {SECTIONS.map((x) => (
+              <button key={x.id} type="button" onClick={() => jumpTo(x.id)}
+                className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-800">
+                {x.label}
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
+
       {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
       {!k && !error && <p className="py-10 text-center text-sm text-slate-500">Loading…</p>}
 
       {k && (
         <>
-          <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Users</h2>
+          <h2 id="sec-users" className="mb-2 scroll-mt-16 text-xs font-bold uppercase tracking-wider text-slate-500">Users</h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Tile label="Accounts" value={k.accounts} sub={`+${k.accounts_new} in ${k.days}d`} />
             <Tile label="Learners" value={k.learners} sub={`${k.learners_kids} managed by a parent`} />
@@ -63,7 +94,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <Tile label="Stickiness" value={pct(k.active_accounts_1d, k.active_accounts_30d)} sub="daily ÷ monthly active" />
           </div>
 
-          <h2 className="mt-5 mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Learning ({k.days} days)</h2>
+          <h2 id="sec-learning" className="mt-5 mb-2 scroll-mt-16 text-xs font-bold uppercase tracking-wider text-slate-500">Learning ({k.days} days)</h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Tile label="Rounds" value={k.totals.rounds} />
             <Tile label="Words / items" value={k.totals.items} sub={`${pct(k.totals.clean, k.totals.items)} on their own`} />
@@ -72,7 +103,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <Tile label="Meaning questions" value={pct(k.totals.questions_right, k.totals.questions)} sub={`${k.totals.questions} answered`} />
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div id="sec-trends" className="mt-4 grid scroll-mt-16 gap-3 sm:grid-cols-2">
             <LineChart title="Active accounts per day" days={labels}
               series={[
                 { name: 'accounts', values: k.daily.map((d) => d.accounts), className: 'stroke-indigo-500', dot: 'bg-indigo-500', fill: 'fill-indigo-500' },
@@ -86,13 +117,13 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <BarChart title="Stars per day" days={labels} values={k.daily.map((d) => d.stars)} />
           </div>
 
-          <AdminProblems />
+          <div id="sec-problems" className="scroll-mt-16"><AdminProblems /></div>
 
-          <AdminUsers />
+          <div id="sec-accounts" className="scroll-mt-16"><AdminUsers /></div>
 
-          <AdminLeaderboards />
+          <div id="sec-ranks" className="scroll-mt-16"><AdminLeaderboards /></div>
 
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+          <div id="sec-levels" className="mt-4 scroll-mt-16 rounded-2xl border border-slate-200 bg-white p-3">
             <div className="mb-2 text-xs font-bold text-slate-700">Where learners are (current level)</div>
             <table className="w-full text-left text-xs">
               <thead className="text-[11px] uppercase tracking-wide text-slate-500">
