@@ -6,7 +6,7 @@
  * Raise TERMS_VERSION whenever the text changes in a way people should re-accept: everyone is
  * asked to accept the new version at their next sign-in.
  */
-export const TERMS_VERSION = '2026-11-24'
+export const TERMS_VERSION = '2026-11-25'
 export const APP_NAME = 'Language Stars'
 /** Who parents contact about their child's information. Change this if you want a different address. */
 export const CONTACT_EMAIL = 'typer1079@gmail.com'
@@ -85,6 +85,7 @@ export const PRIVACY: LegalDoc = {
     { heading: 'Voice and microphone', body: [
       'The app listens to the microphone only while practicing, to hear words and spellings. We never record or store audio.',
       'Speech is turned into text by your device\'s or browser\'s built-in speech service (for example Apple\'s on iPhone, iPad and Safari, or Google\'s in Chrome). That service may process the audio on its own servers under its own privacy policy. Only the resulting text is used by the app, and only to check the answer; it is not saved except in a short on-screen log that stays on the device.',
+      'Problem reports: when something goes wrong (an app error or the microphone won\'t start) or a learner seems stuck on one item, the app sends a short technical report so we can fix it: the word or sentence, the text the speech service heard, how long it took, the level, the device type (for example "iPhone · iOS 18 · Safari") and the app version. Reports never include names, email addresses or audio, are seen only by the app\'s administrator, are used only to fix and improve the app, and are deleted after 90 days.',
     ] },
     { heading: 'How we use it', body: [
       'To run the app: sign you in, save progress, pick the next words, show progress graphs, and keep the account secure (for example, an activity log of changes).',
@@ -106,7 +107,7 @@ export const PRIVACY: LegalDoc = {
       'When a parent links a child\'s own device, that device signs in without any personal information (no email, phone number or password); it gets a random identifier only. It can read and update only that child\'s progress, stickers and settings for today\'s subject, and is listed for the parent, who can unlink it at any time. Unlinking deletes the device\'s sign-in.',
     ] },
     { heading: 'How long we keep it', body: [
-      'Account and learner data: until you delete it or ask us to. Practice history: up to 2 years. Security activity logs: 1 year. Accounts with no activity for 90 days are archived automatically and need the account holder to confirm their identity to reopen. Archived accounts are kept so they can be restored, unless you ask for deletion.',
+      'Account and learner data: until you delete it or ask us to. Practice history: up to 2 years. Security activity logs: 1 year. Problem reports: 90 days. Accounts with no activity for 90 days are archived automatically and need the account holder to confirm their identity to reopen. Archived accounts are kept so they can be restored, unless you ask for deletion.',
     ] },
     { heading: 'Security', body: [
       'Encrypted connections, row-level database security so each family can only reach its own data, two-step sign-in for children\'s profiles, automatic sign-out after inactivity, and an audit log. No system is perfectly secure; tell us right away if you think your account was misused.',

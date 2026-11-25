@@ -20,6 +20,7 @@ import { gradeFor } from '../lib/levelGuide'
 import { setThemeChoice } from '../lib/theme'
 import { logRound } from '../lib/learnersApi'
 import { avatarFor } from '../lib/avatars'
+import { reportProblem, type ProblemKind } from '../lib/problems'
 
 export type SaveStatus = 'saved' | 'saving' | 'offline' | 'error'
 
@@ -127,9 +128,39 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const engineRef = useRef<PracticeEngine | null>(null)
 
+  // Problem reports: the log lines for the current item go along with a report, so the admin can
+  // see what the microphone heard. See src/lib/problems.ts.
+  const logBuf = useRef<string[]>([])
+  const logTotal = useRef(0)
+  const itemMark = useRef(0)
+  const itemSecs = useRef(0)
+  const stuckSent = useRef(false)
+  const micSent = useRef(false)
+  const problemRef = useRef<(kind: ProblemKind, detail?: string) => void>(() => {})
+  /** What the microphone heard for the current item (from the HEARD log lines). */
+  const itemHeard = () => {
+    const n = Math.max(0, logTotal.current - itemMark.current)
+    const out: string[] = []
+    for (const line of logBuf.current.slice(-Math.min(n, 300))) {
+      const m = /\] HEARD — (.*?) target=/.exec(line)
+      if (m) out.push(...[...m[1].matchAll(/"([^"]*)"/g)].map((x) => x[1].trim()).filter(Boolean))
+    }
+    return [...new Set(out)].slice(-12)
+  }
+
   const log = useCallback((tag: string, detail = '') => {
     const ts = new Date().toISOString().split('T')[1].slice(0, 11)
-    setLogLines((lines) => [...lines.slice(-249), `[${ts}] ${tag}${detail ? ' — ' + detail : ''}`])
+    const line = `[${ts}] ${tag}${detail ? ' — ' + detail : ''}`
+    logBuf.current = [...logBuf.current.slice(-299), line]
+    logTotal.current += 1
+    setLogLines((lines) => [...lines.slice(-249), line])
+    // Microphone trouble worth a report (once per screen visit).
+    const micTrouble = tag === 'MIC_START_FAILED' || tag === 'MIC_UNSUPPORTED' || (tag === 'MIC_NO_START' && detail !== 'attempt=1') ||
+      (tag === 'MIC_ERR' && /not-allowed|service-not-allowed|audio-capture|network/.test(detail))
+    if (micTrouble && !micSent.current) {
+      micSent.current = true
+      problemRef.current('mic', `${tag}${detail ? ` ${detail}` : ''}`)
+    }
   }, [])
 
   const item = round[index]
@@ -147,6 +178,9 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     clearTimeout(advanceTimer.current)
     indexRef.current = i
     solvedRef.current = false
+    itemMark.current = logTotal.current
+    itemSecs.current = 0
+    stuckSent.current = false
     setIndex(i)
     setRevealed(false)
     setPhraseShown(false)
@@ -385,6 +419,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       solved: (heard, coached) => solvedCb.current(heard, coached),
       advance: (afterCoach) => {
         // The coach gave up on this word: it counts as tried, not said (stretch items don't count).
+        problemRef.current('gave_up')
         if (!roundRef.current[indexRef.current]?.stretchLevel) attemptsRef.current += 1
         roundLog.current.items += 1
         roundLog.current.skipped += 1
@@ -394,7 +429,10 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       spelling: (letters) => setSpelled(letters),
       spellWrong: (letters) => spellWrongCb.current(letters),
       beeAsk: (kind) => askBeeCb.current(kind),
-      micBlocked: (reason) => setMicHelp(reason),
+      micBlocked: (reason) => {
+        log('MIC_BLOCKED', reason)
+        setMicHelp(reason)
+      },
       showPhrase: () => setPhraseShown(true),
       log,
     })
@@ -485,6 +523,36 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   // Leaving the app (home button, switching apps, locking the phone) turns the microphone off at once.
   const anyModalRef = useRef(anyModal)
   useEffect(() => { anyModalRef.current = anyModal }, [anyModal])
+
+  // ---- problem reports -------------------------------------------------------------------------
+  useEffect(() => {
+    problemRef.current = (kind, detail) => {
+      const it = roundRef.current[indexRef.current]
+      const l = learnerRef.current
+      const lines = logBuf.current.slice(-Math.min(60, Math.max(1, logTotal.current - itemMark.current)))
+      reportProblem({
+        kind, detail: detail ?? null,
+        learner_id: l.id, mode: l.mode, level: activeLevel(l),
+        item: it ? (it.spanish ? `${it.spanish.en} → ${it.target}` : it.target) + (it.stretchLevel ? ` (stretch from L${it.stretchLevel})` : '') : null,
+        heard: itemHeard(), seconds: itemSecs.current,
+        log: lines.join('\n'),
+      })
+      log('REPORTED', kind)
+    }
+  })
+  // Time on the current item, counting only while the app is on screen and nothing is covering it.
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (document.visibilityState !== 'visible' || anyModalRef.current || solvedRef.current || !roundRef.current[indexRef.current]) return
+      itemSecs.current += 5
+      const limit = learnerRef.current.mode === 'spelling' ? 150 : 90
+      if (itemSecs.current >= limit && !stuckSent.current) {
+        stuckSent.current = true
+        problemRef.current('stuck', `No match after ${itemSecs.current}s on screen`)
+      }
+    }, 5000)
+    return () => clearInterval(t)
+  }, [])
   useEffect(() => {
     let asleep = false
     const sleep = () => {
@@ -513,6 +581,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const skip = () => {
     if (anyModal) return
     if (!solvedRef.current && !roundRef.current[indexRef.current]?.stretchLevel) attemptsRef.current += 1
+    if (!solvedRef.current && (itemSecs.current >= 20 || (itemSecs.current >= 5 && itemHeard().length > 0))) problemRef.current('skipped')
     if (!solvedRef.current) {
       roundLog.current.items += 1
       roundLog.current.skipped += 1

@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react'
 import { isLoadError, reloadForUpdate } from '../lib/freshLoad'
+import { reportProblem } from '../lib/problems'
 
 interface Props {
   children: ReactNode
@@ -19,6 +20,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error) {
     console.error('[app error]', error)
     if (isLoadError(error)) reloadForUpdate()
+    else reportProblem({ kind: 'error', item: location.hash || location.pathname, detail: `Screen crashed: ${error.message}\n${error.stack ?? ''}` })
   }
 
   render() {

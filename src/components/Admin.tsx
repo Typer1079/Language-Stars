@@ -3,6 +3,7 @@ import { adminKpis, dbMessage, type AdminKpis } from '../lib/learnersApi'
 import { BarChart, LineChart, Tile } from './Charts'
 import { AdminLeaderboards } from './Ranks'
 import { AdminUsers } from './AdminUsers'
+import { AdminProblems } from './AdminProblems'
 
 const RANGES = [7, 30, 90, 365] as const
 
@@ -84,6 +85,8 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <BarChart title="Rounds per day" days={labels} values={k.daily.map((d) => d.rounds)} />
             <BarChart title="Stars per day" days={labels} values={k.daily.map((d) => d.stars)} />
           </div>
+
+          <AdminProblems />
 
           <AdminUsers />
 

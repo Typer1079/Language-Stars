@@ -14,6 +14,10 @@ initTheme()
 import { registerSW } from 'virtual:pwa-register'
 import App from './App.tsx'
 import ErrorBoundary from './components/ErrorBoundary'
+import { watchForErrors } from './lib/problems'
+
+// App errors go to the admin's problem list (src/lib/problems.ts).
+watchForErrors()
 
 // Installable app (PWA): works from the Home Screen and offline. When a new version is published,
 // load it right away instead of showing the old cached copy; check on launch, when the app comes
