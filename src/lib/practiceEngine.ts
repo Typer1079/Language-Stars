@@ -139,6 +139,36 @@ export class PracticeEngine {
     }
   }
 
+  /**
+   * The app went to the background (home button, app switch, phone locked): switch the
+   * microphone and the voice fully off right away. Nothing restarts until the learner taps 🎤.
+   */
+  sleep() {
+    this.paused = true
+    this.gen++
+    this.stopAll()
+    this.listening = false
+    clearTimeout(this.micTimer)
+    clearTimeout(this.startWatchdog)
+    if (this.recognition) {
+      try { this.recognition.abort() } catch { /* not running */ }
+    }
+    this.recActive = false
+    this.micOn = false
+    this.dropCleanMic()
+    try { window.speechSynthesis?.cancel() } catch { /* no voice */ }
+    this.hooks.mic('idle', 'Tap to listen')
+  }
+
+  /** Back in the app: ready again, but the microphone stays off until the learner taps 🎤. */
+  wake(stillPaused: boolean) {
+    this.paused = stillPaused
+    if (stillPaused || this.solved || !this.item) return
+    this.noStartCount = 0
+    this.hooks.mic('idle', 'Tap to listen')
+    this.hooks.feedback('Welcome back!', 'Tap 🎤 when you’re ready to keep going.', 'neutral')
+  }
+
   /** Coming back from the sticker shop: listen again, then coach. */
   resume() {
     this.paused = false

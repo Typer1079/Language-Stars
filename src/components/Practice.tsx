@@ -482,6 +482,34 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     engineRef.current?.setPaused(anyModal)
   }, [anyModal])
 
+  // Leaving the app (home button, switching apps, locking the phone) turns the microphone off at once.
+  const anyModalRef = useRef(anyModal)
+  useEffect(() => { anyModalRef.current = anyModal }, [anyModal])
+  useEffect(() => {
+    let asleep = false
+    const sleep = () => {
+      if (asleep) return
+      asleep = true
+      engineRef.current?.sleep()
+      log('MIC', 'off: app in background')
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') sleep()
+      else if (asleep) {
+        asleep = false
+        engineRef.current?.wake(anyModalRef.current)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', sleep)
+    document.addEventListener('freeze', sleep)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', sleep)
+      document.removeEventListener('freeze', sleep)
+    }
+  }, [log])
+
   const skip = () => {
     if (anyModal) return
     if (!solvedRef.current && !roundRef.current[indexRef.current]?.stretchLevel) attemptsRef.current += 1
