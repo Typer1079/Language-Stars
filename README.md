@@ -15,7 +15,7 @@ Current version: see `version` in `package.json` and [CHANGELOG.md](CHANGELOG.md
 |---|---|
 | **Account** | the adult who signs in (a parent, or an adult learner) |
 | **Learner** | a profile under an account: a *child* (protected by Face ID / two-step) or *self* |
-| **Subject** | Reading, Spanish or Spelling Bee (called `mode` in the code and database today) |
+| **Subject** | Reading, Spanish or Spelling Bee (called `mode` in the code and database today). Each one is defined once in `src/lib/subjects.ts` |
 | **Level** | 1–100 within a subject |
 | **Round** | a set of about 10 items; **Item** is one word, phrase or sentence |
 | **Iris** | the coach voice that helps when a learner is stuck |
@@ -151,7 +151,9 @@ src/
     curriculum.ts, readingAdvanced.ts, spellingWords.ts, wordBanks.ts   what's practiced at each level
     progress.ts, stats.ts, ranks.ts, stickers.ts                       stars, levels, graphs, ranks
     learnersApi.ts, problems.ts                                        database reads/writes
+    subjects.ts           every subject in one list: names, icons, colors, voice, level columns
     storage.ts            every on-device setting (one key prefix: `language-stars.`)
+    format.ts             dates and numbers, formatted one way
     legal.ts              Terms, Privacy Policy, Support text and TERMS_VERSION
     validate.ts           cleans everything read from files (SI-10)
 supabase/migrations/      numbered database updates; run each new one once, in order
@@ -173,6 +175,15 @@ Run each file once, in order, in Supabase → SQL Editor. All are safe to run ag
 | 011 | guard for linked (anonymous) device sign-ins |
 | 012 | problem reports for the admin |
 | 013 | delete my account |
+| 014 | `learner_subjects`: one row per learner per subject (kept in sync with the level columns) |
+
+## Adding a subject
+1. Add an entry to `SUBJECTS` in `src/lib/subjects.ts` (name, icon, colors, voice language, level columns).
+2. Add its levels in `src/lib/curriculum.ts` and its level guide in `src/lib/levelGuide.ts`.
+3. Database: allow the new subject name in `learner_subjects` and the practice-history checks.
+Screens, stats, ranks, Help and the admin dashboard pick it up from the list. (Today levels are
+still saved in per-subject columns and copied to `learner_subjects`; the next step moves saving to
+the table, after which a new subject needs no new columns.)
 
 ## Versions
 Bump `version` in `package.json` for each release (major.minor.patch) and add a line to

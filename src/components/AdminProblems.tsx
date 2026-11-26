@@ -3,6 +3,7 @@ import { dbMessage } from '../lib/learnersApi'
 import { fetchProblems, kindLabel, problemsToText, resolveProblems, type ProblemKind, type ProblemReport } from '../lib/problems'
 import { Notice } from './ui/Notice'
 import { formatDateTime } from '../lib/format'
+import { subject } from '../lib/subjects'
 
 const PERIODS = [
   { days: 1, label: 'Last 24 hours' },
@@ -18,7 +19,7 @@ const KINDS: { kind: ProblemKind; icon: string; short: string; tone: string }[] 
   { kind: 'mic', icon: '🎤', short: 'Microphone', tone: 'bg-slate-200 text-slate-800' },
 ]
 const kindInfo = (k: string) => KINDS.find((x) => x.kind === k) ?? KINDS[0]
-const modeIcon = (m: string | null) => (m === 'spanish' ? '🇪🇸' : m === 'spelling' ? '🐝' : m === 'reading' ? '📖' : '')
+const modeIcon = (m: string | null) => (m ? subject(m).icon : '')
 const when = (d: string) => formatDateTime(d)
 
 async function copyText(text: string): Promise<boolean> {

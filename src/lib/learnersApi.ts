@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import type { Learner, LearnerDraft } from './types'
+import { SUBJECTS } from './subjects'
 
 const BASE_COLUMNS =
   'id, display_name, kind, age_group, sticker_style, mode, reading_level, spanish_level, reading_best, spanish_best, lifetime_stars, spendable_stars, mastered, stickers, updated_at'
@@ -42,6 +43,8 @@ async function withFallback<R extends { error: { message?: string } | null }>(ru
 export const avatarsAvailable = () => !missing.has('avatar')
 /** True once the database has the Spelling Bee (update 008). */
 export const spellingAvailable = () => !missing.has('spelling')
+/** Subjects this database supports (Spelling Bee needs database update 008). */
+export const availableSubjects = () => SUBJECTS.filter((s) => s.id !== 'spelling' || spellingAvailable())
 
 export async function listLearners(): Promise<Learner[]> {
   const { data, error } = await withFallback(() => supabase.from('learners').select(columns()).order('created_at', { ascending: true }))
@@ -186,6 +189,13 @@ export interface AdminKpis {
   totals: { rounds: number; items: number; clean: number; stars: number; minutes: number; questions: number; questions_right: number }
   daily: { day: string; rounds: number; items: number; clean: number; stars: number; minutes: number; learners: number; accounts: number }[]
   levels: { band: number; reading: number; spanish: number; spelling?: number }[]
+}
+
+/** Admin: does the per-subject table (database update 014) match the learner columns? null = not set up yet. */
+export async function subjectsInSync(): Promise<{ rows: number; mismatched: number } | null> {
+  const { data, error } = await supabase.rpc('subjects_in_sync')
+  if (error) return null
+  return data as { rows: number; mismatched: number }
 }
 
 export async function adminKpis(days = 30): Promise<AdminKpis> {

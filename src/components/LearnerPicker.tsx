@@ -4,7 +4,7 @@ import { activeLevel, levelOf } from '../lib/progress'
 import { FaceIdOffer } from './FaceId'
 import { ProgressView } from './Progress'
 import { AVATAR_GROUPS, SKIN_TONES, avatarFor, toneOf, withTone } from '../lib/avatars'
-import { avatarsAvailable, myRanks, spellingAvailable } from '../lib/learnersApi'
+import { availableSubjects, avatarsAvailable, myRanks } from '../lib/learnersApi'
 import { medal } from '../lib/ranks'
 import { gradeFor } from '../lib/levelGuide'
 import { HelpGuide } from './HelpGuide'
@@ -13,6 +13,7 @@ import { MAX_LEVEL, stageName } from '../lib/curriculum'
 import { cleanName, parseSaveFile } from '../lib/validate'
 import { newLearnerDraft, type AgeGroup, type Learner, type LearnerDraft, type LearnerKind, type Mode, type StickerStyle } from '../lib/types'
 import { Notice } from './ui/Notice'
+import { SUBJECTS, subject, subjectLevel, withSubjectLevel } from '../lib/subjects'
 
 interface Props {
   learners: Learner[]
@@ -110,12 +111,9 @@ const THEMES = {
   ],
 }
 
-const SUBJECTS: { m: Mode; icon: string; label: string }[] = [
-  { m: 'reading', icon: '📖', label: 'Reading' },
-  { m: 'spanish', icon: '🇪🇸', label: 'Spanish' },
-  { m: 'spelling', icon: '🐝', label: 'Spelling' },
-]
-const subjectsAvailable = () => SUBJECTS.filter((x) => x.m !== 'spelling' || spellingAvailable())
+
+/** Form field that holds each subject's starting level. */
+const LEVEL_FIELD = { reading: 'readingLevel', spanish: 'spanishLevel', spelling: 'spellingLevel' } as const
 
 function LearnerCard({ learner: l, onPlay, onProgress, onEdit, onMode }: { learner: Learner; onPlay: () => void; onProgress: () => void; onEdit: () => void; onMode: (m: Mode) => void }) {
   // Each learner keeps the same colors (picked from their name), so cards are easy to tell apart.
@@ -143,7 +141,7 @@ function LearnerCard({ learner: l, onPlay, onProgress, onEdit, onMode }: { learn
           ))}
         </span>
         <span className="absolute left-3 top-2.5 rounded-full bg-white/25 px-2.5 py-0.5 text-[11px] font-bold text-white backdrop-blur-sm">
-          {SUBJECTS.find((x) => x.m === l.mode)?.icon} {SUBJECTS.find((x) => x.m === l.mode)?.label}
+          {subject(l.mode).icon} {subject(l.mode).shortLabel}
         </span>
       </button>
 
@@ -178,11 +176,11 @@ function LearnerCard({ learner: l, onPlay, onProgress, onEdit, onMode }: { learn
 
         {/* Today's subject: one tap to switch (each keeps its own level). */}
         <div className="mt-3 grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1" role="group" aria-label={`What ${l.display_name} practices today`}>
-          {subjectsAvailable().map((x) => (
-            <button key={x.m} type="button" aria-pressed={l.mode === x.m} onClick={() => l.mode !== x.m && onMode(x.m)}
-              className={`flex flex-col items-center rounded-xl px-1 py-1.5 text-[11px] font-bold leading-tight transition ${l.mode === x.m ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:bg-white/60'}`}>
+          {availableSubjects().map((x) => (
+            <button key={x.id} type="button" aria-pressed={l.mode === x.id} onClick={() => l.mode !== x.id && onMode(x.id)}
+              className={`flex flex-col items-center rounded-xl px-1 py-1.5 text-[11px] font-bold leading-tight transition ${l.mode === x.id ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:bg-white/60'}`}>
               <span className="text-base">{x.icon}</span>
-              <span>{x.label} <span className="font-semibold opacity-70">L{levelOf(l, x.m)}</span></span>
+              <span>{x.shortLabel} <span className="font-semibold opacity-70">L{levelOf(l, x.id)}</span></span>
             </button>
           ))}
         </div>
@@ -343,16 +341,17 @@ export function ReaderForm({ initial, isNew, busy, error, submitLabel, onSubmit,
       <div>
         <span className="label">What do they practice?</span>
         <Choice label="Practice" value={f.mode} onChange={(v) => set('mode', v)}
-          options={subjectsAvailable().map((x) => ({ v: x.m, label: x.m === 'reading' ? '📖 Reading (English)' : x.m === 'spanish' ? '🇪🇸 Spanish (English → Spanish)' : '🐝 Spelling Bee' }))} />
+          options={availableSubjects().map((x) => ({ v: x.id, label: `${x.icon} ${x.longLabel}` }))} />
         <p className="mt-1 text-xs text-slate-500">
-          {f.mode === 'reading' ? 'Read words, phrases and sentences out loud, then answer what they mean.' : f.mode === 'spanish' ? 'See an English word and say it in Spanish, with example phrases.' : 'Hear a word and spell it out loud, letter by letter, with Spelling Bee rules.'}
+          {subject(f.mode).blurb}
           {!isNew && ' Progress in the other one is kept if you switch back.'}
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <LevelPicker id="reading-level" label="📖 Reading level" mode="reading" value={f.readingLevel} onChange={(v) => set('readingLevel', v)} />
-        <LevelPicker id="spanish-level" label="🇪🇸 Spanish level" mode="spanish" value={f.spanishLevel} onChange={(v) => set('spanishLevel', v)} />
-        {spellingAvailable() && <LevelPicker id="spelling-level" label="🐝 Spelling level" mode="spelling" value={f.spellingLevel} onChange={(v) => set('spellingLevel', v)} />}
+        {availableSubjects().map((x) => {
+          const key = LEVEL_FIELD[x.id]
+          return <LevelPicker key={x.id} id={`${x.id}-level`} label={`${x.icon} ${x.shortLabel} level`} mode={x.id} value={f[key]} onChange={(v) => set(key, v)} />
+        })}
         <p className="text-xs text-slate-500 sm:col-span-2">Start anywhere from 1 to {MAX_LEVEL}. The app still moves up or down from there based on how practice goes.</p>
       </div>
       <div>
@@ -380,7 +379,8 @@ function AddLearner({ verified, onUnlockKids, onCreate, onCancel }: { verified: 
   async function submit(f: ReaderFields) {
     if (!f.name) return setError('Enter a first name or nickname.')
     const base = newLearnerDraft(f.name, f.kind, f.age, f.style)
-    const draft: LearnerDraft = { ...base, mode: f.mode, reading_level: f.readingLevel, spanish_level: f.spanishLevel, reading_best: f.readingLevel, spanish_best: f.spanishLevel, spelling_level: f.spellingLevel, spelling_best: f.spellingLevel, ...(f.avatar ? { avatar: f.avatar } : {}) }
+    let draft: LearnerDraft = { ...base, mode: f.mode, ...(f.avatar ? { avatar: f.avatar } : {}) }
+    for (const s of SUBJECTS) draft = { ...draft, [s.levelColumn]: f[LEVEL_FIELD[s.id]], [s.bestColumn]: f[LEVEL_FIELD[s.id]] }
     // Managed profiles are protected by two-step sign-in; set it up first, then add automatically.
     if (f.kind === 'child' && !verified) return onUnlockKids([draft])
     setBusy(true)
@@ -421,9 +421,10 @@ function EditReader({ learner, verified, onSave, onCancel }: { learner: Learner;
     try {
       let next: Learner = { ...learner, display_name: f.name, mode: f.mode, age_group: f.age, sticker_style: f.style, ...(f.avatar ? { avatar: f.avatar } : {}) }
       // A new starting level: the best level only ever goes up (the database requires it).
-      if (f.readingLevel !== learner.reading_level) next = { ...next, reading_level: f.readingLevel, reading_best: Math.max(learner.reading_best ?? 1, f.readingLevel) }
-      if (f.spellingLevel !== (learner.spelling_level ?? 1)) next = { ...next, spelling_level: f.spellingLevel, spelling_best: Math.max(learner.spelling_best ?? 1, f.spellingLevel) }
-      if (f.spanishLevel !== learner.spanish_level) next = { ...next, spanish_level: f.spanishLevel, spanish_best: Math.max(learner.spanish_best ?? 1, f.spanishLevel) }
+      for (const s of availableSubjects()) {
+        const want = f[LEVEL_FIELD[s.id]]
+        if (want !== subjectLevel(learner, s.id)) next = withSubjectLevel(next, s.id, want)
+      }
       await onSave(next)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Couldn’t save the changes.')

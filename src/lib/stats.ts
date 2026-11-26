@@ -1,3 +1,4 @@
+import type { Mode } from './types'
 import type { RoundRecord } from './learnersApi'
 
 /** Local calendar day, YYYY-MM-DD. */
@@ -15,6 +16,7 @@ export interface DayStats {
   questions: number
   questionsRight: number
   /** Level at the end of the day (carried forward from earlier days), per mode. */
+  /** Level at the end of the day in each subject (null before the first round in it). */
   reading: number | null
   spanish: number | null
   spelling: number | null
@@ -32,15 +34,9 @@ export function dailySeries(rounds: RoundRecord[], days: number, now = new Date(
   start.setHours(0, 0, 0, 0)
   start.setDate(start.getDate() - (days - 1))
   // Levels before the window start, so lines don't begin empty.
-  let reading: number | null = null
-  let spanish: number | null = null
-  let spelling: number | null = null
+  const level: Record<Mode, number | null> = { reading: null, spanish: null, spelling: null }
   for (const r of rounds) {
-    if (r.created_at && new Date(r.created_at) < start) {
-      if (r.mode === 'reading') reading = r.level_after
-      else if (r.mode === 'spelling') spelling = r.level_after
-      else spanish = r.level_after
-    }
+    if (r.created_at && new Date(r.created_at) < start && r.mode in level) level[r.mode as Mode] = r.level_after
   }
   const out: DayStats[] = []
   for (let i = 0; i < days; i++) {
@@ -48,11 +44,7 @@ export function dailySeries(rounds: RoundRecord[], days: number, now = new Date(
     d.setDate(start.getDate() + i)
     const k = dayKey(d)
     const list = byDay.get(k) ?? []
-    for (const r of list) {
-      if (r.mode === 'reading') reading = r.level_after
-      else if (r.mode === 'spelling') spelling = r.level_after
-      else spanish = r.level_after
-    }
+    for (const r of list) if (r.mode in level) level[r.mode as Mode] = r.level_after
     out.push({
       day: k,
       rounds: list.length,
@@ -62,9 +54,7 @@ export function dailySeries(rounds: RoundRecord[], days: number, now = new Date(
       minutes: Math.round(sum(list, 'seconds') / 6) / 10,
       questions: sum(list, 'questions'),
       questionsRight: sum(list, 'questions_right'),
-      reading,
-      spanish,
-      spelling,
+      ...level,
     })
   }
   return out

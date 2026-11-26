@@ -10,6 +10,7 @@ import { getThemeChoice, setThemeChoice, type ThemeChoice } from '../lib/theme'
 import { Notice } from './ui/Notice'
 import { PageHeader } from './ui/PageHeader'
 import { formatDateTime } from '../lib/format'
+import { SUBJECTS } from '../lib/subjects'
 
 interface Props {
   email: string
@@ -35,8 +36,7 @@ function describe(e: AuditEntry, names: Map<string, string>): string {
   }
   pair('lifetime_stars', 'stars')
   pair('spendable_stars', 'balance')
-  pair('reading_level', 'reading level')
-  pair('spanish_level', 'Spanish level')
+  for (const s of SUBJECTS) pair(s.levelColumn, `${s.label} level`)
   pair('stickers', 'stickers')
   pair('mode', 'practice')
   if (d.profile_edited) parts.push('profile edited')

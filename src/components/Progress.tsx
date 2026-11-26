@@ -8,6 +8,7 @@ import { BarChart, LineChart, Tile } from './Charts'
 import { RanksSection } from './Ranks'
 import { Notice } from './ui/Notice'
 import { formatDateTime } from '../lib/format'
+import { SUBJECTS, subject, subjectBest, subjectLevel, subjectName } from '../lib/subjects'
 
 const RANGES = [7, 30, 90] as const
 
@@ -40,9 +41,10 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
   const recent = useMemo(() => [...(rounds ?? [])].reverse().slice(0, parentView ? 25 : 10), [rounds, parentView])
   const accuracy = series.map((d) => (d.items ? Math.round((d.clean / d.items) * 100) : null))
   const qPct = s.questions ? Math.round((s.questionsRight / s.questions) * 100) : null
-  const usesSpanish = learner.spanish_level > 1 || (rounds ?? []).some((r) => r.mode === 'spanish')
-  const usesSpelling = (learner.spelling_level ?? 1) > 1 || learner.mode === 'spelling' || (rounds ?? []).some((r) => r.mode === 'spelling')
-  const usesReading = learner.reading_level > 1 || (rounds ?? []).some((r) => r.mode === 'reading') || (!usesSpanish && !usesSpelling)
+  // Subjects this learner has used (current subject, a level above 1, or any rounds); Reading if none.
+  const usedIds = SUBJECTS.filter((x) => x.id === learner.mode || subjectLevel(learner, x.id) > 1 || (rounds ?? []).some((r) => r.mode === x.id)).map((x) => x.id)
+  const used = usedIds.length ? usedIds : (['reading'] as const)
+  const usesReading = used.includes('reading')
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 p-3 backdrop-blur-[2px] sm:p-6" role="dialog" aria-modal="true" aria-labelledby="progress-title"
@@ -52,11 +54,11 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
           <div>
             <h2 id="progress-title" className="font-kids text-2xl font-bold">📈 {learner.display_name}’s progress</h2>
             <p className="text-xs text-slate-500">
-              {usesReading && <>📖 Reading Level {learner.reading_level} ({gradeFor(learner.reading_level, 'reading')}, best {learner.reading_best ?? learner.reading_level}) </>}
-              {usesReading && usesSpanish && ' • '}
-              {usesSpanish && <>🇪🇸 Spanish Level {learner.spanish_level} ({gradeFor(learner.spanish_level, 'spanish')})</>}
-              {usesSpelling && <>{(usesReading || usesSpanish) && ' • '}🐝 Spelling Level {learner.spelling_level ?? 1} ({gradeFor(learner.spelling_level ?? 1, 'spelling')})</>}
-              {' • '}{learner.lifetime_stars} ⭐ lifetime • {learner.stickers.length} stickers
+              {used.map((id) => {
+                const lv = subjectLevel(learner, id)
+                const best = subjectBest(learner, id)
+                return `${subjectName(id)} Level ${lv} (${gradeFor(lv, id)}${best > lv ? `, best ${best}` : ''}) • `
+              }).join('')}{learner.lifetime_stars} ⭐ lifetime • {learner.stickers.length} stickers
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -83,7 +85,7 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
               <Tile label="Days practiced" value={`${s.daysActive} / ${days}`} />
               <Tile label="Streak" value={`${s.streak} ${s.streak === 1 ? 'day' : 'days'}`} />
               <Tile label="Meaning questions" value={qPct === null ? '–' : `${qPct}%`} sub={s.questions ? `${s.questionsRight} of ${s.questions} right` : 'from Reading Level 31'} />
-              <Tile label="Now at" value={`L${levelOf(learner, learner.mode)}`} sub={learner.mode === 'spanish' ? 'Spanish' : learner.mode === 'spelling' ? 'Spelling' : 'Reading'} />
+              <Tile label="Now at" value={`L${levelOf(learner, learner.mode)}`} sub={subject(learner.mode).label} />
             </div>
 
             <RanksSection learnerId={learner.id} name={learner.display_name} />
@@ -99,11 +101,7 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
                 <LineChart title="Said on their own (%)" days={labels} max={100} unit="%"
                   series={[{ name: 'accuracy', values: accuracy, className: 'stroke-emerald-500', dot: 'bg-emerald-500', fill: 'fill-emerald-500' }]} />
                 <LineChart title="Level" days={labels} max={100}
-                  series={[
-                    ...(usesReading ? [{ name: 'Reading', values: series.map((d) => d.reading), className: 'stroke-indigo-500', dot: 'bg-indigo-500', fill: 'fill-indigo-500' }] : []),
-                    ...(usesSpanish ? [{ name: 'Spanish', values: series.map((d) => d.spanish), className: 'stroke-amber-500', dot: 'bg-amber-500', fill: 'fill-amber-500' }] : []),
-                    ...(usesSpelling ? [{ name: 'Spelling', values: series.map((d) => d.spelling), className: 'stroke-emerald-500', dot: 'bg-emerald-500', fill: 'fill-emerald-500' }] : []),
-                  ]} />
+                  series={used.map((id) => ({ name: subject(id).shortLabel, values: series.map((d) => d[id]), ...subject(id).chart }))} />
                 <BarChart title="Stars earned" days={labels} values={series.map((d) => d.stars)} />
                 {s.questions > 0 && (
                   <LineChart title="Meaning questions right (%)" days={labels} max={100} unit="%"
@@ -127,7 +125,7 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
                     {recent.map((r, i) => (
                       <tr key={i} className="border-t border-slate-100">
                         <td className="px-3 py-1.5 whitespace-nowrap">{r.created_at ? formatDateTime(r.created_at) : ''}</td>
-                        <td className="px-2 py-1.5">{r.mode === 'spanish' ? '🇪🇸 Spanish' : r.mode === 'spelling' ? '🐝 Spelling' : '📖 Reading'}</td>
+                        <td className="px-2 py-1.5">{subjectName(r.mode)}</td>
                         <td className="px-2 py-1.5 whitespace-nowrap">{r.level}{r.level_after !== r.level ? ` → ${r.level_after}` : ''}</td>
                         <td className="px-2 py-1.5">{r.items}</td>
                         <td className="px-2 py-1.5">{r.clean}</td>

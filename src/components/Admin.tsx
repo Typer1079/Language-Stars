@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { adminKpis, dbMessage, type AdminKpis } from '../lib/learnersApi'
+import { adminKpis, dbMessage, subjectsInSync, type AdminKpis } from '../lib/learnersApi'
 import { BarChart, LineChart, Tile } from './Charts'
 import { AdminLeaderboards } from './Ranks'
 import { AdminUsers } from './AdminUsers'
@@ -7,6 +7,7 @@ import { AdminProblems } from './AdminProblems'
 import { Notice } from './ui/Notice'
 import { PageHeader } from './ui/PageHeader'
 import { formatTime } from '../lib/format'
+import { SUBJECTS } from '../lib/subjects'
 
 const RANGES = [7, 30, 90, 365] as const
 
@@ -39,6 +40,8 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [days, setDays] = useState<(typeof RANGES)[number]>(30)
   const [k, setK] = useState<AdminKpis | null>(null)
   const [error, setError] = useState('')
+  const [sync, setSync] = useState<{ rows: number; mismatched: number } | null | undefined>(undefined)
+  useEffect(() => { void subjectsInSync().then(setSync) }, [])
 
   useEffect(() => {
     let live = true
@@ -130,10 +133,18 @@ export default function Admin({ onBack }: { onBack: () => void }) {
           <div id="sec-ranks"><AdminLeaderboards /></div>
 
           <div id="sec-levels" className="mt-4 panel">
-            <div className="mb-2 text-xs font-bold text-slate-700">Where learners are (current level)</div>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-bold text-slate-700">Where learners are (current level)</span>
+              {sync !== undefined && (
+                <span className={`text-[11px] font-semibold ${sync === null ? 'text-slate-400' : sync.mismatched ? 'text-rose-700' : 'text-emerald-700'}`}
+                  title="Levels are also kept in one row per learner per subject (database update 014). This checks both copies match.">
+                  {sync === null ? 'Per-subject table: run database update 014' : sync.mismatched ? `Per-subject table: ${sync.mismatched} differences ✗` : `Per-subject table: ${sync.rows} rows, in sync ✓`}
+                </span>
+              )}
+            </div>
             <table className="w-full text-left text-xs">
               <thead className="text-[11px] uppercase tracking-wide text-slate-500">
-                <tr><th className="py-1">Levels</th><th className="py-1">📖 Reading</th><th className="py-1">🇪🇸 Spanish</th><th className="py-1">🐝 Spelling</th></tr>
+                <tr><th className="py-1">Levels</th>{SUBJECTS.map((s) => <th key={s.id} className="py-1">{s.icon} {s.shortLabel}</th>)}</tr>
               </thead>
               <tbody>
                 {k.levels.map((b) => {

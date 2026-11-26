@@ -5,6 +5,7 @@ import type { Mode } from './types'
 import { ENCOURAGING_NICKNAMES } from './wordBanks'
 import { wordHelp } from './phonics'
 import { beeRequest, extractLetters, judgeSpelling, sayLetters, wantsRestart, type BeeRequest } from './spelling'
+import { subject } from './subjects'
 
 export type Tone = 'neutral' | 'listening' | 'success' | 'coach'
 /**
@@ -659,7 +660,7 @@ export class PracticeEngine {
     const r = this.ensureRecognition()
     if (!r || this.coachSpeaking || !this.listening || this.paused || this.solved) return
     // US Spanish recognition is more forgiving of an American accent than Spain's.
-    const lang = this.mode === 'spanish' ? 'es-US' : 'en-US'
+    const lang = subject(this.mode).speechLang
     if (this.recActive) {
       if (r.lang === lang) {
         // Already listening: just ignore anything said before this turn.

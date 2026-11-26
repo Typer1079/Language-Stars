@@ -7,7 +7,7 @@ import { moveSticker } from '../lib/stickers'
 import { recognitionSupported, speakSegments } from '../lib/speech'
 import { COMPREHENSION_FROM, questionFor, type Question } from '../lib/comprehension'
 import { ADVANCED_FROM } from '../lib/readingAdvanced'
-import { MODES, type Learner, type Mode } from '../lib/types'
+import { type Learner, type Mode } from '../lib/types'
 import { wordHelp } from '../lib/phonics'
 import { makeConfetti, type ConfettiPiece } from '../lib/confetti'
 import { Confetti, StickerBoard, StickerCanvas, StickerShop } from './Stickers'
@@ -21,6 +21,7 @@ import { setThemeChoice } from '../lib/theme'
 import { logRound } from '../lib/learnersApi'
 import { avatarFor } from '../lib/avatars'
 import { reportProblem, type ProblemKind } from '../lib/problems'
+import { SUBJECTS, subject } from '../lib/subjects'
 
 export type SaveStatus = 'saved' | 'saving' | 'offline' | 'error'
 
@@ -47,11 +48,6 @@ function paceFor(l: Learner, lastRound: { clean: number; attempts: number } | nu
   return 'guided'
 }
 
-const MODE_STYLE: Record<Mode, { icon: string; label: string; on: string }> = {
-  reading: { icon: '📖', label: 'Reading', on: 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow' },
-  spanish: { icon: '🇪🇸', label: 'Spanish', on: 'bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow' },
-  spelling: { icon: '🐝', label: 'Spelling', on: 'bg-gradient-to-r from-emerald-500 to-lime-500 text-white shadow' },
-}
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
@@ -545,7 +541,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     const t = setInterval(() => {
       if (document.visibilityState !== 'visible' || anyModalRef.current || solvedRef.current || !roundRef.current[indexRef.current]) return
       itemSecs.current += 5
-      const limit = learnerRef.current.mode === 'spelling' ? 150 : 90
+      const limit = subject(learnerRef.current.mode).stuckAfterSeconds
       if (itemSecs.current >= limit && !stuckSent.current) {
         stuckSent.current = true
         problemRef.current('stuck', `No match after ${itemSecs.current}s on screen`)
@@ -683,10 +679,10 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
           </p>
         )}
         <div className="grid w-full max-w-2xl grid-cols-3 gap-1.5 rounded-2xl border border-slate-200 bg-white/90 p-1.5 shadow-sm" role="group" aria-label="What to practice today">
-          {MODES.map((m) => (
+          {SUBJECTS.map(({ id: m, activeClass, icon, shortLabel }) => (
             <button key={m} type="button" aria-pressed={learner.mode === m} onClick={() => switchMode(m)}
-              className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 font-kids text-sm font-bold transition sm:text-base ${learner.mode === m ? MODE_STYLE[m].on : 'text-slate-600 hover:bg-slate-100'}`}>
-              <span className="text-lg">{MODE_STYLE[m].icon}</span>{MODE_STYLE[m].label}
+              className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 font-kids text-sm font-bold transition sm:text-base ${learner.mode === m ? activeClass : 'text-slate-600 hover:bg-slate-100'}`}>
+              <span className="text-lg">{icon}</span>{shortLabel}
               <span className={`hidden rounded-full px-1.5 text-[10px] sm:inline ${learner.mode === m ? 'bg-white/25' : 'bg-slate-100'}`}>L{levelOf(learner, m)}</span>
             </button>
           ))}

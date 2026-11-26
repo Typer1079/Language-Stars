@@ -2,12 +2,11 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { LEVEL_GUIDE } from '../lib/levelGuide'
 import { CHALLENGE_JUMP, CHALLENGE_PASS, CHALLENGE_SIZE, LEVEL_UP_AT, MOVE_DOWN_BELOW, ROUND_SIZE, STRETCH_STEPS } from '../lib/progress'
 import type { Mode } from '../lib/types'
+import { SUBJECTS, subject } from '../lib/subjects'
 
 const TABS: { id: Mode | 'rules'; label: string }[] = [
   { id: 'rules', label: '⚙️ How it works' },
-  { id: 'reading', label: '📖 Reading levels' },
-  { id: 'spanish', label: '🇪🇸 Spanish levels' },
-  { id: 'spelling', label: '🐝 Spelling levels' },
+  ...SUBJECTS.map((s) => ({ id: s.id, label: `${s.icon} ${s.shortLabel} levels` })),
 ]
 
 /** Plain-language help: exactly how levels, stars, ranks and the Spelling Bee work, and what every level range means. */
@@ -35,7 +34,7 @@ export function HelpGuide({ onClose, start = 'rules', highlight }: { onClose: ()
           ))}
         </div>
 
-        {tab !== 'rules' && <p className="mb-2 text-xs text-slate-500">{tab === 'spanish' ? 'Level (CEFR scale: A1 beginner → B1 intermediate)' : 'Grade level of the words'} · stage · what you practice</p>}
+        {tab !== 'rules' && <p className="mb-2 text-xs text-slate-500">{tab === 'spanish' ? `Level (${subject(tab).scaleNote})` : 'Grade level of the words'} · stage · what you practice</p>}
         {tab === 'rules' ? (
           <div className="space-y-4 text-sm leading-relaxed text-slate-700">
             <Section title="🎯 A round">

@@ -3,9 +3,10 @@ import { adminAccountAction, adminUsers, dbMessage, type AdminUser } from '../li
 import { TERMS_VERSION } from '../lib/legal'
 import { Notice } from './ui/Notice'
 import { formatDate } from '../lib/format'
+import { subject } from '../lib/subjects'
 
 const when = (d: string | null) => (d ? formatDate(d) : '—')
-const modeIcon = (m: string) => (m === 'spanish' ? '🇪🇸' : m === 'spelling' ? '🐝' : '📖')
+const modeIcon = (m: string | null) => (m ? subject(m).icon : '')
 
 /** Super admin: every account with its email and learners, and sign-out / archive / restore. */
 export function AdminUsers() {

@@ -2,6 +2,7 @@ import type { Learner, Mode } from './types'
 import { MAX_LEVEL, READING_LEVELS, SPANISH_LEVELS, SPELLING_LEVELS } from './curriculum'
 import type { SpanishEntry } from './wordBanks'
 import type { SpellEntry } from './spellingWords'
+import { subject, subjectBest, subjectLevel, withSubjectLevel } from './subjects'
 
 /** One word to practice. `target` is what the learner must say out loud. */
 export interface PracticeItem {
@@ -25,13 +26,12 @@ export function maxLevel(_mode?: Mode): number {
   return MAX_LEVEL
 }
 
-export function levelOf(l: Pick<Learner, 'reading_level' | 'spanish_level' | 'spelling_level'>, mode: Mode): number {
-  return mode === 'spanish' ? l.spanish_level : mode === 'spelling' ? (l.spelling_level ?? 1) : l.reading_level
+export function levelOf(l: Partial<Pick<Learner, 'reading_level' | 'spanish_level' | 'spelling_level'>>, mode: Mode): number {
+  return subjectLevel(l, mode)
 }
 
 export function bestOf(l: Pick<Learner, 'reading_level' | 'spanish_level' | 'spelling_level' | 'reading_best' | 'spanish_best' | 'spelling_best'>, mode: Mode): number {
-  const best = mode === 'spanish' ? l.spanish_best : mode === 'spelling' ? l.spelling_best : l.reading_best
-  return Math.max(best ?? 1, levelOf(l, mode))
+  return subjectBest(l, mode)
 }
 
 export function activeLevel(l: Pick<Learner, 'mode' | 'reading_level' | 'spanish_level' | 'spelling_level'>): number {
@@ -39,7 +39,7 @@ export function activeLevel(l: Pick<Learner, 'mode' | 'reading_level' | 'spanish
 }
 
 export function masteryKey(level: number, mode: Mode): string {
-  return mode === 'spanish' ? `${level}_es` : mode === 'spelling' ? `${level}_sp` : String(level)
+  return `${level}${subject(mode).masterySuffix}`
 }
 
 export function levelItems(level: number, mode: Mode): PracticeItem[] {
@@ -107,10 +107,7 @@ export function pickChallenge(l: Learner, level: number, rand: () => number = Ma
 
 export function setLevel(l: Learner, level: number): Learner {
   const lvl = Math.min(Math.max(1, Math.round(level) || 1), maxLevel(l.mode))
-  if (l.mode === 'spelling') return { ...l, spelling_level: lvl, spelling_best: Math.max(l.spelling_best ?? 1, lvl) }
-  return l.mode === 'spanish'
-    ? { ...l, spanish_level: lvl, spanish_best: Math.max(l.spanish_best ?? 1, lvl) }
-    : { ...l, reading_level: lvl, reading_best: Math.max(l.reading_best ?? 1, lvl) }
+  return withSubjectLevel(l, l.mode, lvl)
 }
 
 export function bestLevel(l: Pick<Learner, 'mode' | 'reading_best' | 'spanish_best' | 'spelling_best' | 'reading_level' | 'spanish_level' | 'spelling_level'>): number {
@@ -119,7 +116,7 @@ export function bestLevel(l: Pick<Learner, 'mode' | 'reading_best' | 'spanish_be
 
 /** Removes this mode's mastered lists for levels at or above `fromLevel` (or at or below, with `below`). */
 function clearMastered(l: Learner, level: number, below: boolean): Record<string, string[]> {
-  const suffix = l.mode === 'spanish' ? '_es' : l.mode === 'spelling' ? '_sp' : ''
+  const suffix = subject(l.mode).masterySuffix
   return Object.fromEntries(
     Object.entries(l.mastered).filter(([k]) => {
       if (k.replace(/^\d+/, '') !== suffix) return true

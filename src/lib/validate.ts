@@ -1,7 +1,8 @@
 import { ALL_AVATARS } from './avatars'
 import { maxLevel } from './progress'
 import { MAX_STICKERS } from './stickers'
-import { AGE_GROUPS, newId, type AgeGroup, type LearnerDraft, type LearnerKind, type Mode, type PlacedSticker, type StickerStyle } from './types'
+import { AGE_GROUPS, newId, type AgeGroup, type Learner, type LearnerDraft, type LearnerKind, type Mode, type PlacedSticker, type StickerStyle } from './types'
+import { isSubjectId, SUBJECTS } from './subjects'
 
 // Input validation for anything that comes from a file or the network (NIST 800-53 SI-10).
 // The database enforces the same limits; this keeps bad data from ever being sent.
@@ -73,12 +74,16 @@ export function cleanLearnerDraft(v: Record<string, unknown>, kind: LearnerKind)
   const styleRaw = v.sticker_style ?? v.gender
   const sticker_style: StickerStyle = styleRaw === 'boy' || styleRaw === 'girl' ? styleRaw : 'any'
   const mode: Mode =
-    v.mode === 'spanish' || v.mode === 'reading' || v.mode === 'spelling' ? v.mode : v.adultModeEnabled === true || age_group === 'adult' ? 'spanish' : 'reading'
+    isSubjectId(v.mode) ? v.mode : v.adultModeEnabled === true || age_group === 'adult' ? 'spanish' : 'reading'
   const lifetime_stars = int(v.lifetime_stars ?? v.lifetimeStars, 0, 1_000_000, 0)
   const spendable_stars = Math.min(lifetime_stars, int(v.spendable_stars ?? v.spendableStars, 0, 1_000_000, 0))
-  const reading_level = int(v.reading_level ?? v.readingLevel, 1, maxLevel('reading'), 1)
-  const spanish_level = int(v.spanish_level ?? v.spanishLevel, 1, maxLevel('spanish'), 1)
-  const spelling_level = int(v.spelling_level, 1, maxLevel('spelling'), 1)
+  // Each subject's level and best level (older backups used camelCase names).
+  const levels: Partial<Learner> = {}
+  for (const s of SUBJECTS) {
+    const camel = s.levelColumn.replace(/_(\w)/, (_m, c: string) => c.toUpperCase())
+    const lv = int(v[s.levelColumn] ?? v[camel], 1, maxLevel(s.id), 1)
+    Object.assign(levels, { [s.levelColumn]: lv, [s.bestColumn]: Math.max(lv, int(v[s.bestColumn], 1, maxLevel(s.id), 1)) })
+  }
   return {
     display_name,
     kind,
@@ -86,12 +91,11 @@ export function cleanLearnerDraft(v: Record<string, unknown>, kind: LearnerKind)
     sticker_style,
     ...(typeof v.avatar === 'string' && ALL_AVATARS.has(v.avatar) ? { avatar: v.avatar } : {}),
     mode,
-    reading_level,
-    spanish_level,
-    reading_best: Math.max(reading_level, int(v.reading_best, 1, maxLevel('reading'), 1)),
-    spanish_best: Math.max(spanish_level, int(v.spanish_best, 1, maxLevel('spanish'), 1)),
-    spelling_level,
-    spelling_best: Math.max(spelling_level, int(v.spelling_best, 1, maxLevel('spelling'), 1)),
+    reading_level: 1,
+    spanish_level: 1,
+    reading_best: 1,
+    spanish_best: 1,
+    ...levels,
     lifetime_stars,
     spendable_stars,
     mastered: cleanMastered(v.mastered ?? v.masteredWordsByLevel),
