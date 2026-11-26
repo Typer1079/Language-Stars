@@ -168,9 +168,13 @@ test('Spelling Bee: the word can be typed instead of spoken', async ({ page }) =
   await signIn(page)
   await page.getByRole('button', { name: 'Play as Ethan' }).click()
   await expect(page.getByText(/Say the letters out loud/)).toBeVisible()
+  // Just start typing: no need to click the box first.
+  await page.locator('body').click({ position: { x: 5, y: 5 } })
+  await page.keyboard.type('zzzz')
   const box = page.getByLabel('⌨️ Or type it here')
-  await box.fill('zzzz')
-  await page.getByRole('button', { name: 'Check' }).click()
+  await expect(box).toBeFocused()
+  await expect(box).toHaveValue('zzzz')
+  await page.keyboard.press('Enter')
   await expect(page.getByText('You spelled: ZZZZ')).toBeVisible()
 })
 

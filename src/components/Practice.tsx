@@ -693,7 +693,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
           {item?.spell && spellingMode && (
             <SpellingCard item={item} revealed={revealed} spelled={spelled} spellMiss={spellMiss} success={success} beeInfo={beeInfo}
               typing={typing} setTyping={setTyping} askBee={askBee} misheard={misheard} submitTyped={submitTyped}
-              onStartOver={() => engineRef.current?.retryWord()} onTypeInstead={() => { engineRef.current?.stopAll(); setTyping('') }} />
+              keyboardActive={!anyModal} onStartOver={() => engineRef.current?.retryWord()} onTypeInstead={() => { engineRef.current?.stopAll(); setTyping('') }} />
           )}
 
           {item?.spanish && spanish && <SpanishCard spanish={item.spanish} revealed={revealed} onReveal={() => setRevealed(true)} phraseShown={phraseShown} />}

@@ -2,6 +2,9 @@
 
 Versions follow major.minor.patch. The version shown in the app comes from `package.json`.
 
+## 1.5.1 — 2026-11-25
+- Spelling Bee: on a keyboard, just start typing after the word is said (no need to click the box first); Enter checks it.
+
 ## 1.5.0 — 2026-11-25
 - **Spelling Bee typing**: a "type it here" box is always under the letters, with instructions to say
   the letters or type the word. Typing turns the microphone off until 🎤 is tapped.
