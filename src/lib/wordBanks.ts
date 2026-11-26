@@ -291,9 +291,13 @@ export const HOMOPHONE_VARIANTS: Record<string, string[]> = {
 /** What the coach calls a young reader when not using their name. Kept to words a browser voice says clearly. */
 export const ENCOURAGING_NICKNAMES = ['Superstar', 'Super Reader', 'Reading Hero']
 
+/** One item in a language path (Spanish or any other). */
 export interface SpanishEntry {
   en: string
+  /** What the learner sees: the word itself, or its romanized form (konnichiwa). */
   es: string
+  /** Native script that speech recognition writes and Iris says (こんにちは); absent when it's `es`. */
+  say?: string
   phonetic: string
   phraseEs: string
   phraseEn: string
@@ -987,3 +991,4 @@ export const SPANISH_WORD_BANKS: Record<number, SpanishEntry[]> = {
     }
   ]
 }
+export type LanguageEntry = SpanishEntry

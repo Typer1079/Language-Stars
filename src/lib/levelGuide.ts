@@ -1,6 +1,7 @@
 import { MAX_LEVEL, ITEMS_PER_LEVEL } from './curriculum'
 import { SPELLING_WORDS } from './spellingWords'
 import type { Mode } from './types'
+import { CONCEPTS } from './languages/concepts'
 
 /** One range of levels: what it's called, roughly what school grade (or CEFR level) it matches, and what you practice. */
 export interface LevelRange {
@@ -72,7 +73,24 @@ function spellingRanges(): LevelRange[] {
   return out
 }
 
-export const LEVEL_GUIDE: Record<Mode, LevelRange[]> = { reading: READING, spanish: SPANISH, spelling: spellingRanges() }
+/** New language paths: one range per stage, listing what each level practices. */
+function languageRanges(): LevelRange[] {
+  const out: LevelRange[] = []
+  CONCEPTS.forEach((c, i) => {
+    const last = out[out.length - 1]
+    if (last && last.stage === c.stage && last.grade === c.grade) {
+      last.to = i + 1
+      last.what += `, ${c.what.toLowerCase()}`
+    } else out.push({ from: i + 1, to: i + 1, stage: c.stage, grade: c.grade, what: c.what })
+  })
+  return out
+}
+const LANGUAGE = languageRanges()
+
+export const LEVEL_GUIDE: Record<Mode, LevelRange[]> = {
+  reading: READING, spanish: SPANISH, spelling: spellingRanges(),
+  french: LANGUAGE, portuguese: LANGUAGE, tagalog: LANGUAGE, japanese: LANGUAGE, korean: LANGUAGE, mandarin: LANGUAGE, farsi: LANGUAGE,
+}
 
 export function rangeFor(level: number, mode: Mode): LevelRange {
   return LEVEL_GUIDE[mode].find((r) => level >= r.from && level <= r.to) ?? LEVEL_GUIDE[mode][LEVEL_GUIDE[mode].length - 1]

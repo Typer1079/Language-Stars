@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Learner, LearnerDraft } from './types'
+import type { Learner, LearnerDraft, Mode } from './types'
 import { SUBJECTS, levelRows } from './subjects'
 
 const BASE_COLUMNS =
@@ -53,8 +53,24 @@ async function withFallback<R extends { error: { message?: string } | null }>(ru
 export const avatarsAvailable = () => !missing.has('avatar')
 /** True once the database has the Spelling Bee (update 008). */
 export const spellingAvailable = () => !missing.has('spelling')
-/** Subjects this database supports (Spelling Bee needs database update 008). */
-export const availableSubjects = () => SUBJECTS.filter((s) => s.id !== 'spelling' || spellingAvailable())
+// Subjects listed in the database's subjects table (update 015, new languages added by 017).
+// null until loaded, or when the table doesn't exist yet.
+let dbSubjects: Set<string> | null = null
+async function loadSubjects() {
+  if (dbSubjects) return
+  const { data, error } = await supabase.from('subjects').select('id')
+  if (!error && Array.isArray(data)) dbSubjects = new Set((data as { id: string }[]).map((r) => r.id))
+}
+
+/**
+ * Subjects this database supports: Spelling Bee needs update 008; subjects without an old learner
+ * column (the newer languages) need their row in the subjects table (update 017) and level rows.
+ */
+export const availableSubjects = () => SUBJECTS.filter((s) => {
+  if (s.id === 'spelling') return spellingAvailable()
+  if (s.levelColumn) return true
+  return Boolean(dbSubjects?.has(s.id)) && levelRowsWritable !== false && !missing.has('levels')
+})
 
 type LevelRow = { subject: string; level: number; best: number }
 
@@ -76,6 +92,7 @@ function fromRow(row: Record<string, unknown>): Learner {
 }
 
 export async function listLearners(): Promise<Learner[]> {
+  await loadSubjects()
   const { data, error } = await withFallback(() => supabase.from('learners').select(columns()).order('created_at', { ascending: true }))
   if (error) throw error
   return ((data ?? []) as unknown as Record<string, unknown>[]).map(fromRow)
@@ -167,7 +184,7 @@ export function dbMessage(err: unknown): string {
 /** One finished round, as stored for progress graphs (counts and timing only). */
 export interface RoundRecord {
   learner_id: string
-  mode: 'reading' | 'spanish' | 'spelling'
+  mode: Mode
   level: number
   level_after: number
   items: number

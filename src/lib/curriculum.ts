@@ -6,6 +6,9 @@
 
 import { WORD_BANKS, type SpanishEntry } from './wordBanks'
 import { TOURIST_LEVELS } from './spanishTourist'
+import { LANGUAGE_LEVELS } from './languages'
+import { CONCEPTS } from './languages/concepts'
+import type { Mode } from './types'
 import { SPELLING_WORDS, type SpellEntry } from './spellingWords'
 import { ADVANCED_FROM, advancedLevels, bandFor } from './readingAdvanced'
 
@@ -64,7 +67,8 @@ function fillLevels<T>(
   }
 }
 
-export function stageName(level: number, mode: 'reading' | 'spanish' | 'spelling'): string {
+export function stageName(level: number, mode: Mode): string {
+  if (mode !== 'spanish' && LANGUAGE_LEVELS[mode]) return CONCEPTS[Math.min(level, CONCEPTS.length) - 1]?.stage ?? 'Sentences'
   if (mode === 'spelling') {
     // Named after where the level's words sit in the list (see levelGuide.ts).
     const n = SPELLING_WORDS.length

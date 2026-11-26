@@ -36,7 +36,7 @@ export function RoundCelebration({ c, name, mode, balance, lifetime, progress, o
   const grad = c.kind === 'levelup' || (c.toLevel > c.fromLevel && !c.movedDownTo)
   const next = useRef<HTMLButtonElement>(null)
   useEffect(() => { next.current?.focus() }, [])
-  const verb = mode === 'spanish' ? 'said' : mode === 'spelling' ? 'spelled' : 'read'
+  const verb = s.language ? 'said' : mode === 'spelling' ? 'spelled' : 'read'
   const toGo = Math.max(0, progress.needed - progress.done)
 
   return (

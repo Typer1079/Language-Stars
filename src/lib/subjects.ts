@@ -19,8 +19,10 @@ export interface Subject {
   icon: string
   /** One line describing what practice looks like. */
   blurb: string
-  /** Speech recognition / Iris voice language. */
-  speechLang: 'en-US' | 'es-US'
+  /** Speech recognition language. */
+  speechLang: string
+  /** A language to say (Spanish, French …): what's needed to teach it. Absent for Reading and Spelling Bee. */
+  language?: LanguageInfo
   /** Suffix for mastered-item keys per level ("12", "12_es", "12_sp"). */
   masterySuffix: string
   /**
@@ -41,6 +43,34 @@ export interface Subject {
   needsDbUpdate?: string
 }
 
+export interface LanguageInfo {
+  /** "French" (used in "Say this in French"). */
+  name: string
+  /** Iris's voice for the language. */
+  voiceLang: string
+  /** Number of levels in this path. */
+  maxLevel: number
+  /** How answers are compared: letters (Latin), characters (Japanese, Korean, Chinese) or Persian script. */
+  script: 'latin' | 'cjk' | 'persian'
+  /** Shown in English letters (the card never shows the native script). */
+  romanized?: boolean
+  /** New, being checked by native speakers. */
+  beta?: boolean
+}
+
+const lang = (id: SubjectId, label: string, icon: string, speechLang: string, info: Omit<LanguageInfo, 'name' | 'maxLevel'> & { maxLevel?: number },
+  colors: { active: string; chart: Subject['chart'] }, extra = ''): Subject => ({
+  id, label, shortLabel: label, longLabel: `${label} (from English)${info.beta ? ' · Beta' : ''}`, icon,
+  blurb: `See an English word or phrase and say it in ${label}, starting with travel phrases.${extra}`,
+  speechLang, masterySuffix: `_${id.slice(0, 3)}`,
+  language: { name: label, maxLevel: 30, ...info },
+  scaleNote: 'CEFR scale: A1 beginner → A2 elementary',
+  activeClass: `bg-gradient-to-r ${colors.active} text-white shadow`,
+  chart: colors.chart,
+  stuckAfterSeconds: 90,
+  needsDbUpdate: '017',
+})
+
 export const SUBJECTS: readonly Subject[] = [
   {
     id: 'reading', label: 'Reading', shortLabel: 'Reading', longLabel: 'Reading (English)', icon: '📖',
@@ -55,6 +85,7 @@ export const SUBJECTS: readonly Subject[] = [
     id: 'spanish', label: 'Spanish', shortLabel: 'Spanish', longLabel: 'Spanish (from English)', icon: '🇪🇸',
     blurb: 'See an English word or phrase and say it in Spanish, starting with travel phrases.',
     speechLang: 'es-US', masterySuffix: '_es', levelColumn: 'spanish_level', bestColumn: 'spanish_best',
+    language: { name: 'Spanish', voiceLang: 'es-ES', maxLevel: 100, script: 'latin' },
     scaleNote: 'CEFR scale: A1 beginner → B1 intermediate',
     activeClass: 'bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow',
     chart: { className: 'stroke-amber-500', dot: 'bg-amber-500', fill: 'fill-amber-500' },
@@ -70,7 +101,24 @@ export const SUBJECTS: readonly Subject[] = [
     stuckAfterSeconds: 150,
     needsDbUpdate: '008',
   },
+  lang('french', 'French', '🇫🇷', 'fr-FR', { voiceLang: 'fr-FR', script: 'latin', beta: true },
+    { active: 'from-blue-600 to-red-500', chart: { className: 'stroke-blue-600', dot: 'bg-blue-600', fill: 'fill-blue-600' } }),
+  lang('portuguese', 'Portuguese', '🇵🇹', 'pt-PT', { voiceLang: 'pt-PT', script: 'latin', beta: true },
+    { active: 'from-green-700 to-red-600', chart: { className: 'stroke-green-700', dot: 'bg-green-700', fill: 'fill-green-700' } }, ' European Portuguese (Portugal).'),
+  lang('tagalog', 'Tagalog', '🇵🇭', 'fil-PH', { voiceLang: 'fil-PH', script: 'latin', beta: true },
+    { active: 'from-blue-700 to-yellow-500', chart: { className: 'stroke-sky-600', dot: 'bg-sky-600', fill: 'fill-sky-600' } }, ' Also called Filipino.'),
+  lang('japanese', 'Japanese', '🇯🇵', 'ja-JP', { voiceLang: 'ja-JP', script: 'cjk', romanized: true, beta: true },
+    { active: 'from-rose-600 to-pink-400', chart: { className: 'stroke-rose-600', dot: 'bg-rose-600', fill: 'fill-rose-600' } }, ' Shown in English letters.'),
+  lang('korean', 'Korean', '🇰🇷', 'ko-KR', { voiceLang: 'ko-KR', script: 'cjk', romanized: true, beta: true },
+    { active: 'from-sky-600 to-red-500', chart: { className: 'stroke-cyan-600', dot: 'bg-cyan-600', fill: 'fill-cyan-600' } }, ' Shown in English letters.'),
+  lang('mandarin', 'Mandarin', '🇨🇳', 'zh-CN', { voiceLang: 'zh-CN', script: 'cjk', romanized: true, beta: true },
+    { active: 'from-red-600 to-yellow-500', chart: { className: 'stroke-red-600', dot: 'bg-red-600', fill: 'fill-red-600' } }, ' Mandarin Chinese, shown in pinyin.'),
+  lang('farsi', 'Farsi', '🇮🇷', 'fa-IR', { voiceLang: 'fa-IR', script: 'persian', romanized: true, beta: true },
+    { active: 'from-emerald-600 to-red-500', chart: { className: 'stroke-teal-600', dot: 'bg-teal-600', fill: 'fill-teal-600' } }, ' Persian, shown in English letters.'),
 ]
+
+/** True for subjects where the learner says a word in another language (Spanish, French …). */
+export const isLanguage = (id: string | null | undefined) => Boolean(subject(id).language)
 
 const BY_ID = new Map(SUBJECTS.map((s) => [s.id, s]))
 

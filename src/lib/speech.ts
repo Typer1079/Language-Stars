@@ -3,7 +3,8 @@
 
 export interface VoiceSegment {
   text: string
-  lang: 'en-US' | 'es-ES'
+  /** BCP-47 voice language: en-US, es-ES, fr-FR, ja-JP … */
+  lang: string
   /** Slower or faster than normal for this part only (spelling words are said slowly). */
   rate?: number
 }
@@ -90,7 +91,7 @@ export function releaseCleanMic() {
 
 // Iris's voice: the most natural-sounding female voice the device has.
 // Apple's "Premium"/"Enhanced" voices, Google's and Microsoft's "Natural" voices sound far less robotic.
-const PREFERRED: Record<'en' | 'es', string[]> = {
+const PREFERRED: Record<string, string[]> = {
   en: ['ava (premium)', 'zoe (premium)', 'ava (enhanced)', 'zoe (enhanced)', 'samantha (enhanced)', 'allison (enhanced)', 'susan (enhanced)',
     'microsoft ava online', 'microsoft aria online', 'microsoft jenny online', 'google us english', 'ava', 'samantha', 'allison', 'karen', 'moira', 'tessa', 'serena'],
   es: ['paulina (premium)', 'marisol (premium)', 'paulina (enhanced)', 'mónica (enhanced)', 'monica (enhanced)', 'microsoft elvira online', 'microsoft dalia online',
@@ -102,10 +103,10 @@ const AVOID = /albert|bad news|bells|boing|bubbles|cellos|good news|jester|organ
 function voiceScore(v: SpeechSynthesisVoice, lang: string): number {
   const name = v.name.toLowerCase()
   const vl = (v.lang || '').toLowerCase().replace('_', '-')
-  const base = lang.slice(0, 2).toLowerCase() as 'en' | 'es'
+  const base = lang.split('-')[0].toLowerCase()
   if (!vl.startsWith(base) || AVOID.test(name)) return -1
   let score = vl === lang.toLowerCase() ? 20 : 10
-  const rank = PREFERRED[base].findIndex((p) => name.includes(p))
+  const rank = (PREFERRED[base] ?? []).findIndex((p) => name.includes(p))
   if (rank >= 0) score += 100 - rank * 3
   if (/premium|enhanced|natural|neural/.test(name)) score += 40
   return score
@@ -125,6 +126,19 @@ function pickVoice(lang: string): SpeechSynthesisVoice | null {
   }
   if (voices.length) voiceCache[lang] = best
   return best
+}
+
+/**
+ * True when the device has a voice for this language (fil and tl both mean Tagalog). Unknown
+ * (voices not loaded yet) counts as yes, so Iris tries the language voice first.
+ */
+export function hasVoice(lang: string): boolean {
+  if (!('speechSynthesis' in window)) return false
+  const voices = window.speechSynthesis.getVoices()
+  if (!voices.length) return true
+  const base = lang.split('-')[0].toLowerCase()
+  const alt = base === 'fil' ? 'tl' : base === 'tl' ? 'fil' : base
+  return voices.some((v) => { const b = (v.lang || '').toLowerCase().split(/[-_]/)[0]; return b === base || b === alt })
 }
 
 /** The voice Iris uses on this device (for the Account screen). */
@@ -183,7 +197,7 @@ export function speakSegments(segments: VoiceSegment[], done: () => void, speed 
     const voice = pickVoice(seg.lang)
     if (voice) u.voice = voice
     // A touch brighter and closer to a normal speaking pace sounds warmer than slow and flat.
-    u.rate = seg.rate ?? (seg.lang === 'es-ES' ? 0.9 : 1.0) * speed
+    u.rate = seg.rate ?? (seg.lang.startsWith('en') ? 1.0 : 0.9) * speed
     u.pitch = 1.1
     u.onend = next
     u.onerror = next

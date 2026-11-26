@@ -15,7 +15,7 @@ export interface MockLearner {
   kind: 'child' | 'self'
   age_group: string
   sticker_style: string
-  mode: 'reading' | 'spanish' | 'spelling'
+  mode: string
   reading_level: number
   spanish_level: number
   spelling_level: number
@@ -38,6 +38,10 @@ export interface MockState {
   /** Level saves to learner_subjects (database update 015). Set `levelRowsTable: false` to act like an older database. */
   levelUpserts: number
   levelRowsTable: boolean
+  /** Rows in the subjects table (all subjects after update 017; none before 015). */
+  subjects: string[]
+  /** Levels for subjects that have no learner column (the newer languages), per learner. */
+  extraLevels: Record<string, Record<string, { level: number; best: number }>>
   admin: boolean
   rpcCalls: { name: string; body: unknown }[]
   /** Accounts the admin list shows. */
@@ -75,7 +79,7 @@ const strong = (route: Route) => {
 }
 
 export async function mockSupabase(page: Page, init: Partial<MockState> = {}): Promise<MockState> {
-  const state: MockState = { learners: [], rounds: [], problems: [], patches: 0, signups: 0, levelUpserts: 0, levelRowsTable: true, admin: false, rpcCalls: [], users: [], terms: TERMS_VERSION, ...init }
+  const state: MockState = { learners: [], rounds: [], problems: [], patches: 0, signups: 0, levelUpserts: 0, levelRowsTable: true, subjects: ['reading', 'spanish', 'spelling', 'french', 'portuguese', 'tagalog', 'japanese', 'korean', 'mandarin', 'farsi'], extraLevels: {}, admin: false, rpcCalls: [], users: [], terms: TERMS_VERSION, ...init }
   await page.route(`${SUPABASE_URL}/**`, async (route) => {
     const req = route.request()
     const url = new URL(req.url())
@@ -99,7 +103,10 @@ export async function mockSupabase(page: Page, init: Partial<MockState> = {}): P
           return json({ code: 'PGRST200', message: "Could not find a relationship between 'learners' and 'learner_subjects' in the schema cache" }, 400)
         }
         return json(state.learners.filter(visible).map((l) => embed
-          ? { ...l, learner_subjects: (['reading', 'spanish', 'spelling'] as const).map((s) => ({ subject: s, level: l[`${s}_level`], best: l[`${s}_best`] })) }
+          ? { ...l, learner_subjects: [
+              ...(['reading', 'spanish', 'spelling'] as const).map((s) => ({ subject: s, level: l[`${s}_level`], best: l[`${s}_best`] })),
+              ...Object.entries(state.extraLevels[l.id] ?? {}).map(([subject, v]) => ({ subject, ...v })),
+            ] }
           : l))
       }
       if (method === 'PATCH') {
@@ -114,11 +121,21 @@ export async function mockSupabase(page: Page, init: Partial<MockState> = {}): P
         return json(row, 201)
       }
     }
+    if (path === '/rest/v1/subjects') {
+      if (!state.levelRowsTable) return json({ code: '42P01', message: 'relation "public.subjects" does not exist' }, 404)
+      return json(state.subjects.map((id) => ({ id })))
+    }
     if (path === '/rest/v1/learner_subjects') {
       if (!state.levelRowsTable) return json({ code: '42501', message: 'permission denied for table learner_subjects' }, 403)
       for (const r of (Array.isArray(body) ? body : [body]) as { learner_id: string; subject: 'reading' | 'spanish' | 'spelling'; level: number; best: number }[]) {
         const l = state.learners.find((x) => x.id === r.learner_id)
         if (!l) return json({ message: 'new row violates row-level security policy' }, 403)
+        if (!state.subjects.includes(r.subject)) return json({ code: '23503', message: 'violates foreign key constraint "learner_subjects_subject_fkey"' }, 409)
+        if (!['reading', 'spanish', 'spelling'].includes(r.subject)) {
+          const prev = state.extraLevels[l.id]?.[r.subject]
+          state.extraLevels[l.id] = { ...state.extraLevels[l.id], [r.subject]: { level: r.level, best: Math.max(prev?.best ?? 1, r.best, r.level) } }
+          continue
+        }
         l[`${r.subject}_level`] = r.level
         l[`${r.subject}_best`] = Math.max(l[`${r.subject}_best`], r.best, r.level)
       }

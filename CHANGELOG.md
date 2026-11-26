@@ -2,6 +2,26 @@
 
 Versions follow major.minor.patch. The version shown in the app comes from `package.json`.
 
+## 1.8.0 — 2026-11-25
+- **Seven new language paths (Beta)**: French, Portuguese (Portugal), Tagalog, Japanese, Korean, Mandarin
+  (Simplified) and Farsi, 30 levels each (300 items), from greetings to everyday sentences. One shared
+  English list (`src/lib/languages/concepts.ts`) is translated per language (`src/lib/languages/*.ts`).
+- Japanese, Korean, Mandarin and Farsi are shown in English letters (romaji, Revised Romanization,
+  pinyin, simple Persian romanization) but heard in their own script: answers are compared after
+  folding katakana/hiragana, Arabic/Persian letter forms, joiners and digit styles, with one- and
+  two-character answers matched only on their own and longer phrases forgiving ~20% (`isNativeMatch`).
+- Iris speaks each language with a matching device voice; with none installed she says the English-letter
+  form instead.
+- Subjects now describe their language (`language` in `subjects.ts`): name, voice, number of levels,
+  script. Practice, the answer card, level guide, stage names, charts and the level pickers read from it
+  instead of checking for Spanish. Each subject has its own top level (`maxLevel`).
+- The subject switch shows Reading, Spelling Bee and one language tile with a ▾ menu for the others.
+  The add/edit form keeps the other languages' starting levels under "Starting levels for other languages".
+- **Database update 017** adds the seven languages to `subjects`. The app only offers them once it has
+  been run (it reads the `subjects` table).
+- **Help → What's new**: release notes in plain language and the full version history
+  (`src/lib/releaseNotes.ts`; a test keeps its newest entry equal to the app version).
+
 ## 1.7.0 — 2026-11-25
 - **Round celebration**: the end of a round is now a full-screen party (confetti, fanfare) instead of a
   small box. Moving up shows "🎓 {name} graduated!" with the new level, its stage and grade, and the

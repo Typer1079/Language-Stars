@@ -274,3 +274,53 @@ test('finishing a round shows a full-screen celebration with the level and the s
   await party.getByRole('button', { name: /Next Round|Start Level/ }).click()
   await expect(party).toHaveCount(0)
 })
+
+test('a new language: pick French on the card, say a word, earn a star, and its level is saved', async ({ page }) => {
+  const state = await mockSupabase(page, { learners: [learner({ id: 'l1', display_name: 'Olivia', lifetime_stars: 20 })] })
+  await signIn(page)
+  const card = page.getByRole('group', { name: 'What Olivia practices today' })
+  await card.getByLabel('Choose a language').selectOption('french')
+  await expect.poll(() => state.learners[0].mode).toBe('french')
+  await page.getByRole('button', { name: 'Play as Olivia' }).click()
+  await expect(page.getByText('Say this English word in French')).toBeVisible()
+  await page.getByRole('button', { name: '👀 Reveal the French' }).click()
+  const answer = /French: "(.+?)"/.exec(await page.getByText(/French: "/).innerText())?.[1] ?? ''
+  expect(answer).not.toBe('')
+  await expect.poll(async () => {
+    await page.evaluate((w) => (window as unknown as { __say: (t: string) => boolean }).__say(w), answer)
+    return state.learners[0].lifetime_stars
+  }, { timeout: 15000, intervals: [700] }).toBeGreaterThan(20)
+  await expect.poll(() => state.extraLevels.l1?.french?.level).toBe(1)
+})
+
+test('Japanese is shown in English letters and heard in Japanese script', async ({ page }) => {
+  const state = await mockSupabase(page, { learners: [learner({ id: 'l1', display_name: 'Ethan', mode: 'japanese', lifetime_stars: 20 })] })
+  await signIn(page)
+  await page.getByRole('button', { name: 'Play as Ethan' }).click()
+  await page.getByRole('button', { name: '👀 Reveal the Japanese' }).click()
+  const shown = /Japanese: "(.+?)"/.exec(await page.getByText(/Japanese: "/).innerText())?.[1] ?? ''
+  expect(shown).toMatch(/^[a-z' ]+$/)
+  const native: Record<string, string> = { konnichiwa: 'こんにちは', arigatou: 'ありがとう', onegaishimasu: 'お願いします', hai: 'はい', iie: 'いいえ',
+    sayounara: 'さようなら', 'ohayou gozaimasu': 'おはようございます', oyasuminasai: 'おやすみなさい', sumimasen: 'すみません', gomennasai: 'ごめんなさい' }
+  await expect.poll(async () => {
+    await page.evaluate((w) => (window as unknown as { __say: (t: string) => boolean }).__say(w), native[shown] ?? shown)
+    return state.learners[0].lifetime_stars
+  }, { timeout: 15000, intervals: [700] }).toBeGreaterThan(20)
+})
+
+test('an older database (before update 017) only offers the first three subjects', async ({ page }) => {
+  await mockSupabase(page, { subjects: ['reading', 'spanish', 'spelling'], learners: [learner({ id: 'l1', display_name: 'Olivia' })] })
+  await signIn(page)
+  const card = page.getByRole('group', { name: 'What Olivia practices today' })
+  await expect(card).toContainText('Spanish')
+  await expect(card.getByLabel('Choose a language')).toHaveCount(0)
+})
+
+test('Help has release notes and the version history', async ({ page }) => {
+  await mockSupabase(page, { learners: [learner({ id: 'l1', display_name: 'Olivia' })] })
+  await signIn(page)
+  await page.getByRole('button', { name: /Help/ }).click()
+  await page.getByRole('tab', { name: /What’s new/ }).click()
+  await expect(page.getByRole('region', { name: 'Version 1.8.0' })).toContainText('Latest')
+  await expect(page.getByRole('region', { name: 'Version 1.0.0' })).toContainText('First release')
+})

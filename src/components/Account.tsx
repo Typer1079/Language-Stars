@@ -120,7 +120,7 @@ export default function Account(p: Props) {
         <h2 className="font-semibold">💬 Iris’s voice</h2>
         <p className="text-sm text-slate-600">On this device Iris uses: <b>{irisVoiceName()}</b></p>
         <p className="text-xs text-slate-500">
-          For the most natural voice on iPhone or iPad: <b>Settings → Accessibility → Spoken Content → Voices → English</b>, download <b>Ava (Premium)</b> or <b>Zoe (Premium)</b>, and under Spanish, <b>Paulina (Premium)</b>. Iris picks them up automatically. On a Mac it’s System Settings → Accessibility → Spoken Content → System Voice → Manage Voices.
+          For the most natural voice on iPhone or iPad: <b>Settings → Accessibility → Spoken Content → Voices → English</b>, download <b>Ava (Premium)</b> or <b>Zoe (Premium)</b>, and under Spanish, <b>Paulina (Premium)</b>. For French, Portuguese, Japanese, Korean or Chinese, download a voice for that language the same way. Iris picks them up automatically; with no voice for a language, she spells it out in English letters instead. On a Mac it’s System Settings → Accessibility → Spoken Content → System Voice → Manage Voices.
         </p>
       </section>
 

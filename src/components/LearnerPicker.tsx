@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type React from 'react'
-import { activeLevel, levelOf } from '../lib/progress'
+import { activeLevel, maxLevel } from '../lib/progress'
 import { FaceIdOffer } from './FaceId'
 import { ProgressView } from './Progress'
 import { StickerWall } from './Stickers'
@@ -9,8 +9,9 @@ import { availableSubjects, avatarsAvailable, myRanks } from '../lib/learnersApi
 import { medal } from '../lib/ranks'
 import { gradeFor } from '../lib/levelGuide'
 import { HelpGuide } from './HelpGuide'
+import { SubjectSwitch } from './practice/SubjectSwitch'
 import { LinkDevicePanel } from './Devices'
-import { MAX_LEVEL, stageName } from '../lib/curriculum'
+import { stageName } from '../lib/curriculum'
 import { cleanName, parseSaveFile } from '../lib/validate'
 import { newLearnerDraft, type AgeGroup, type Learner, type LearnerDraft, type LearnerKind, type Mode, type StickerStyle } from '../lib/types'
 import { Notice } from './ui/Notice'
@@ -119,7 +120,7 @@ const THEMES = {
 
 function LearnerCard({ learner: l, onPlay, onProgress, onStickers, onEdit, onMode }: { learner: Learner; onPlay: () => void; onProgress: () => void; onStickers: () => void; onEdit: () => void; onMode: (m: Mode) => void }) {
   // Each learner keeps the same colors (picked from their name), so cards are easy to tell apart.
-  const t = THEMES[l.mode][[...l.display_name].reduce((n, c) => n + c.charCodeAt(0), 0) % 2]
+  const t = (THEMES[l.mode as keyof typeof THEMES] ?? THEMES.spanish)[[...l.display_name].reduce((n, c) => n + c.charCodeAt(0), 0) % 2]
   const level = activeLevel(l)
   const shown = l.stickers.slice(-6).reverse()
   // Overall worldwide rank = rank by lifetime stars (needs database update 007; hidden until then).
@@ -157,12 +158,12 @@ function LearnerCard({ learner: l, onPlay, onProgress, onStickers, onEdit, onMod
           </div>
           <div className="text-right">
             <div className="font-kids text-3xl font-bold leading-none text-slate-900">{level}</div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">of {MAX_LEVEL}</div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">of {maxLevel(l.mode)}</div>
           </div>
         </div>
 
-        <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100" aria-label={`Level ${level} of ${MAX_LEVEL}`}>
-          <div className={`h-full rounded-full bg-gradient-to-r ${t.bar}`} style={{ width: `${Math.max(3, level)}%` }} />
+        <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100" aria-label={`Level ${level} of ${maxLevel(l.mode)}`}>
+          <div className={`h-full rounded-full bg-gradient-to-r ${t.bar}`} style={{ width: `${Math.max(3, (level / maxLevel(l.mode)) * 100)}%` }} />
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5 text-xs font-bold">
@@ -177,15 +178,7 @@ function LearnerCard({ learner: l, onPlay, onProgress, onStickers, onEdit, onMod
         </div>
 
         {/* Today's subject: one tap to switch (each keeps its own level). */}
-        <div className="mt-3 grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1" role="group" aria-label={`What ${l.display_name} practices today`}>
-          {availableSubjects().map((x) => (
-            <button key={x.id} type="button" aria-pressed={l.mode === x.id} onClick={() => l.mode !== x.id && onMode(x.id)}
-              className={`flex flex-col items-center rounded-xl px-1 py-1.5 text-[11px] font-bold leading-tight transition ${l.mode === x.id ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:bg-white/60'}`}>
-              <span className="text-base">{x.icon}</span>
-              <span>{x.shortLabel} <span className="font-semibold opacity-70">L{levelOf(l, x.id)}</span></span>
-            </button>
-          ))}
-        </div>
+        <SubjectSwitch learner={l} subjects={availableSubjects()} onSwitch={onMode} variant="card" label={`What ${l.display_name} practices today`} />
 
         <div className="mt-4 flex items-center gap-2">
           <button type="button" onClick={onPlay} aria-label={`Play as ${l.display_name}`}
@@ -228,8 +221,8 @@ function LevelPicker({ id, label, mode, value, onChange }: { id: string; label: 
       <label className="label" htmlFor={id}>{label}: <span className="text-indigo-700">{value}</span> <span className="font-normal text-slate-500">({stageName(value, mode)} · {gradeFor(value, mode)})</span></label>
       <div className="flex items-center gap-2">
         <button type="button" className="h-9 w-9 shrink-0 rounded-xl border border-slate-200 bg-white font-bold" aria-label={`${label} down`} onClick={() => onChange(Math.max(1, value - 1))}>−</button>
-        <input id={id} type="range" min={1} max={MAX_LEVEL} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-indigo-600" />
-        <button type="button" className="h-9 w-9 shrink-0 rounded-xl border border-slate-200 bg-white font-bold" aria-label={`${label} up`} onClick={() => onChange(Math.min(MAX_LEVEL, value + 1))}>+</button>
+        <input id={id} type="range" min={1} max={maxLevel(mode)} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-indigo-600" />
+        <button type="button" className="h-9 w-9 shrink-0 rounded-xl border border-slate-200 bg-white font-bold" aria-label={`${label} up`} onClick={() => onChange(Math.min(maxLevel(mode), value + 1))}>+</button>
       </div>
     </div>
   )
@@ -352,14 +345,24 @@ export function ReaderForm({ initial, isNew, busy, error, submitLabel, onSubmit,
           options={availableSubjects().map((x) => ({ v: x.id, label: `${x.icon} ${x.longLabel}` }))} />
         <p className="mt-1 text-xs text-slate-500">
           {subject(f.mode).blurb}
-          {!isNew && ' Progress in the other one is kept if you switch back.'}
+          {!isNew && ' Progress in every other subject is kept if you switch back.'}
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        {availableSubjects().map((x) => {
-          return <LevelPicker key={x.id} id={`${x.id}-level`} label={`${x.icon} ${x.shortLabel} level`} mode={x.id} value={f.levels[x.id]} onChange={(v) => set('levels', { ...f.levels, [x.id]: v })} />
-        })}
-        <p className="text-xs text-slate-500 sm:col-span-2">Start anywhere from 1 to {MAX_LEVEL}. The app still moves up or down from there based on how practice goes.</p>
+        {availableSubjects().filter((x) => !x.language || x.id === f.mode || (x.id === 'spanish' && !subject(f.mode).language)).map((x) => (
+          <LevelPicker key={x.id} id={`${x.id}-level`} label={`${x.icon} ${x.shortLabel} level`} mode={x.id} value={f.levels[x.id] ?? 1} onChange={(v) => set('levels', { ...f.levels, [x.id]: v })} />
+        ))}
+        {availableSubjects().filter((x) => x.language && x.id !== f.mode && !(x.id === 'spanish' && !subject(f.mode).language)).length > 0 && (
+          <details className="sm:col-span-2">
+            <summary className="cursor-pointer text-sm font-semibold text-indigo-700">🌍 Starting levels for other languages</summary>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              {availableSubjects().filter((x) => x.language && x.id !== f.mode && !(x.id === 'spanish' && !subject(f.mode).language)).map((x) => (
+                <LevelPicker key={x.id} id={`${x.id}-level`} label={`${x.icon} ${x.shortLabel} level`} mode={x.id} value={f.levels[x.id] ?? 1} onChange={(v) => set('levels', { ...f.levels, [x.id]: v })} />
+              ))}
+            </div>
+          </details>
+        )}
+        <p className="text-xs text-slate-500 sm:col-span-2">Start anywhere from Level 1 up. The app still moves up or down from there based on how practice goes.</p>
       </div>
       <div>
         <span className="label">Age group</span>

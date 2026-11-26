@@ -14,9 +14,9 @@ describe('progress stats', () => {
   it('builds one entry per day with levels carried forward', () => {
     const s = dailySeries([round(40, { level_after: 3 }), round(2, { level_after: 6 }), round(0, { mode: 'spanish', level_after: 2 })], 7, now)
     expect(s).toHaveLength(7)
-    expect(s[0].reading).toBe(3)
-    expect(s[4].reading).toBe(6)
-    expect(s[6].spanish).toBe(2)
+    expect(s[0].levels.reading).toBe(3)
+    expect(s[4].levels.reading).toBe(6)
+    expect(s[6].levels.spanish).toBe(2)
     expect(s[6].minutes).toBe(5)
   })
   it('summarizes time, accuracy and streak', () => {

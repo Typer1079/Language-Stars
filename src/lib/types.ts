@@ -1,5 +1,5 @@
-export type Mode = 'reading' | 'spanish' | 'spelling'
-export const MODES: Mode[] = ['reading', 'spanish', 'spelling']
+export type Mode = 'reading' | 'spanish' | 'spelling' | 'french' | 'portuguese' | 'tagalog' | 'japanese' | 'korean' | 'mandarin' | 'farsi'
+export const MODES: Mode[] = ['reading', 'spanish', 'spelling', 'french', 'portuguese', 'tagalog', 'japanese', 'korean', 'mandarin', 'farsi']
 export type AgeGroup = '3-4' | '5-6' | '7-8' | '9+' | 'adult'
 export type StickerStyle = 'boy' | 'girl' | 'any'
 export type LearnerKind = 'child' | 'self'

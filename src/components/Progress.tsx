@@ -8,7 +8,7 @@ import { BarChart, LineChart, Tile } from './Charts'
 import { RanksSection } from './Ranks'
 import { Notice } from './ui/Notice'
 import { formatDateTime } from '../lib/format'
-import { SUBJECTS, subject, subjectBest, subjectLevel, subjectName } from '../lib/subjects'
+import { SUBJECTS, isLanguage, subject, subjectBest, subjectLevel, subjectName } from '../lib/subjects'
 
 const RANGES = [7, 30, 90] as const
 
@@ -79,7 +79,7 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
           <>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <Tile label="Practice time" value={`${s.minutes} min`} sub={`${s.rounds} rounds`} />
-              <Tile label={learner.mode === 'spelling' ? 'Words tried' : learner.mode === 'spanish' && !usesReading ? 'Words said' : 'Words read'} value={s.items} sub={`${s.clean} on their own`} />
+              <Tile label={learner.mode === 'spelling' ? 'Words tried' : isLanguage(learner.mode) && !usesReading ? 'Words said' : 'Words read'} value={s.items} sub={`${s.clean} on their own`} />
               <Tile label="On their own" value={s.accuracy === null ? '–' : `${s.accuracy}%`} sub="without Iris or Next" />
               <Tile label="Stars earned" value={s.stars} />
               <Tile label="Days practiced" value={`${s.daysActive} / ${days}`} />
@@ -101,7 +101,7 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
                 <LineChart title="Said on their own (%)" days={labels} max={100} unit="%"
                   series={[{ name: 'accuracy', values: accuracy, className: 'stroke-emerald-500', dot: 'bg-emerald-500', fill: 'fill-emerald-500' }]} />
                 <LineChart title="Level" days={labels} max={100}
-                  series={used.map((id) => ({ name: subject(id).shortLabel, values: series.map((d) => d[id]), ...subject(id).chart }))} />
+                  series={used.map((id) => ({ name: subject(id).shortLabel, values: series.map((d) => d.levels[id] ?? null), ...subject(id).chart }))} />
                 <BarChart title="Stars earned" days={labels} values={series.map((d) => d.stars)} />
                 {s.questions > 0 && (
                   <LineChart title="Meaning questions right (%)" days={labels} max={100} unit="%"

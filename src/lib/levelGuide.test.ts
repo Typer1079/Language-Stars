@@ -1,13 +1,14 @@
+import { maxLevel } from './progress'
 import { describe, expect, it } from 'vitest'
 import { gradeFor, LEVEL_GUIDE } from './levelGuide'
 import { MODES } from './types'
 
 describe('level guide', () => {
-  it('covers every level 1-100 in every subject, with no gaps', () => {
+  it('covers every level of every subject, with no gaps', () => {
     for (const m of MODES) {
       const g = LEVEL_GUIDE[m]
       expect(g[0].from).toBe(1)
-      expect(g[g.length - 1].to).toBe(100)
+      expect(g[g.length - 1].to).toBe(maxLevel(m))
       for (let i = 1; i < g.length; i++) expect(g[i].from).toBe(g[i - 1].to + 1)
     }
   })

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { PracticeEngine, type MicState, type Pace, type Tone } from '../lib/practiceEngine'
-import { MAX_LEVEL, stageName } from '../lib/curriculum'
-import { activeLevel, levelOf, bestLevel, CHALLENGE_JUMP, CHALLENGE_PASS, CHALLENGE_SIZE, endRound, levelProgress, newMilestone, pickChallenge, pickRound, ROUND_SIZE, solveWord, STRETCH_STEPS, type PracticeItem } from '../lib/progress'
+import { stageName } from '../lib/curriculum'
+import { activeLevel, levelOf, bestLevel, CHALLENGE_JUMP, CHALLENGE_PASS, CHALLENGE_SIZE, endRound, levelProgress, maxLevel, newMilestone, pickChallenge, pickRound, ROUND_SIZE, solveWord, STRETCH_STEPS, type PracticeItem } from '../lib/progress'
 import { playChime, playFanfare } from '../lib/sfx'
 import { moveSticker } from '../lib/stickers'
 import { recognitionSupported, speakSegments } from '../lib/speech'
@@ -172,7 +172,9 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   }, [])
 
   const item = round[index]
-  const spanish = learner.mode === 'spanish'
+  const lang = subject(learner.mode).language
+  const spanish = Boolean(lang)
+  const top = maxLevel(learner.mode)
   const spellingMode = learner.mode === 'spelling'
   const reading = learner.mode === 'reading'
   const level = activeLevel(learner)
@@ -205,7 +207,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       engine.begin(opts.promptType ?? 'quick_listen')
     }
     else if (l.mode === 'spelling') setFeedback({ title: 'Spell the word out loud!', sub: 'Tap 🎤 Listen to hear your word', tone: 'neutral' })
-    else if (l.mode === 'spanish' && it.spanish) setFeedback({ title: `Say "${it.spanish.en}" in Spanish!`, sub: 'Shift shows the word • Space asks Iris • Return to listen', tone: 'neutral' })
+    else if (subject(l.mode).language && it.spanish) setFeedback({ title: `Say "${it.spanish.en}" in ${subject(l.mode).language?.name}!`, sub: 'Shift shows the word • Space asks Iris • Return to listen', tone: 'neutral' })
     else setFeedback({ title: 'Say the word out loud!', sub: `Press ${isMac ? 'Return' : 'Enter'} or tap Listen Now`, tone: 'neutral' })
   }, [])
 
@@ -304,7 +306,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     if (levelUpPending.current) {
       const perfect = attemptsRef.current >= ROUND_SIZE - STRETCH_STEPS.length && cleanRef.current === attemptsRef.current
       const now = activeLevel(learnerRef.current)
-      const target = Math.min(now - 1 + CHALLENGE_JUMP, MAX_LEVEL)
+      const target = Math.min(now - 1 + CHALLENGE_JUMP, maxLevel(learnerRef.current.mode))
       lastRoundRef.current = { clean: cleanRef.current, attempts: attemptsRef.current }
       levelUpPending.current = false
       engineRef.current?.stopAll()
@@ -351,7 +353,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     playChime()
     setConfetti(makeConfetti(coached ? 14 : 22))
     setSuccess(true)
-    const shown = before.mode === 'spanish' && it.spanish ? `${it.spanish.en} → ${it.spanish.es}` : before.mode === 'spelling' ? it.target.toUpperCase().split('').join('-') : it.target
+    const shown = subject(before.mode).language && it.spanish ? `${it.spanish.en} → ${it.spanish.es}` : before.mode === 'spelling' ? it.target.toUpperCase().split('').join('-') : it.target
     const bonus = r.leveledUpTo ? ` • Level up to ${r.leveledUpTo}!${r.bonus ? ` +${r.bonus} bonus ⭐` : ''}` : ''
     setFeedback({ title: `⭐ ${shown}!`, sub: `Heard "${heard}"${bonus}`, tone: 'success' })
     log('SOLVED', `word="${shown}" coached=${coached} bonus=${r.bonus}`)
@@ -569,7 +571,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       reportProblem({
         kind, detail: detail ?? null,
         learner_id: l.id, mode: l.mode, level: activeLevel(l),
-        item: it ? (it.spanish ? `${it.spanish.en} → ${it.target}` : it.target) + (it.stretchLevel ? ` (stretch from L${it.stretchLevel})` : '') : null,
+        item: it ? (it.spanish ? `${it.spanish.en} → ${it.spanish.es}${it.spanish.say ? ` (${it.spanish.say})` : ''}` : it.target) + (it.stretchLevel ? ` (stretch from L${it.stretchLevel})` : '') : null,
         heard: itemHeard(), seconds: itemSecs.current,
         log: lines.join('\n'),
       })
@@ -608,7 +610,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       const target = e.target as HTMLElement | null
       if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')) return
       if (e.key === 'Shift') {
-        if (learnerRef.current.mode === 'spanish' && !anyModal) setRevealed(true)
+        if (subject(learnerRef.current.mode).language && !anyModal) setRevealed(true)
         return
       }
       if (anyModal) return
@@ -701,7 +703,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
         <div className="flex w-full max-w-2xl flex-col gap-2 rounded-2xl border border-indigo-100 bg-white/90 p-3 shadow-sm backdrop-blur-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2" title="Master every word in a level to move up">
-              <span className="rounded-xl bg-indigo-600 px-3 py-1 font-kids text-sm font-bold text-white shadow-sm">Level {level} <span className="font-sans text-xs font-semibold opacity-80">of {MAX_LEVEL}</span></span>
+              <span className="rounded-xl bg-indigo-600 px-3 py-1 font-kids text-sm font-bold text-white shadow-sm">Level {level} <span className="font-sans text-xs font-semibold opacity-80">of {top}</span></span>
               <button type="button" onClick={() => setHelpOpen(true)} title="What this level means"
                 className="rounded-xl bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900 hover:bg-amber-200">
                 {stageName(level, learner.mode)} · {gradeFor(level, learner.mode)} <span className="opacity-60">ⓘ</span>
@@ -716,9 +718,9 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
               style={{ width: `${Math.round(((index + 1) / (round.length || 10)) * 100)}%` }} />
           </div>
           <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
-            <span>Road to {MAX_LEVEL}</span>
+            <span>Road to {top}</span>
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
-              <div className="h-full rounded-full bg-amber-400" style={{ width: `${level}%` }} />
+              <div className="h-full rounded-full bg-amber-400" style={{ width: `${(level / top) * 100}%` }} />
             </div>
             <span>{level}%</span>
           </div>
@@ -733,7 +735,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
               keyboardActive={!anyModal} onStartOver={() => engineRef.current?.retryWord()} onTypeInstead={() => { engineRef.current?.startTyping(); setTyping('') }} />
           )}
 
-          {item?.spanish && spanish && <SpanishCard spanish={item.spanish} revealed={revealed} onReveal={() => setRevealed(true)} phraseShown={phraseShown} />}
+          {item?.spanish && spanish && <SpanishCard language={lang?.name ?? 'Spanish'} spanish={item.spanish} revealed={revealed} onReveal={() => setRevealed(true)} phraseShown={phraseShown} />}
 
           {quiz && <QuizCard quiz={quiz} onAnswer={answerQuiz} />}
 

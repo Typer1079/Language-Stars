@@ -3,15 +3,19 @@ import { LEVEL_GUIDE } from '../lib/levelGuide'
 import { CHALLENGE_JUMP, CHALLENGE_PASS, CHALLENGE_SIZE, LEVEL_UP_AT, MOVE_DOWN_BELOW, ROUND_SIZE, STRETCH_STEPS } from '../lib/progress'
 import type { Mode } from '../lib/types'
 import { SUBJECTS, subject } from '../lib/subjects'
+import { RELEASE_NOTES } from '../lib/releaseNotes'
 
-const TABS: { id: Mode | 'rules'; label: string }[] = [
+type Tab = Mode | 'rules' | 'news'
+
+const TABS: { id: Tab; label: string }[] = [
   { id: 'rules', label: '⚙️ How it works' },
   ...SUBJECTS.map((s) => ({ id: s.id, label: `${s.icon} ${s.shortLabel} levels` })),
+  { id: 'news', label: '📝 What’s new' },
 ]
 
 /** Plain-language help: exactly how levels, stars, ranks and the Spelling Bee work, and what every level range means. */
-export function HelpGuide({ onClose, start = 'rules', highlight }: { onClose: () => void; start?: Mode | 'rules'; highlight?: { mode: Mode; level: number } }) {
-  const [tab, setTab] = useState<Mode | 'rules'>(start)
+export function HelpGuide({ onClose, start = 'rules', highlight }: { onClose: () => void; start?: Tab; highlight?: { mode: Mode; level: number } }) {
+  const [tab, setTab] = useState<Tab>(start)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
@@ -34,13 +38,15 @@ export function HelpGuide({ onClose, start = 'rules', highlight }: { onClose: ()
           ))}
         </div>
 
-        {tab !== 'rules' && <p className="mb-2 text-xs text-slate-500">{tab === 'spanish' ? `Level (${subject(tab).scaleNote})` : 'Grade level of the words'} · stage · what you practice</p>}
-        {tab === 'rules' ? (
+        {tab !== 'rules' && tab !== 'news' && <p className="mb-2 text-xs text-slate-500">{subject(tab).language ? `Level (${subject(tab).scaleNote})` : 'Grade level of the words'} · stage · what you practice</p>}
+        {tab === 'news' ? (
+          <ReleaseNotes />
+        ) : tab === 'rules' ? (
           <div className="space-y-4 text-sm leading-relaxed text-slate-700">
             <Section title="🎯 A round">
               <li>A round is {ROUND_SIZE} items: {ROUND_SIZE - STRETCH_STEPS.length} from your level (new ones first, then review) and {STRETCH_STEPS.length} <b>bonus items</b> from higher levels ({stretch}).</li>
               <li>Saying an item <b>on your own</b> means without Ask Iris and without Next. Those count toward mastering the level.</li>
-              <li>Each level has 10 items. Each subject (Reading, Spanish, Spelling) keeps its own level, so switching never loses progress.</li>
+              <li>Each level has 10 items. Each subject (Reading, Spelling Bee and every language) keeps its own level, so switching never loses progress.</li>
             </Section>
             <Section title="⬆️ Moving up">
               <li><b>Master {LEVEL_UP_AT} of the 10 items</b> in a level on your own and you move up a level.</li>
@@ -74,7 +80,7 @@ export function HelpGuide({ onClose, start = 'rules', highlight }: { onClose: ()
               <li>Young or new learners get the <b>guided</b> pace: Iris greets you and helps after a pause.</li>
               <li>Adults, and learners on a strong streak (8 of 10 on their own, or past Level 10), get the <b>brisk</b> pace: less talking and faster turns. A rough round switches back.</li>
             </Section>
-            <p className="text-xs text-slate-500">Grades are a guide to how hard the words are, based on typical U.S. school word lists. Spanish uses the European CEFR scale (A1 beginner → B1 intermediate).</p>
+            <p className="text-xs text-slate-500">Grades are a guide to how hard the words are, based on typical U.S. school word lists. Languages use the European CEFR scale (A1 beginner → B1 intermediate).</p>
           </div>
         ) : (
           <ol className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200">
@@ -108,6 +114,35 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
     <section>
       <h3 className="mb-1 font-kids text-lg font-bold text-slate-900">{title}</h3>
       <ul className="list-disc space-y-1 pl-5">{children}</ul>
+    </section>
+  )
+}
+
+/** Release notes and version history, newest first. */
+function ReleaseNotes() {
+  const [latest, ...older] = RELEASE_NOTES
+  return (
+    <div className="space-y-4 text-sm leading-relaxed text-slate-700">
+      <p className="text-xs text-slate-500">You’re on version <b>{__APP_VERSION__}</b>.</p>
+      <Release note={latest} current />
+      <h3 className="font-kids text-lg font-bold text-slate-900">Version history</h3>
+      <ol className="space-y-3">
+        {older.map((n) => <li key={n.version}><Release note={n} /></li>)}
+      </ol>
+    </div>
+  )
+}
+
+function Release({ note, current }: { note: (typeof RELEASE_NOTES)[number]; current?: boolean }) {
+  return (
+    <section className={`rounded-2xl border p-3 ${current ? 'border-amber-300 bg-amber-50' : 'border-slate-200'}`} aria-label={`Version ${note.version}`}>
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <span className="font-kids text-base font-bold text-indigo-700">{note.version}</span>
+        <span className="font-bold text-slate-900">{note.title}</span>
+        {current && <span className="rounded-full bg-amber-300 px-2 py-0.5 text-[11px] font-bold text-amber-950">Latest</span>}
+        {note.date && <span className="ml-auto text-xs text-slate-500">{new Date(`${note.date}T12:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>}
+      </div>
+      <ul className="mt-1 list-disc space-y-1 pl-5">{note.items.map((i) => <li key={i}>{i}</li>)}</ul>
     </section>
   )
 }

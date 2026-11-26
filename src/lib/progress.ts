@@ -2,6 +2,7 @@ import type { Learner, Mode } from './types'
 import { MAX_LEVEL, READING_LEVELS, SPANISH_LEVELS, SPELLING_LEVELS } from './curriculum'
 import type { SpanishEntry } from './wordBanks'
 import type { SpellEntry } from './spellingWords'
+import { LANGUAGE_LEVELS } from './languages'
 import { subject, subjectBest, subjectLevel, withSubjectLevel } from './subjects'
 
 /** One word to practice. `target` is what the learner must say out loud. */
@@ -22,8 +23,9 @@ export const STRETCH_STEPS = [2, 4, 6]
 /** Master this many of a level's 10 items (without help) to move up. */
 export const LEVEL_UP_AT = 8
 
-export function maxLevel(_mode?: Mode): number {
-  return MAX_LEVEL
+/** Highest level in a subject (100; the newer language paths have 30 so far). */
+export function maxLevel(mode?: Mode): number {
+  return (mode && subject(mode).language?.maxLevel) || MAX_LEVEL
 }
 
 export function levelOf(l: Partial<Pick<Learner, 'reading_level' | 'spanish_level' | 'spelling_level'>>, mode: Mode): number {
@@ -46,8 +48,9 @@ export function levelItems(level: number, mode: Mode): PracticeItem[] {
   if (mode === 'spelling') {
     return (SPELLING_LEVELS[level] ?? SPELLING_LEVELS[1]).map((e) => ({ key: e.word.toLowerCase(), target: e.word, spell: e }))
   }
-  if (mode === 'spanish') {
-    return (SPANISH_LEVELS[level] ?? SPANISH_LEVELS[1]).map((e) => ({ key: e.en.toLowerCase(), target: e.es, spanish: e }))
+  if (subject(mode).language) {
+    const levels = mode === 'spanish' ? SPANISH_LEVELS : LANGUAGE_LEVELS[mode]
+    return (levels[level] ?? levels[1]).map((e) => ({ key: e.en.toLowerCase(), target: e.say ?? e.es, spanish: e }))
   }
   return (READING_LEVELS[level] ?? READING_LEVELS[1]).map((w) => ({ key: w.toLowerCase(), target: w }))
 }

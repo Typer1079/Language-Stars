@@ -5,7 +5,8 @@ import { SUBJECTS, isSubjectId, levelRows, subject, subjectBest, subjectLevel, w
 describe('subject list', () => {
   it('has unique ids, columns and mastery suffixes', () => {
     for (const key of ['id', 'levelColumn', 'bestColumn', 'masterySuffix'] as const) {
-      expect(new Set(SUBJECTS.map((s) => s[key])).size).toBe(SUBJECTS.length)
+      const values = SUBJECTS.map((s) => s[key]).filter((v) => v !== undefined)
+      expect(new Set(values).size).toBe(values.length)
     }
   })
   it('falls back to Reading for unknown ids', () => {

@@ -17,9 +17,7 @@ export interface DayStats {
   questionsRight: number
   /** Level at the end of the day (carried forward from earlier days), per mode. */
   /** Level at the end of the day in each subject (null before the first round in it). */
-  reading: number | null
-  spanish: number | null
-  spelling: number | null
+  levels: Partial<Record<Mode, number | null>>
 }
 
 /** One entry per day for the last `days` days (oldest first), including days with no practice. */
@@ -34,9 +32,9 @@ export function dailySeries(rounds: RoundRecord[], days: number, now = new Date(
   start.setHours(0, 0, 0, 0)
   start.setDate(start.getDate() - (days - 1))
   // Levels before the window start, so lines don't begin empty.
-  const level: Record<Mode, number | null> = { reading: null, spanish: null, spelling: null }
+  const level: Partial<Record<Mode, number | null>> = {}
   for (const r of rounds) {
-    if (r.created_at && new Date(r.created_at) < start && r.mode in level) level[r.mode as Mode] = r.level_after
+    if (r.created_at && new Date(r.created_at) < start) level[r.mode as Mode] = r.level_after
   }
   const out: DayStats[] = []
   for (let i = 0; i < days; i++) {
@@ -44,7 +42,7 @@ export function dailySeries(rounds: RoundRecord[], days: number, now = new Date(
     d.setDate(start.getDate() + i)
     const k = dayKey(d)
     const list = byDay.get(k) ?? []
-    for (const r of list) if (r.mode in level) level[r.mode as Mode] = r.level_after
+    for (const r of list) level[r.mode as Mode] = r.level_after
     out.push({
       day: k,
       rounds: list.length,
@@ -54,7 +52,7 @@ export function dailySeries(rounds: RoundRecord[], days: number, now = new Date(
       minutes: Math.round(sum(list, 'seconds') / 6) / 10,
       questions: sum(list, 'questions'),
       questionsRight: sum(list, 'questions_right'),
-      ...level,
+      levels: { ...level },
     })
   }
   return out

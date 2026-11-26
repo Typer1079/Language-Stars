@@ -1,6 +1,6 @@
-import { isSpanishMatch, isWordMatch } from './match'
+import { isNativeMatch, isSpanishMatch, isWordMatch } from './match'
 import type { PracticeItem } from './progress'
-import { canFilterNoise, createRecognition, getCleanMicTrack, releaseCleanMic, speakSegments, cancelSpeech, IS_IOS, type RecognitionLike, type VoiceSegment } from './speech'
+import { canFilterNoise, createRecognition, getCleanMicTrack, releaseCleanMic, speakSegments, cancelSpeech, hasVoice, IS_IOS, type RecognitionLike, type VoiceSegment } from './speech'
 import type { Mode } from './types'
 import { ENCOURAGING_NICKNAMES } from './wordBanks'
 import { wordHelp } from './phonics'
@@ -198,7 +198,7 @@ export class PracticeEngine {
     const gen = ++this.gen
     this.stopAll()
     this.gen = gen
-    const spanish = this.mode === 'spanish'
+    const spanish = Boolean(this.lang)
     if (this.mode === 'spelling') {
       if (this.pace === 'brisk') return this.pronounce(gen)
       this.hooks.feedback(`Hi ${this.name}! Spelling Bee time`, 'Iris is your pronouncer…', 'coach')
@@ -213,9 +213,9 @@ export class PracticeEngine {
       this.listenWindow(this.listenMs, this.onSilence(gen))
       return
     }
-    this.hooks.feedback(spanish ? `Hi ${this.name}! Let's practice Spanish` : `Hi ${this.name}! Let's read together`, 'Iris is saying hello…', 'coach')
+    this.hooks.feedback(spanish ? `Hi ${this.name}! Let's practice ${this.lang?.name}` : `Hi ${this.name}! Let's read together`, 'Iris is saying hello…', 'coach')
     const text = spanish
-      ? `Hi ${this.name}! It's Iris. Say each word in Spanish, and ask me if you need help.`
+      ? `Hi ${this.name}! It's Iris. Say each word in ${this.lang?.name}, and ask me if you need help.`
       : `Hi ${this.name}! It's Iris. Let's read together! Read the word out loud.`
     this.say([{ text, lang: 'en-US' }], () => {
       if (gen !== this.gen || this.solved) return
@@ -234,7 +234,7 @@ export class PracticeEngine {
     }
     const callout = this.callout()
     const line =
-      this.mode === 'spanish' && this.item?.spanish
+      this.lang && this.item?.spanish
         ? `How do you say ${this.item.spanish.en}, ${callout}?`
         : `Your turn, ${callout}!`
     this.say([{ text: line, lang: 'en-US' }], () => {
@@ -314,25 +314,26 @@ export class PracticeEngine {
     const callout = this.callout()
     const item = this.item
 
-    if (this.mode === 'spanish' && item.spanish) {
+    if (this.lang && item.spanish) {
       const { en, es, phraseEs, phraseEn } = item.spanish
+      const word = this.foreign(item.spanish.say ?? es, es)
       this.hooks.revealSpanish()
       this.hooks.showPhrase()
       this.hooks.feedback(`Iris: "${es}"`, phraseEs ? `"${phraseEs}" (${phraseEn})` : `“${en}”`, 'coach')
       const intro: VoiceSegment[] = this.pace === 'brisk'
-        ? [{ text: es, lang: 'es-ES' }]
+        ? [word]
         : phraseEs
         ? [
             { text: `${en} is`, lang: 'en-US' },
-            { text: es, lang: 'es-ES' },
+            word,
             { text: 'Like this:', lang: 'en-US' },
-            { text: phraseEs, lang: 'es-ES' },
+            this.foreign(phraseEs, phraseEs),
             { text: `Now you try, ${callout}!`, lang: 'en-US' },
           ]
         : [
             // Phrases and sentences: say it, then once more for the learner to copy.
-            { text: `In Spanish, you'd say:`, lang: 'en-US' },
-            { text: es, lang: 'es-ES' },
+            { text: `In ${this.lang.name}, you'd say:`, lang: 'en-US' },
+            word,
             { text: `Now you try, ${callout}!`, lang: 'en-US' },
           ]
       // Say it once, then keep listening for as long as it takes (no retries, no auto-advance).
@@ -449,9 +450,28 @@ export class PracticeEngine {
     })
   }
 
+  /** The language being practiced (Spanish, French …), if any. */
+  private get lang() {
+    return subject(this.mode).language
+  }
+
+  /** Iris says a word in the language, or, with no voice for it on this device, its English-letter spelling. */
+  private foreign(native: string, romanized: string): VoiceSegment {
+    const l = this.lang!
+    return hasVoice(l.voiceLang) ? { text: native, lang: l.voiceLang } : { text: romanized, lang: 'en-US' }
+  }
+
+  /** Does what was heard count as this item? */
+  private matches(heard: string, it: PracticeItem): boolean {
+    const e = it.spanish
+    if (!this.lang || !e) return isWordMatch(heard, it.target)
+    if (this.lang.script === 'latin') return isSpanishMatch(heard, it.target, e.variants)
+    return isNativeMatch(heard, it.target, e.variants, e.es)
+  }
+
   /** How the coach addresses the learner: usually by name; kid nicknames only in Reading mode. */
   private callout(): string {
-    if (this.name && (this.mode === 'spanish' || Math.random() < 0.6)) return this.name
+    if (this.name && (this.lang || Math.random() < 0.6)) return this.name
     return ENCOURAGING_NICKNAMES[Math.floor(Math.random() * ENCOURAGING_NICKNAMES.length)]
   }
 
@@ -493,8 +513,8 @@ export class PracticeEngine {
     this.hooks.mic('warming', 'Opening microphone...')
     if (this.mode === 'spelling') {
       this.hooks.feedback('Spell the word out loud!', 'One letter at a time • or say “definition”, “sentence”, “part of speech”, “origin” or “repeat”', 'listening')
-    } else if (this.mode === 'spanish' && this.item.spanish) {
-      this.hooks.feedback(`Say "${this.item.spanish.en}" in Spanish!`, 'Listening until you say it • Shift shows the word • Space asks Iris • Next to move on', 'listening')
+    } else if (this.lang && this.item.spanish) {
+      this.hooks.feedback(`Say "${this.item.spanish.en}" in ${this.lang.name}!`, 'Listening until you say it • Shift shows the word • Space asks Iris • Next to move on', 'listening')
     } else {
       this.hooks.feedback(`Say "${this.item.target}"!`, 'Listening for the word...', 'listening')
     }
@@ -621,7 +641,7 @@ export class PracticeEngine {
       const all = [top, ...candidates.filter((c) => c.trim() !== top)].filter((c) => !single || words(c) <= 6)
       this.hooks.log('HEARD', `${all.map((c) => `"${c.trim()}"`).join(' / ')} target="${this.item.target}"`)
       const it = this.item
-      const hit = all.find((c) => (this.mode === 'spanish' && it.spanish ? isSpanishMatch(c, it.target, it.spanish.variants) : isWordMatch(c, it.target)))
+      const hit = all.find((c) => this.matches(c, it))
       if (hit) {
         this.solved = true
         const coached = this.usedCoach
@@ -631,7 +651,7 @@ export class PracticeEngine {
       }
       // Finished hearing something else: show what was heard, keep listening.
       if (event.results[event.results.length - 1]?.isFinal) {
-        const prompt = this.mode === 'spanish' && this.item.spanish ? `Say "${this.item.spanish.en}" in Spanish!` : `Say "${this.item.target}"!`
+        const prompt = this.lang && this.item.spanish ? `Say "${this.item.spanish.en}" in ${this.lang.name}!` : `Say "${this.item.target}"!`
         const now = Date.now()
         const noisy = words(top) > words(this.item.target) + 4
         if (noisy) this.noisyMisses = [...this.noisyMisses.filter((t) => now - t < 15000), now]

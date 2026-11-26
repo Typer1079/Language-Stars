@@ -329,3 +329,33 @@ export function isSpanishMatch(transcript: string, target: string, variants?: st
   if (h.length < t.length * 0.7) return false
   return bestWindowDistance(t, h) <= spanishTolerance(t.length)
 }
+
+/**
+ * Japanese, Korean, Chinese and Persian are compared in their own script: case, spacing,
+ * punctuation, katakana vs hiragana, Arabic vs Persian letter forms and digit styles don't matter.
+ */
+export function nativeKey(s: string): string {
+  return s
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60)) // katakana → hiragana
+    .replace(/[۰-۹]/g, (c) => String(c.charCodeAt(0) - 0x06f0)) // Persian digits
+    .replace(/[٠-٩]/g, (c) => String(c.charCodeAt(0) - 0x0660)) // Arabic digits
+    .replace(/ي/g, 'ی').replace(/ى/g, 'ی').replace(/ك/g, 'ک').replace(/ة/g, 'ه').replace(/[أإ]/g, 'ا')
+    .replace(/[ً-ٰٟـ‌‍]/g, '') // short vowels, tatweel, joiners
+    .replace(/[\p{P}\p{S}\s]/gu, '')
+}
+
+/** True when what was heard counts as this item in a language written in its own script. */
+export function isNativeMatch(transcript: string, target: string, variants: string[] = [], romanized = ''): boolean {
+  const h = nativeKey(transcript)
+  if (!h) return false
+  for (const c of [target, ...variants].map(nativeKey).filter(Boolean)) {
+    // One or two characters (猫, 네, نه): only on its own, so it can't hide inside a longer word.
+    if (c.length <= 2 ? h === c : h.includes(c)) return true
+    // Longer phrases: forgive a character or two the recognizer wrote differently.
+    if (c.length >= 5 && h.length >= c.length * 0.7 && bestWindowDistance(c, h) <= Math.floor(c.length * 0.2)) return true
+  }
+  // Some recognizers write a short answer in English letters ("ok", "hai").
+  return Boolean(romanized && /[a-z]/i.test(transcript) && fold(romanized).length >= 3 && isSpanishMatch(transcript, romanized))
+}
