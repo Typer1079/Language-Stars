@@ -390,6 +390,11 @@ export default function App() {
   }
   return (
     <>
+      {(saveStatus === 'error' || saveStatus === 'offline') && (
+        <p role="status" className="mx-auto mt-4 block max-w-lg rounded-xl bg-amber-50 px-3 py-2 text-center text-sm text-amber-900">
+          {saveStatus === 'offline' ? '📶 Offline: changes will save when the connection is back.' : '⚠️ A change hasn’t saved yet. Trying again…'}
+        </p>
+      )}
       {notice && (
         <button type="button" onClick={() => setNotice('')} className="mx-auto mt-4 block max-w-lg rounded-xl bg-indigo-50 px-3 py-2 text-center text-sm text-indigo-900">
           {notice} <span className="text-indigo-500">✕</span>
@@ -404,6 +409,7 @@ export default function App() {
         onPick={(l) => { setActiveId(l.id); setView('practice') }}
         onCreate={create}
         onUpdate={updateProfile}
+        onQuickChange={updateLearner}
         onImport={importDrafts}
         onUnlockKids={(pending) => { setPendingAdd(pending?.length ? pending : null); setEnrollMode('choose'); setView(aal.hasMfa ? 'mfa-challenge' : 'mfa-enroll') }}
         onAccount={() => setView('account')}

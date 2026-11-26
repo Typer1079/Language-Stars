@@ -1,6 +1,7 @@
 import { isWordMatch } from './match'
 import { isLanguageAnswer } from './languageMatch'
 import { levelItems, type PracticeItem } from './progress'
+import { soundPieces, soundsLike } from './pronounce'
 import { canFilterNoise, createRecognition, getCleanMicTrack, releaseCleanMic, speakSegments, cancelSpeech, hasVoice, IS_IOS, type RecognitionLike, type VoiceSegment } from './speech'
 import type { Mode } from './types'
 import { ENCOURAGING_NICKNAMES } from './wordBanks'
@@ -39,6 +40,10 @@ export interface EngineHooks {
   beeAsk?(kind: BeeRequest): void
   /** The microphone (or iOS Dictation) is switched off for this site. */
   micBlocked?(reason: 'blocked' | 'dictation'): void
+  /** Languages: an easy "sounds like" guide for the current item (null to hide it). */
+  soundHint?(hint: string | null): void
+  /** Languages: how many times Iris has helped with this item (0 for a new item). */
+  asks?(n: number): void
 }
 
 const LISTEN_MS = 5200
@@ -61,6 +66,9 @@ export class PracticeEngine {
   private usedCoach = false
   /** Spelling Bee: the learner is typing the word, so spoken letters are ignored (spoken requests still work). */
   private typingMode = false
+  /** Languages: how many times Iris has been asked about this item (each time helps a bit more). */
+  private asks = 0
+  private lastAsk = 0
   private listening = false
   private coachSpeaking = false
   private coachingActive = false
@@ -136,6 +144,9 @@ export class PracticeEngine {
     this.usedCoach = false
     this.heardSoFar = ''
     this.typingMode = false
+    this.asks = 0
+    this.hooks.soundHint?.(null)
+    this.hooks.asks?.(0)
   }
 
   /**
@@ -307,8 +318,12 @@ export class PracticeEngine {
 
   /** AI Coach / Space key. */
   coach() {
-    // Asking Iris mid-greeting or mid-cheer interrupts it; asking again while she's helping does nothing.
-    if (this.coachingActive || this.solved || this.paused || !this.item) return
+    // Asking Iris mid-greeting or mid-cheer interrupts it. Asking again while she's helping does
+    // nothing, except in a language, where it moves on to the next, more detailed kind of help.
+    const langItem = Boolean(this.lang && this.item?.spanish)
+    if (this.solved || this.paused || !this.item) return
+    if (this.coachingActive && (!langItem || Date.now() - this.lastAsk < 700)) return
+    this.lastAsk = Date.now()
     const gen = ++this.gen
     this.stopListening(true)
     this.stopVoice()
@@ -319,31 +334,15 @@ export class PracticeEngine {
     const item = this.item
 
     if (this.lang && item.spanish) {
-      const { en, es, phraseEs, phraseEn } = item.spanish
-      const word = this.foreign(item.spanish.say ?? es, es)
-      this.hooks.revealSpanish()
-      this.hooks.showPhrase()
-      this.hooks.feedback(`Iris: "${es}"`, phraseEs ? `"${phraseEs}" (${phraseEn})` : `“${en}”`, 'coach')
-      const intro: VoiceSegment[] = this.pace === 'brisk'
-        ? [word]
-        : phraseEs
-        ? [
-            { text: `${en} is`, lang: 'en-US' },
-            word,
-            { text: 'Like this:', lang: 'en-US' },
-            this.foreign(phraseEs, phraseEs),
-            { text: `Now you try, ${callout}!`, lang: 'en-US' },
-          ]
-        : [
-            // Phrases and sentences: say it, then once more for the learner to copy.
-            { text: `In ${this.lang.name}, you'd say:`, lang: 'en-US' },
-            word,
-            { text: `Now you try, ${callout}!`, lang: 'en-US' },
-          ]
-      // Say it once, then keep listening for as long as it takes (no retries, no auto-advance).
+      this.asks += 1
+      this.hooks.asks?.(this.asks)
+      const intro = this.languageHelp(item, callout)
+      // Say it, then keep listening for as long as it takes (no retries, no auto-advance).
       this.say(intro, () => {
+        // Asked again while Iris was talking: the newer help is in charge now.
+        if (gen !== this.gen) return
         this.coachingActive = false
-        if (gen !== this.gen || this.solved) return
+        if (this.solved) return
         this.listenWindow(this.listenMs)
       })
       return
@@ -465,6 +464,52 @@ export class PracticeEngine {
     return hasVoice(l.voiceLang) ? { text: native, lang: l.voiceLang } : { text: romanized, lang: 'en-US' }
   }
 
+  /**
+   * Iris's help for a language item. Each ask goes further: 1) say it (with an example);
+   * 2) say it slowly, then piece by piece; 3+) piece by piece slowly, then the whole thing twice,
+   * with a "sounds like" guide on screen.
+   */
+  private languageHelp(item: PracticeItem, callout: string): VoiceSegment[] {
+    const lang = this.lang!
+    const e = item.spanish!
+    const { en, es, phraseEs, phraseEn } = e
+    const native = e.say ?? es
+    const voiced = hasVoice(lang.voiceLang)
+    const word = this.foreign(native, es)
+    const slow = (rate: number): VoiceSegment => ({ ...word, rate })
+    const hint = soundsLike(es)
+    this.hooks.revealSpanish()
+    if (this.asks === 1) {
+      this.hooks.showPhrase()
+      this.hooks.feedback(`Iris: "${es}"`, phraseEs ? `"${phraseEs}" (${phraseEn})` : `“${en}”`, 'coach')
+      if (this.pace === 'brisk') return [word]
+      return phraseEs
+        ? [{ text: `${en} is`, lang: 'en-US' }, word, { text: 'Like this:', lang: 'en-US' }, this.foreign(phraseEs, phraseEs), { text: `Now you try, ${callout}!`, lang: 'en-US' }]
+        : [{ text: `In ${lang.name}, you'd say:`, lang: 'en-US' }, word, { text: `Now you try, ${callout}!`, lang: 'en-US' }]
+    }
+    // Pieces in the language's voice, or English-letter syllables when the device has no voice for it.
+    const pieces: VoiceSegment[] = voiced
+      ? soundPieces(e, lang.name).map((t) => ({ text: t, lang: lang.voiceLang, rate: 0.7 }))
+      : hint.split(/[\s-]+/).filter(Boolean).map((t) => ({ text: t, lang: 'en-US', rate: 0.8 }))
+    this.hooks.soundHint?.(hint)
+    if (this.asks === 2) {
+      this.hooks.feedback(`🐢 Slowly: "${es}"`, `Sounds like: ${hint}`, 'coach')
+      return [
+        { text: "Let's slow it down.", lang: 'en-US' }, slow(0.6),
+        ...(pieces.length ? [{ text: 'Piece by piece:', lang: 'en-US' }, ...pieces] : [slow(0.5)]),
+        { text: 'Now you try.', lang: 'en-US' },
+      ]
+    }
+    this.hooks.feedback(`🐢 Piece by piece: "${hint}"`, 'Copy each part after Iris, then say it all together. Take your time!', 'coach')
+    return [
+      { text: "No rush. Let's do it together.", lang: 'en-US' },
+      ...(pieces.length ? pieces.map((p) => ({ ...p, rate: 0.6 })) : [slow(0.45)]),
+      { text: 'All together:', lang: 'en-US' }, slow(0.55),
+      { text: 'One more time:', lang: 'en-US' }, slow(0.75),
+      { text: `You can do it, ${callout}!`, lang: 'en-US' },
+    ]
+  }
+
   /** Does what was heard count as this item? */
   private matches(heard: string, it: PracticeItem): boolean {
     const e = it.spanish
@@ -495,9 +540,11 @@ export class PracticeEngine {
       if (onEnd) setTimeout(onEnd, IOS ? 60 : 0)
     }
     // Slow parts (spelling words) take longer to say, so give the watchdog more time for them.
-    const words = segments.reduce((n, sgm) => n + sgm.text.split(/\s+/).length / (sgm.rate ?? 1), 0)
+    // Languages without spaces (Japanese, Chinese, Korean blocks) count about two characters per word.
+    const units = (t: string) => (/[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]/.test(t) ? Math.ceil(t.replace(/\s/g, '').length / 2) : t.split(/\s+/).length)
+    const words = segments.reduce((n, sgm) => n + units(sgm.text) / (sgm.rate ?? 1), 0)
     const speed = this.pace === 'brisk' ? 1.12 : 1
-    this.voiceWatchdog = setTimeout(finish, Math.min(12000, Math.max(2500, (words * 420) / speed + 1200)))
+    this.voiceWatchdog = setTimeout(finish, Math.min(25000, Math.max(2500, (words * 420) / speed + 1200)))
     this.cancelVoice = speakSegments(segments, finish, this.pace === 'brisk' ? 1.12 : 1)
   }
 

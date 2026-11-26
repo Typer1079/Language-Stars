@@ -1,8 +1,10 @@
 import type { PracticeItem } from '../../lib/progress'
 
 /** A language (Spanish, French …): the English prompt, a Reveal button for the answer, and an example phrase once it's said. */
-export function SpanishCard({ language, spanish, revealed, onReveal, phraseShown }: {
+export function SpanishCard({ language, spanish, revealed, onReveal, phraseShown, soundHint }: {
   language: string
+  /** Shown after asking Iris more than once: "kon-ni-chi-wa". */
+  soundHint?: string | null
   spanish: NonNullable<PracticeItem['spanish']>
   revealed: boolean
   onReveal: () => void
@@ -15,6 +17,11 @@ export function SpanishCard({ language, spanish, revealed, onReveal, phraseShown
         <span className="rounded-full border border-indigo-200 bg-white px-3 py-1 font-semibold text-indigo-700">
           {revealed ? `${language}: "${spanish.es}"${spanish.phonetic ? ` (${spanish.phonetic})` : ''}` : 'Stuck? Tap Reveal (or press Shift)'}
         </span>
+        {revealed && soundHint && (
+          <span className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 font-semibold text-emerald-900" aria-live="polite">
+            🐢 Sounds like: <span className="font-kids text-base tracking-wide">{soundHint}</span>
+          </span>
+        )}
         {!revealed && (
           <button type="button" onClick={onReveal}
             className="mt-1 w-full max-w-xs rounded-2xl border-2 border-indigo-300 bg-white px-6 py-3 font-kids text-lg font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-50 active:scale-95">

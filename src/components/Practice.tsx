@@ -63,6 +63,8 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const [feedback, setFeedback] = useState<{ title: string; sub: string; tone: Tone }>({ title: 'Say the word out loud!', sub: `Press ${isMac ? 'Return' : 'Enter'} or tap Listen Now`, tone: 'neutral' })
   const [mic, setMic] = useState<{ state: MicState; label: string }>({ state: 'idle', label: 'Listen Now' })
   const [revealed, setRevealed] = useState(false)
+  const [soundHint, setSoundHint] = useState<string | null>(null)
+  const [asks, setAsks] = useState(0)
   const [phraseShown, setPhraseShown] = useState(false)
   const [success, setSuccess] = useState(false)
   const [shop, setShop] = useState<string | null>(null)
@@ -464,6 +466,8 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
         advanceCb.current(afterCoach)
       },
       revealSpanish: () => setRevealed(true),
+      soundHint: (h) => setSoundHint(h),
+      asks: (n) => setAsks(n),
       spelling: (letters) => setSpelled(letters),
       spellWrong: (letters) => spellWrongCb.current(letters),
       beeAsk: (kind) => askBeeCb.current(kind),
@@ -735,7 +739,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
               keyboardActive={!anyModal} onStartOver={() => engineRef.current?.retryWord()} onTypeInstead={() => { engineRef.current?.startTyping(); setTyping('') }} />
           )}
 
-          {item?.spanish && spanish && <SpanishCard language={lang?.name ?? 'Spanish'} spanish={item.spanish} revealed={revealed} onReveal={() => setRevealed(true)} phraseShown={phraseShown} />}
+          {item?.spanish && spanish && <SpanishCard language={lang?.name ?? 'Spanish'} spanish={item.spanish} revealed={revealed} onReveal={() => setRevealed(true)} phraseShown={phraseShown} soundHint={soundHint} />}
 
           {quiz && <QuizCard quiz={quiz} onAnswer={answerQuiz} />}
 
@@ -753,7 +757,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
             </button>
             <button type="button" onClick={() => engineRef.current?.coach()}
               className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-600 px-4 py-3.5 font-kids text-base font-bold text-white shadow-md transition hover:from-indigo-600 hover:to-blue-700 active:scale-95 sm:text-lg">
-              💬 Ask Iris <span className="hidden rounded-full bg-black/15 px-2 py-0.5 font-sans text-xs [@media(pointer:fine)]:inline">Space</span>
+              {lang && asks === 1 ? '🐢 Slower, please' : lang && asks >= 2 ? '🧩 Piece by piece' : '💬 Ask Iris'} <span className="hidden rounded-full bg-black/15 px-2 py-0.5 font-sans text-xs [@media(pointer:fine)]:inline">Space</span>
             </button>
             <button type="button" onClick={skip} className="rounded-2xl bg-slate-100 px-4 py-3.5 font-kids text-base font-bold text-slate-700 transition hover:bg-slate-200 active:scale-95 sm:text-lg">Next ➡️</button>
           </div>

@@ -41,7 +41,9 @@ test('switching the subject on a learner card saves it', async ({ page }) => {
   await signIn(page)
   const card = page.getByRole('group', { name: 'What Olivia practices today' })
   await expect(card).toContainText('Spanish L6')
-  await card.getByRole('button', { name: /Spanish/ }).click()
+  await card.getByRole('button', { name: /Languages: Spanish/ }).click()
+  await page.getByRole('group', { name: 'Choose a language' }).getByRole('button', { name: /Spanish/ }).click()
+  await expect(card.getByRole('button', { name: /Languages: Spanish \(practicing now\)/ })).toBeVisible()
   await expect.poll(() => state.learners[0].mode, { timeout: 5000 }).toBe('spanish')
 })
 
@@ -282,7 +284,9 @@ test('a new language: pick French on the card, say a word, earn a star, and its 
   const state = await mockSupabase(page, { learners: [learner({ id: 'l1', display_name: 'Olivia', lifetime_stars: 20 })] })
   await signIn(page)
   const card = page.getByRole('group', { name: 'What Olivia practices today' })
-  await card.getByLabel('Choose a language').selectOption('french')
+  await card.getByRole('button', { name: /Languages:/ }).click()
+  await page.getByRole('group', { name: 'Choose a language' }).getByRole('button', { name: /French/ }).click()
+  await expect(card.getByRole('button', { name: /Languages: French/ })).toBeVisible()
   await expect.poll(() => state.learners[0].mode).toBe('french')
   await page.getByRole('button', { name: 'Play as Olivia' }).click()
   await expect(page.getByText('Say this English word in French')).toBeVisible()
@@ -316,7 +320,8 @@ test('an older database (before update 017) only offers the first three subjects
   await signIn(page)
   const card = page.getByRole('group', { name: 'What Olivia practices today' })
   await expect(card).toContainText('Spanish')
-  await expect(card.getByLabel('Choose a language')).toHaveCount(0)
+  await card.getByRole('button', { name: /Languages:/ }).click()
+  await expect(page.getByRole('group', { name: 'Choose a language' }).getByRole('button', { name: /Level/ })).toHaveText([/Spanish/])
 })
 
 test('Help has release notes and the version history', async ({ page }) => {
@@ -338,4 +343,53 @@ test('admin counts learners on every language and shows only the subjects in use
   const table = page.locator('table').filter({ hasText: 'Levels' })
   await expect(table.locator('th')).toContainText(['Levels', '📖 Reading', '🇪🇸 Spanish', '🐝 Spelling', '🇵🇹 Portuguese'])
   await expect(table.locator('th', { hasText: 'Korean' })).toHaveCount(0)
+})
+
+test('the language list: open it, pick Tagalog, and the tile shows Tagalog right away (card and practice)', async ({ page }) => {
+  const state = await mockSupabase(page, { learners: [learner({ id: 'l1', display_name: 'Ethan', spanish_level: 11 })] })
+  await signIn(page)
+  const card = page.getByRole('group', { name: 'What Ethan practices today' })
+  await expect(card.getByRole('button', { name: /Languages: Spanish/ })).toContainText('8 languages')
+  await card.getByRole('button', { name: /Languages:/ }).click()
+  const list = page.getByRole('group', { name: 'Choose a language' })
+  await expect(list.getByRole('button', { name: /Level/ })).toHaveCount(8)
+  await list.getByRole('button', { name: /Tagalog/ }).click()
+  await expect(list).toHaveCount(0)
+  await expect(card.getByRole('button', { name: /Languages: Tagalog \(practicing now\)/ })).toBeVisible()
+  await expect.poll(() => state.learners[0].mode, { timeout: 8000 }).toBe('tagalog')
+  await page.getByRole('button', { name: 'Play as Ethan' }).click()
+  const tabs = page.getByRole('group', { name: 'What to practice today' })
+  await tabs.getByRole('button', { name: /Languages:/ }).click()
+  await page.getByRole('group', { name: 'Choose a language' }).getByRole('button', { name: /Japanese/ }).click()
+  await expect(tabs.getByRole('button', { name: /Languages: Japanese \(practicing now\)/ })).toBeVisible()
+  await expect(page.getByText('Say this English word in Japanese')).toBeVisible()
+  // Escape closes the list without choosing.
+  await tabs.getByRole('button', { name: /Languages:/ }).click()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('group', { name: 'Choose a language' })).toHaveCount(0)
+})
+
+test('asking Iris again and again gives more pronunciation help', async ({ page }) => {
+  await mockSupabase(page, { learners: [learner({ id: 'l1', display_name: 'Ethan', mode: 'japanese' })] })
+  await page.addInitScript(() => {
+    const said: string[] = []
+    ;(window as unknown as { __said: string[] }).__said = said
+    const synth = window.speechSynthesis
+    synth.speak = (u: SpeechSynthesisUtterance) => { said.push(`${u.lang}|${u.rate.toFixed(2)}|${u.text}`); setTimeout(() => u.onend?.(new Event('end') as SpeechSynthesisEvent), 5) }
+    synth.getVoices = () => []
+  })
+  await signIn(page)
+  await page.getByRole('button', { name: 'Play as Ethan' }).click()
+  const ask = page.getByRole('button', { name: /Ask Iris|Slower|Piece by piece/ })
+  await ask.click()
+  await expect(ask).toContainText('Slower, please')
+  await ask.click()
+  await expect(page.getByText(/🐢 Sounds like:/)).toBeVisible()
+  await expect(ask).toContainText('Piece by piece')
+  await ask.click()
+  await expect(page.getByRole('status').filter({ hasText: 'Piece by piece' })).toBeVisible()
+  const said = await page.evaluate(() => (window as unknown as { __said: string[] }).__said)
+  // Slow Japanese, and single pieces (kana beats) said on their own.
+  expect(said.some((x) => x.startsWith('ja-JP|0.6'))).toBe(true)
+  expect(said.filter((x) => x.startsWith('ja-JP|0.60|')).some((x) => [...x.split('|')[2]].length <= 2)).toBe(true)
 })

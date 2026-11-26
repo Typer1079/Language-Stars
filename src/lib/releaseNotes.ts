@@ -12,6 +12,16 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.8.2',
+    date: '2026-11-26',
+    title: 'Easier language choice and more help saying words',
+    items: [
+      'Choosing a language is easier: tap the 🌍 language tile to see all eight languages, with your level in each, and tap one to switch.',
+      'Switching subjects on a learner card shows the change right away.',
+      'In a language, each time you ask Iris for help she helps a bit more: first she says it, then slowly and piece by piece, then she goes through it together with you. A "sounds like" guide (kon-ni-chi-wa) appears on the card, and the Ask Iris button shows what\'s next (🐢 Slower, 🧩 Piece by piece).',
+    ],
+  },
+  {
     version: '1.8.1',
     date: '2026-11-26',
     title: 'Fixes for the new languages',

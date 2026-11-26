@@ -2,6 +2,21 @@
 
 Versions follow major.minor.patch. The version shown in the app comes from `package.json`.
 
+## 1.8.2 — 2026-11-26
+- **Language list**: the third subject tile is now a 🌍 Languages tile ("8 languages ▾") that opens a
+  list of every language with its level and Beta tag; tap one to switch. Escape or a tap outside closes
+  it. Replaces the small ▾ menu (`SubjectSwitch.tsx`).
+- **Subject switch on learner cards shows at once**: it now updates the card immediately and saves in
+  the background (same as practice), instead of waiting for the save before showing anything. If a
+  save fails, the learner list shows "A change hasn't saved yet. Trying again…".
+- **More pronunciation help when asking Iris again** (`src/lib/pronounce.ts`): in a language, the 1st ask
+  says the word (as before); the 2nd says it slowly and then piece by piece (kana beats for Japanese,
+  syllable blocks for Korean, characters for Mandarin, words for phrases); the 3rd and later go piece by
+  piece slowly and then the whole thing twice. A "🐢 Sounds like: kon-ni-chi-wa" guide shows on the card,
+  and the Ask Iris button says what comes next. Asking again while Iris is talking moves straight on to
+  the next kind of help. Without a voice for the language, the pieces are the English-letter syllables.
+- Iris's long Japanese, Korean and Chinese sentences are no longer cut short (talk time now counts characters).
+
 ## 1.8.1 — 2026-11-26
 Bug fixes from the first Portuguese testers (problem reports: "three → três" and "here → aqui" skipped).
 - **No untaught bonus items for beginners**: in a language, stretch items from higher levels only appear

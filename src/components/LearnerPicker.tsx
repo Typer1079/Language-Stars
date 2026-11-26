@@ -27,6 +27,8 @@ interface Props {
   onPick: (l: Learner) => void
   onCreate: (d: LearnerDraft) => Promise<void>
   onUpdate: (l: Learner) => Promise<void>
+  /** Small changes (subject, sticker places): shown at once, saved in the background. */
+  onQuickChange: (l: Learner) => void
   onImport: (d: LearnerDraft[]) => Promise<void>
   /** Opens two-step sign-in; `pending` learners are added automatically once it succeeds. */
   onUnlockKids: (pending?: LearnerDraft[]) => void
@@ -63,7 +65,7 @@ export default function LearnerPicker(p: Props) {
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {p.learners.map((l) => (
-          <LearnerCard key={l.id} learner={l} onMode={(m) => { void p.onUpdate({ ...l, mode: m }).catch(() => {}) }} onPlay={() => p.onPick(l)} onProgress={() => setViewing(l)} onStickers={() => setWall(l)} onEdit={() => { setPanel('none'); setEditing(l) }} />
+          <LearnerCard key={l.id} learner={l} onMode={(m) => p.onQuickChange({ ...l, mode: m })} onPlay={() => p.onPick(l)} onProgress={() => setViewing(l)} onStickers={() => setWall(l)} onEdit={() => { setPanel('none'); setEditing(l) }} />
         ))}
         {!p.loading && p.learners.length === 0 && (
           <p className="card text-sm text-slate-600 sm:col-span-2">No learners yet. Add one below, or import a backup from the old app.</p>
