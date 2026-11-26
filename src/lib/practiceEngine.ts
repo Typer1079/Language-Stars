@@ -58,6 +58,8 @@ export class PracticeEngine {
 
   private solved = false
   private usedCoach = false
+  /** Spelling Bee: the learner is typing the word, so spoken letters are ignored (spoken requests still work). */
+  private typingMode = false
   private listening = false
   private coachSpeaking = false
   private coachingActive = false
@@ -129,6 +131,22 @@ export class PracticeEngine {
     this.solved = false
     this.usedCoach = false
     this.heardSoFar = ''
+    this.typingMode = false
+  }
+
+  /**
+   * Spelling Bee: the learner started typing. The microphone keeps listening so "definition",
+   * "sentence", "part of speech", "origin" and "repeat" still work, but spoken letters (and the
+   * sound of the keyboard) no longer count.
+   */
+  startTyping() {
+    if (this.solved || !this.item) return
+    this.typingMode = true
+    this.baseline = this.seenResults
+    this.heardSoFar = ''
+    this.hooks.spelling?.([])
+    this.hooks.feedback('Type the word, then press Enter', 'You can still ask out loud: “definition”, “sentence”, “part of speech”, “origin” or “repeat”.', 'listening')
+    if (!this.listening && !this.coachSpeaking && !this.paused) this.listenWindow(this.listenMs)
   }
 
   setPaused(paused: boolean) {
@@ -505,6 +523,8 @@ export class PracticeEngine {
       this.hooks.beeAsk?.(ask)
       return
     }
+    // Typing the word: only spoken requests count, never spoken letters.
+    if (this.typingMode) return
     if (wantsRestart(all)) {
       this.baseline = this.seenResults
       this.hooks.spelling?.([])

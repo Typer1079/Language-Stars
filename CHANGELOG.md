@@ -2,6 +2,15 @@
 
 Versions follow major.minor.patch. The version shown in the app comes from `package.json`.
 
+## 1.7.0 — 2026-11-25
+- **Round celebration**: the end of a round is now a full-screen party (confetti, fanfare) instead of a
+  small box. Moving up shows "🎓 {name} graduated!" with the new level, its stage and grade, and the
+  graduation bonus. Otherwise it shows a progress bar and how many more words to graduate. Stars this
+  round, balance and lifetime stars are shown, and the Sticker Shop is a button there (it no longer pops
+  up by itself); closing the shop returns to the celebration.
+- Spelling Bee: while typing the word, asking out loud for "sentence", "definition", "part of speech",
+  "origin" or "repeat" now works. Spoken letters are ignored while typing.
+
 ## 1.6.0 — 2026-11-25
 - **Sticker wall**: 🖼️ on each learner card (and "Arrange my stickers" in the practice menu) opens all of a
   learner's stickers on one screen, outside practice: drag them around, zoom out so giant ones fit,

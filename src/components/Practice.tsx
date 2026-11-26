@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { PracticeEngine, type MicState, type Pace, type Tone } from '../lib/practiceEngine'
 import { MAX_LEVEL, stageName } from '../lib/curriculum'
-import { activeLevel, levelOf, bestLevel, CHALLENGE_JUMP, CHALLENGE_PASS, CHALLENGE_SIZE, endRound, newMilestone, pickChallenge, pickRound, ROUND_SIZE, solveWord, STRETCH_STEPS, type PracticeItem } from '../lib/progress'
-import { playChime } from '../lib/sfx'
+import { activeLevel, levelOf, bestLevel, CHALLENGE_JUMP, CHALLENGE_PASS, CHALLENGE_SIZE, endRound, levelProgress, newMilestone, pickChallenge, pickRound, ROUND_SIZE, solveWord, STRETCH_STEPS, type PracticeItem } from '../lib/progress'
+import { playChime, playFanfare } from '../lib/sfx'
 import { moveSticker } from '../lib/stickers'
 import { recognitionSupported, speakSegments } from '../lib/speech'
 import { COMPREHENSION_FROM, questionFor, type Question } from '../lib/comprehension'
@@ -27,6 +27,7 @@ import { QuizCard } from './practice/QuizCard'
 import { ReadingWord } from './practice/ReadingWord'
 import { SpanishCard } from './practice/SpanishCard'
 import { SpellingCard } from './practice/SpellingCard'
+import { RoundCelebration, type Celebration } from './practice/RoundCelebration'
 
 export type SaveStatus = 'saved' | 'saving' | 'offline' | 'error'
 
@@ -80,7 +81,12 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const [menuOpen, setMenuOpen] = useState(false)
   const [logLines, setLogLines] = useState<string[]>([])
   const [confetti, setConfetti] = useState<ConfettiPiece[]>([])
-  const [roundNote, setRoundNote] = useState<{ clean: number; attempts: number; movedDownTo: number | null; note?: string } | null>(null)
+  const [celebration, setCelebration] = useState<Celebration | null>(null)
+  // Level and lifetime stars when the round started, so the celebration can say what changed.
+  const roundStart = useRef({ level: 1, stars: 0 })
+  // What "Next" does on a level-up celebration (a challenge or the next round).
+  const celebrateNext = useRef<(() => void) | null>(null)
+  const levelUpBonus = useRef(0)
   const [challenge, setChallenge] = useState<number | null>(null)
   // Reading comprehension: a multiple-choice question after reading a phrase or sentence (Level 31+).
   const [quiz, setQuiz] = useState<{ q: Question; picked: number | null } | null>(null)
@@ -208,7 +214,10 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     flushLog()
     beginLog()
     setRoundDone(false)
-    setRoundNote(null)
+    setCelebration(null)
+    celebrateNext.current = null
+    levelUpBonus.current = 0
+    roundStart.current = { level: activeLevel(learnerRef.current), stars: learnerRef.current.lifetime_stars }
     cleanRef.current = 0
     attemptsRef.current = 0
     stretchClearedRef.current = []
@@ -232,6 +241,15 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     log('CHALLENGE', `to L${target}`)
     advanceTimer.current = setTimeout(() => startRound({ autoBegin: true, challengeLevel: target }), 1800)
   }, [log, startRound])
+
+  /** Full-screen celebration at the end of a round (or on graduating to the next level). */
+  const showCelebration = useCallback((c: Celebration) => {
+    setCelebration(c)
+    setRoundDone(true)
+    setConfetti(makeConfetti(c.kind === 'levelup' ? 90 : 60))
+    playFanfare()
+    log('CELEBRATE', `${c.kind} L${c.fromLevel}->L${c.toLevel} clean=${c.clean}/${c.attempts} +${c.starsEarned}`)
+  }, [log])
 
   const finishRound = useCallback(() => {
     engineRef.current?.stopAll()
@@ -270,11 +288,15 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       return
     }
     starsSinceStop.current = 0
-    setRoundDone(true)
-    setRoundNote({ clean, attempts, movedDownTo: r.movedDownTo, note })
     const l = learnerRef.current
-    if (l.spendable_stars > 0) setShop(`🎉 Round complete! Spend your ${l.spendable_stars} ⭐ or tap Keep Reading.`)
-  }, [log, onChange, startRound, startChallenge, flushLog])
+    const toLevel = activeLevel(l)
+    showCelebration({
+      kind: toLevel > roundStart.current.level && !r.movedDownTo ? 'levelup' : 'round',
+      fromLevel: roundStart.current.level, toLevel, clean, attempts,
+      starsEarned: Math.max(0, l.lifetime_stars - roundStart.current.stars),
+      bonus: r.bonus ?? 0, note: note || undefined, movedDownTo: r.movedDownTo,
+    })
+  }, [log, onChange, startRound, startChallenge, flushLog, showCelebration])
 
   const advance = useCallback((afterCoach: boolean) => {
     if (shopRef.current) return
@@ -284,14 +306,26 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       const now = activeLevel(learnerRef.current)
       const target = Math.min(now - 1 + CHALLENGE_JUMP, MAX_LEVEL)
       lastRoundRef.current = { clean: cleanRef.current, attempts: attemptsRef.current }
-      if (perfect && target > now) startChallenge(target, `Perfect round! Up to Level ${now}`)
-      else startRound({ autoBegin: true })
+      levelUpPending.current = false
+      engineRef.current?.stopAll()
+      flushLog()
+      celebrateNext.current = perfect && target > now
+        ? () => startChallenge(target, `Perfect round! Up to Level ${now}`)
+        : () => startRound({ autoBegin: true })
+      starsSinceStop.current = 0
+      const l = learnerRef.current
+      showCelebration({
+        kind: 'levelup', fromLevel: roundStart.current.level, toLevel: now,
+        clean: cleanRef.current, attempts: attemptsRef.current,
+        starsEarned: Math.max(0, l.lifetime_stars - roundStart.current.stars),
+        bonus: levelUpBonus.current, movedDownTo: null,
+      })
       return
     }
     const next = indexRef.current + 1
     if (next < roundRef.current.length) loadWord(next, { autoBegin: true, promptType: afterCoach ? 'gentle_callout' : 'quick_listen' })
     else finishRound()
-  }, [loadWord, finishRound, startRound, startChallenge])
+  }, [loadWord, finishRound, startRound, startChallenge, flushLog, showCelebration])
 
   const handleSolved = useCallback((heard: string, coached: boolean) => {
     const it = roundRef.current[indexRef.current]
@@ -311,7 +345,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       if (!coached) cleanRef.current += 1
     }
     starsSinceStop.current += r.learner.lifetime_stars - before.lifetime_stars
-    if (r.leveledUpTo) levelUpPending.current = true
+    if (r.leveledUpTo) { levelUpPending.current = true; levelUpBonus.current += r.bonus ?? 0 }
     learnerRef.current = r.learner
     onChange(r.learner)
     playChime()
@@ -696,7 +730,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
           {item?.spell && spellingMode && (
             <SpellingCard item={item} revealed={revealed} spelled={spelled} spellMiss={spellMiss} success={success} beeInfo={beeInfo}
               typing={typing} setTyping={setTyping} askBee={askBee} misheard={misheard} submitTyped={submitTyped}
-              keyboardActive={!anyModal} onStartOver={() => engineRef.current?.retryWord()} onTypeInstead={() => { engineRef.current?.stopAll(); setTyping('') }} />
+              keyboardActive={!anyModal} onStartOver={() => engineRef.current?.retryWord()} onTypeInstead={() => { engineRef.current?.startTyping(); setTyping('') }} />
           )}
 
           {item?.spanish && spanish && <SpanishCard spanish={item.spanish} revealed={revealed} onReveal={() => setRevealed(true)} phraseShown={phraseShown} />}
@@ -732,34 +766,26 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
 
       {!wide && <StickerBoard name={learner.display_name} stickers={learner.stickers} onMove={moveOne} onShop={() => openShop('Pick a sticker for your board!')} />}
 
-      {roundDone && !shop && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true">
-          <div className="w-full max-w-md rounded-3xl border-4 border-amber-200 bg-white/95 p-6 text-center shadow-2xl">
-            <div className="mb-2 text-5xl">🏆</div>
-            <h2 className="font-kids text-2xl font-bold">Round Complete!</h2>
-            {roundNote && roundNote.attempts > 0 && (
-              <p className="mt-2 text-sm font-semibold text-slate-700">
-                {roundNote.clean} of {roundNote.attempts} {spanish ? 'said' : spellingMode ? 'spelled' : 'read'} without help
-              </p>
-            )}
-            {roundNote?.note && (
-              <p className="mt-2 rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-3 py-2 text-sm font-semibold text-fuchsia-900">{roundNote.note}</p>
-            )}
-            {roundNote?.movedDownTo && (
-              <p className="mt-2 rounded-2xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
-                That level was tricky today, so let’s practice Level {roundNote.movedDownTo} again. Master it to climb back up! Your stars and stickers are safe.
-              </p>
-            )}
-            <p className="mt-2 mb-5 text-sm text-slate-600">
-              {learner.display_name} finished the round! Lifetime stars: {learner.lifetime_stars} ⭐ • Balance: {learner.spendable_stars} ⭐ • {spanish ? 'Spanish' : spellingMode ? 'Spelling' : 'Reading'} level: {level}.
-            </p>
-            <div className="flex flex-col gap-2.5">
-              <button type="button" className="btn bg-gradient-to-r from-fuchsia-500 to-purple-600 font-kids text-base text-white" onClick={() => setShop(`Spend your ${learner.spendable_stars} ⭐ in the Sticker Shop!`)}>🏪 Spend stars in the Sticker Shop</button>
-              <button type="button" className="btn bg-gradient-to-r from-emerald-500 to-teal-600 font-kids text-base text-white" onClick={() => startRound({ autoBegin: true })}>Next Round ➡️</button>
-              <button type="button" className="btn-danger" onClick={onExit}>{deviceMode ? '🏠 Home' : '🚪 Switch learner'}</button>
-            </div>
-          </div>
-        </div>
+      {roundDone && celebration && !shop && (
+        <RoundCelebration
+          c={celebration}
+          name={learner.display_name}
+          mode={learner.mode}
+          balance={learner.spendable_stars}
+          lifetime={learner.lifetime_stars}
+          progress={levelProgress(learner)}
+          onShop={() => setShop(`Spend your ${learner.spendable_stars} ⭐ in the Sticker Shop!`)}
+          onNext={() => {
+            const next = celebrateNext.current
+            celebrateNext.current = null
+            setRoundDone(false)
+            setCelebration(null)
+            if (next) next()
+            else startRound({ autoBegin: true })
+          }}
+          onExit={onExit}
+          exitLabel={deviceMode ? '🏠 Home' : '🚪 Switch learner'}
+        />
       )}
 
       {shop && <StickerShop learner={learner} reason={shop} onChange={(l) => { learnerRef.current = l; onChange(l) }} onClose={closeShop} onSignOut={onExit} />}

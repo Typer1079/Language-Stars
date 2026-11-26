@@ -230,3 +230,47 @@ test('stickers can be seen and arranged from the learner card, outside practice'
   await expect(wall).toBeHidden()
 })
 
+
+test('Spelling Bee: while typing, asking out loud for a sentence still works', async ({ page }) => {
+  await mockSupabase(page, { learners: [learner({ id: 'l1', display_name: 'Ethan', mode: 'spelling' })] })
+  await signIn(page)
+  await page.getByRole('button', { name: 'Play as Ethan' }).click()
+  await page.locator('body').click({ position: { x: 5, y: 5 } })
+  await page.keyboard.type('ab')
+  await expect(page.getByLabel('⌨️ Or type it here')).toHaveValue('ab')
+  await expect(page.getByText(/You can still ask out loud/)).toBeVisible()
+  // Spoken letters are ignored while typing, but a spoken request is answered.
+  await expect.poll(async () => {
+    await page.evaluate(() => (window as unknown as { __say: (t: string) => boolean }).__say('use it in a sentence'))
+    return (await page.locator('dl').count()) ? page.locator('dl').innerText() : ''
+  }, { timeout: 15000, intervals: [900] }).toMatch(/Sentence/i)
+  await page.evaluate(() => (window as unknown as { __say: (t: string) => boolean }).__say('c a t'))
+  await expect(page.getByText('You spelled: CAT')).toHaveCount(0)
+  await expect(page.getByLabel('⌨️ Or type it here')).toHaveValue('ab')
+})
+
+test('finishing a round shows a full-screen celebration with the level and the shop', async ({ page }) => {
+  const state = await mockSupabase(page, { learners: [learner({ id: 'l1', display_name: 'Ethan', lifetime_stars: 41, spendable_stars: 3 })] })
+  await signIn(page)
+  await page.getByRole('button', { name: 'Play as Ethan' }).click()
+  await page.locator('main button:has-text("Listen"), main button:has-text("Tap")').first().click()
+  const party = page.getByRole('dialog', { name: /Great round, Ethan!|Ethan graduated!/ })
+  await expect.poll(async () => {
+    if (await party.isVisible()) return true
+    const keep = page.getByRole('button', { name: /Keep Reading/ })
+    if (await keep.isVisible()) await keep.click()
+    const prompt = await page.getByRole('status').filter({ hasText: /Say ".+"!/ }).first().innerText().catch(() => '')
+    const target = /Say "(.+?)"!/.exec(prompt)?.[1]
+    if (target) await page.evaluate((w) => (window as unknown as { __say: (t: string) => boolean }).__say(w), target)
+    return party.isVisible()
+  }, { timeout: 60000, intervals: [700] }).toBe(true)
+  await expect(party).toContainText(/Level \d+/)
+  await expect(party).toContainText(/this round/)
+  await expect.poll(() => state.learners[0].lifetime_stars).toBeGreaterThan(41)
+  await party.getByRole('button', { name: /Sticker Shop/ }).click()
+  await page.getByRole('button', { name: /Keep Reading/ }).click()
+  // Back to the celebration, then on to the next round.
+  await expect(party).toBeVisible()
+  await party.getByRole('button', { name: /Next Round|Start Level/ }).click()
+  await expect(party).toHaveCount(0)
+})

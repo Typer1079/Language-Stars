@@ -36,7 +36,7 @@ export function SpellingCard(p: {
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
       if (!/^[a-zA-Z]$/.test(e.key)) return
       e.preventDefault()
-      // Focusing the box turns the mic off (its onFocus); then the letter goes in.
+      // Focusing the box switches to typing (its onFocus); then the letter goes in.
       box.current?.focus()
       s.setTyping((s.typing ?? '') + e.key)
     }
@@ -87,7 +87,7 @@ export function SpellingCard(p: {
           <div className="flex gap-2">
             <input ref={box} id="type-spelling" className="input flex-1 text-center font-kids text-xl uppercase tracking-widest" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off"
               enterKeyHint="done" placeholder="spell it" value={typing ?? ''}
-              // Typing turns the microphone off so it doesn't hear the keyboard; 🎤 turns it back on.
+              // Typing: spoken letters stop counting, but Iris still hears “definition”, “sentence” and so on.
               onFocus={() => { if (typing === null) onTypeInstead() }}
               onChange={(e) => setTyping(e.target.value.replace(/[^A-Za-z'-]/g, ''))} />
             <button className="btn-primary px-4" disabled={!typing}>Check</button>

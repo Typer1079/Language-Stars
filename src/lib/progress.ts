@@ -165,6 +165,14 @@ export function solveWord(l: Learner, item: PracticeItem, coached: boolean, opts
   return { learner: next, leveledUpTo: null, bonus: 0 }
 }
 
+/** How close the learner is to the next level: items mastered at this level, and how many are needed. */
+export function levelProgress(l: Learner): { done: number; needed: number } {
+  const level = activeLevel(l)
+  const total = levelItems(level, l.mode).length
+  const needed = Math.min(LEVEL_UP_AT, total)
+  return { done: Math.min(needed, total - unmasteredItems(l, level).length), needed }
+}
+
 /** A round with fewer than 40% of its words said without help (coach or Next) moves down a level. */
 export const MOVE_DOWN_BELOW = 0.4
 /** Rounds shorter than this don't count (e.g. only two words were left in a level). */
