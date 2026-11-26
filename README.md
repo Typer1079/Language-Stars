@@ -181,14 +181,17 @@ Run each file once, in order, in Supabase → SQL Editor. All are safe to run ag
 | 012 | problem reports for the admin |
 | 013 | delete my account |
 | 014 | `learner_subjects`: one row per learner per subject (kept in sync with the level columns) |
+| 015 | `subjects` list; the app saves levels to `learner_subjects` (copied back to the old columns) |
 
 ## Adding a subject
-1. Add an entry to `SUBJECTS` in `src/lib/subjects.ts` (name, icon, colors, voice language, level columns).
-2. Add its levels in `src/lib/curriculum.ts` and its level guide in `src/lib/levelGuide.ts`.
-3. Database: allow the new subject name in `learner_subjects` and the practice-history checks.
-Screens, stats, ranks, Help and the admin dashboard pick it up from the list. (Today levels are
-still saved in per-subject columns and copied to `learner_subjects`; the next step moves saving to
-the table, after which a new subject needs no new columns.)
+1. Database: add a row to `subjects` (for example `insert into subjects (id, label) values ('french', 'French')`).
+   Levels for it are saved in `learner_subjects`; no new columns are needed.
+2. App: add the id to `Mode` in `src/lib/types.ts` and an entry to `SUBJECTS` in `src/lib/subjects.ts`
+   (name, icon, colors, voice language; leave out `levelColumn` / `bestColumn`).
+3. Content: its levels in `src/lib/curriculum.ts` and its level guide in `src/lib/levelGuide.ts`.
+Screens, stats, ranks, Help, the add/edit form and the admin dashboard pick it up from the list.
+(Ranks and the admin level chart are computed in the database from the older columns today; a new
+subject will need those two queries updated to read `learner_subjects`.)
 
 ## Versions
 Bump `version` in `package.json` for each release (major.minor.patch) and add a line to

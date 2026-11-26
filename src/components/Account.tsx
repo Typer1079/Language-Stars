@@ -36,7 +36,7 @@ function describe(e: AuditEntry, names: Map<string, string>): string {
   }
   pair('lifetime_stars', 'stars')
   pair('spendable_stars', 'balance')
-  for (const s of SUBJECTS) pair(s.levelColumn, `${s.label} level`)
+  for (const s of SUBJECTS) if (s.levelColumn) pair(s.levelColumn, `${s.label} level`)
   pair('stickers', 'stickers')
   pair('mode', 'practice')
   if (d.profile_edited) parts.push('profile edited')

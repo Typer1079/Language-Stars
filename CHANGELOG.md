@@ -2,6 +2,17 @@
 
 Versions follow major.minor.patch. The version shown in the app comes from `package.json`.
 
+## 1.4.0 — 2026-11-25
+- **Levels are saved per subject** (database update 015): the app writes each subject's level to
+  `learner_subjects`, with the same rules as before (parent; children's profiles only with Face ID /
+  two-step; the learner's linked device). Best levels can only go up. Reading, Spanish and Spelling Bee
+  are still copied to the old columns, so ranks, the admin dashboard and older app versions keep working.
+  Before update 015 is run, the app keeps saving to the old columns.
+- **Subjects list in the database** (`subjects`): learner subjects, practice history, problem reports and
+  levels must name a listed subject, so adding one is a new row, not new columns.
+- The add/edit learner form keeps one starting level per subject (from the subject list).
+- Browser tests: a level change survives a reload; an older database still saves levels.
+
 ## 1.3.0 — 2026-11-25
 - **Browser tests in the repo** (`tests/e2e`, Playwright): public pages, reading a word and saving the star,
   Spanish reveal and answer, Spelling Bee letters, meaning questions, subject switch, mic off in the

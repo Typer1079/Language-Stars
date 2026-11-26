@@ -39,6 +39,11 @@ export interface Learner {
   /** Spelling Bee path (needs database update 008; missing on older databases). */
   spelling_level?: number
   spelling_best?: number
+  /**
+   * Level and best level per subject, from the learner_subjects table (database update 014/015).
+   * Read and change these through src/lib/subjects.ts, which keeps them and the columns above in step.
+   */
+  levels?: Partial<Record<Mode, { level: number; best: number }>>
   lifetime_stars: number
   spendable_stars: number
   /** Mastered words per level: "1".."5" for reading, "1_es".."6_es" for Spanish. */

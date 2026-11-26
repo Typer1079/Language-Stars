@@ -79,10 +79,14 @@ export function cleanLearnerDraft(v: Record<string, unknown>, kind: LearnerKind)
   const spendable_stars = Math.min(lifetime_stars, int(v.spendable_stars ?? v.spendableStars, 0, 1_000_000, 0))
   // Each subject's level and best level (older backups used camelCase names).
   const levels: Partial<Learner> = {}
+  const saved = (v.levels && typeof v.levels === 'object' ? v.levels : {}) as Record<string, { level?: unknown; best?: unknown }>
   for (const s of SUBJECTS) {
-    const camel = s.levelColumn.replace(/_(\w)/, (_m, c: string) => c.toUpperCase())
-    const lv = int(v[s.levelColumn] ?? v[camel], 1, maxLevel(s.id), 1)
-    Object.assign(levels, { [s.levelColumn]: lv, [s.bestColumn]: Math.max(lv, int(v[s.bestColumn], 1, maxLevel(s.id), 1)) })
+    const col = s.levelColumn ?? `${s.id}_level`
+    const camel = col.replace(/_(\w)/, (_m, c: string) => c.toUpperCase())
+    const lv = int(saved[s.id]?.level ?? v[col] ?? v[camel], 1, maxLevel(s.id), 1)
+    const best = Math.max(lv, int(saved[s.id]?.best ?? (s.bestColumn ? v[s.bestColumn] : undefined), 1, maxLevel(s.id), 1))
+    Object.assign(levels, s.levelColumn && s.bestColumn ? { [s.levelColumn]: lv, [s.bestColumn]: best } : {})
+    levels.levels = { ...levels.levels, [s.id]: { level: lv, best } }
   }
   return {
     display_name,

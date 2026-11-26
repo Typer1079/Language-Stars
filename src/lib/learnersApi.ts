@@ -1,14 +1,22 @@
 import { supabase } from './supabase'
 import type { Learner, LearnerDraft } from './types'
-import { SUBJECTS } from './subjects'
+import { SUBJECTS, levelRows } from './subjects'
 
 const BASE_COLUMNS =
   'id, display_name, kind, age_group, sticker_style, mode, reading_level, spanish_level, reading_best, spanish_best, lifetime_stars, spendable_stars, mastered, stickers, updated_at'
 
 // Newer columns come from later database updates. Until an update is run, the app keeps
 // working without that feature instead of failing: 006 adds avatars, 008 adds the Spelling Bee.
-const OPTIONAL: Record<string, string[]> = { avatar: ['avatar'], spelling: ['spelling_level', 'spelling_best'] }
+// 014 adds learner_subjects (levels as rows), read here as an embedded list.
+const OPTIONAL: Record<string, string[]> = {
+  avatar: ['avatar'],
+  spelling: ['spelling_level', 'spelling_best'],
+  levels: ['learner_subjects(subject, level, best)'],
+}
 const missing = new Set<string>()
+// Set when saving to learner_subjects isn't possible yet (before database update 015): levels are
+// then saved to the learner columns, which 014 copies into learner_subjects.
+let levelRowsWritable: boolean | null = null // null until the first save tries
 const columns = () => [BASE_COLUMNS, ...Object.entries(OPTIONAL).filter(([g]) => !missing.has(g)).flatMap(([, c]) => c)].join(', ')
 
 /** Which optional column group an error is complaining about, if any. */
@@ -16,11 +24,13 @@ function missingGroup(e: { message?: string } | null): string | null {
   const msg = e?.message ?? ''
   if (!/column|schema cache/i.test(msg)) return null
   for (const [g, cols] of Object.entries(OPTIONAL)) if (!missing.has(g) && cols.some((c) => msg.includes(c))) return g
+  if (!missing.has('levels') && /learner_subjects/.test(msg)) return 'levels'
   return null
 }
 
 function strip<T extends object>(row: T): T {
   const out = { ...row } as Record<string, unknown>
+  delete out.levels // in-app copy of learner_subjects, not a column
   for (const g of missing) for (const c of OPTIONAL[g]) delete out[c]
   // Without the spelling update the database only accepts Reading or Spanish.
   if (missing.has('spelling') && out.mode === 'spelling') out.mode = 'reading'
@@ -46,25 +56,67 @@ export const spellingAvailable = () => !missing.has('spelling')
 /** Subjects this database supports (Spelling Bee needs database update 008). */
 export const availableSubjects = () => SUBJECTS.filter((s) => s.id !== 'spelling' || spellingAvailable())
 
+type LevelRow = { subject: string; level: number; best: number }
+
+/** A learner row from the database, with its learner_subjects rows folded into `levels` (and the columns). */
+function fromRow(row: Record<string, unknown>): Learner {
+  const { learner_subjects: rows, ...rest } = row as { learner_subjects?: LevelRow[] } & Record<string, unknown>
+  const l = rest as unknown as Learner
+  if (!Array.isArray(rows) || rows.length === 0) return l
+  const levels: NonNullable<Learner['levels']> = {}
+  const cols: Record<string, number> = {}
+  for (const r of rows) {
+    const s = SUBJECTS.find((x) => x.id === r.subject)
+    if (!s) continue
+    levels[s.id] = { level: r.level, best: Math.max(r.best, r.level) }
+    if (s.levelColumn) cols[s.levelColumn] = r.level
+    if (s.bestColumn) cols[s.bestColumn] = Math.max(r.best, r.level)
+  }
+  return { ...l, ...cols, levels }
+}
+
 export async function listLearners(): Promise<Learner[]> {
   const { data, error } = await withFallback(() => supabase.from('learners').select(columns()).order('created_at', { ascending: true }))
   if (error) throw error
-  return (data ?? []) as unknown as Learner[]
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map(fromRow)
 }
 
 export async function createLearner(d: LearnerDraft): Promise<Learner> {
   const { data, error } = await withFallback(() => supabase.from('learners').insert(strip(d)).select(columns()).single())
   if (error) throw error
-  return data as unknown as Learner
+  return fromRow(data as unknown as Record<string, unknown>)
 }
 
-/** Saves progress and profile fields (never the id or owner). */
+/** Saves each subject's level to learner_subjects. False if that isn't possible yet (before update 015). */
+async function saveLevelRows(l: Learner): Promise<boolean> {
+  if (levelRowsWritable === false) return false
+  const ids = availableSubjects().map((s) => s.id)
+  const { error } = await supabase.from('learner_subjects').upsert(levelRows(l, ids), { onConflict: 'learner_id,subject' })
+  if (error) {
+    levelRowsWritable = false
+    return false
+  }
+  levelRowsWritable = true
+  return true
+}
+
+/**
+ * Saves progress and profile fields (never the id or owner). Levels go to learner_subjects (one row
+ * per subject, copied back to the learner columns by the database); before database update 015 they
+ * go to the learner columns instead.
+ */
 export async function saveLearner(l: Learner): Promise<void> {
   const { id, updated_at: _u, ...fields } = l
   void _u
-  const { error } = await withFallback(() => supabase.from('learners').update(strip(fields)).eq('id', id))
+  const rowsSaved = await saveLevelRows(l)
+  const patch = { ...fields } as Record<string, unknown>
+  if (rowsSaved) for (const s of SUBJECTS) { if (s.levelColumn) delete patch[s.levelColumn]; if (s.bestColumn) delete patch[s.bestColumn] }
+  const { error } = await withFallback(() => supabase.from('learners').update(strip(patch)).eq('id', id))
   if (error) throw error
 }
+
+/** True once a save on this device has gone to learner_subjects (database update 015). For the admin check. */
+export const levelsSavedAsRows = () => levelRowsWritable === true && !missing.has('levels')
 
 export async function deleteLearner(id: string): Promise<void> {
   const { error } = await supabase.from('learners').delete().eq('id', id)

@@ -113,7 +113,6 @@ const THEMES = {
 
 
 /** Form field that holds each subject's starting level. */
-const LEVEL_FIELD = { reading: 'readingLevel', spanish: 'spanishLevel', spelling: 'spellingLevel' } as const
 
 function LearnerCard({ learner: l, onPlay, onProgress, onEdit, onMode }: { learner: Learner; onPlay: () => void; onProgress: () => void; onEdit: () => void; onMode: (m: Mode) => void }) {
   // Each learner keeps the same colors (picked from their name), so cards are easy to tell apart.
@@ -298,11 +297,13 @@ export interface ReaderFields {
   mode: Mode
   age: AgeGroup
   style: StickerStyle
-  readingLevel: number
-  spanishLevel: number
-  spellingLevel: number
+  /** Starting level per subject. */
+  levels: Record<Mode, number>
   avatar: string | null
 }
+
+/** Each subject's level to start the form with (1 for a new learner). */
+const startLevels = (l?: Learner) => Object.fromEntries(SUBJECTS.map((s) => [s.id, l ? subjectLevel(l, s.id) : 1])) as Record<Mode, number>
 
 /** The add / edit form for a learner profile. */
 export function ReaderForm({ initial, isNew, busy, error, submitLabel, onSubmit, onCancel, footer }: {
@@ -349,8 +350,7 @@ export function ReaderForm({ initial, isNew, busy, error, submitLabel, onSubmit,
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {availableSubjects().map((x) => {
-          const key = LEVEL_FIELD[x.id]
-          return <LevelPicker key={x.id} id={`${x.id}-level`} label={`${x.icon} ${x.shortLabel} level`} mode={x.id} value={f[key]} onChange={(v) => set(key, v)} />
+          return <LevelPicker key={x.id} id={`${x.id}-level`} label={`${x.icon} ${x.shortLabel} level`} mode={x.id} value={f.levels[x.id]} onChange={(v) => set('levels', { ...f.levels, [x.id]: v })} />
         })}
         <p className="text-xs text-slate-500 sm:col-span-2">Start anywhere from 1 to {MAX_LEVEL}. The app still moves up or down from there based on how practice goes.</p>
       </div>
@@ -380,7 +380,7 @@ function AddLearner({ verified, onUnlockKids, onCreate, onCancel }: { verified: 
     if (!f.name) return setError('Enter a first name or nickname.')
     const base = newLearnerDraft(f.name, f.kind, f.age, f.style)
     let draft: LearnerDraft = { ...base, mode: f.mode, ...(f.avatar ? { avatar: f.avatar } : {}) }
-    for (const s of SUBJECTS) draft = { ...draft, [s.levelColumn]: f[LEVEL_FIELD[s.id]], [s.bestColumn]: f[LEVEL_FIELD[s.id]] }
+    for (const s of SUBJECTS) draft = withSubjectLevel(draft, s.id, f.levels[s.id])
     // Managed profiles are protected by two-step sign-in; set it up first, then add automatically.
     if (f.kind === 'child' && !verified) return onUnlockKids([draft])
     setBusy(true)
@@ -397,7 +397,7 @@ function AddLearner({ verified, onUnlockKids, onCreate, onCancel }: { verified: 
   return (
     <ReaderForm isNew busy={busy} error={error} onSubmit={submit} onCancel={onCancel}
       submitLabel={verified ? 'Add learner' : 'Add learner (sets up two-step sign-in)'}
-      initial={{ name: '', kind: 'child', mode: 'reading', age: '5-6', style: 'any', readingLevel: 1, spanishLevel: 1, spellingLevel: 1, avatar: null }} />
+      initial={{ name: '', kind: 'child', mode: 'reading', age: '5-6', style: 'any', levels: startLevels(), avatar: null }} />
   )
 }
 
@@ -422,7 +422,7 @@ function EditReader({ learner, verified, onSave, onCancel }: { learner: Learner;
       let next: Learner = { ...learner, display_name: f.name, mode: f.mode, age_group: f.age, sticker_style: f.style, ...(f.avatar ? { avatar: f.avatar } : {}) }
       // A new starting level: the best level only ever goes up (the database requires it).
       for (const s of availableSubjects()) {
-        const want = f[LEVEL_FIELD[s.id]]
+        const want = f.levels[s.id]
         if (want !== subjectLevel(learner, s.id)) next = withSubjectLevel(next, s.id, want)
       }
       await onSave(next)
@@ -437,7 +437,7 @@ function EditReader({ learner, verified, onSave, onCancel }: { learner: Learner;
     <div ref={ref}>
       <h2 className="mt-6 font-kids text-xl font-bold">Edit {learner.display_name}</h2>
       <ReaderForm isNew={false} busy={busy} error={error} onSubmit={submit} onCancel={onCancel} submitLabel="Save changes"
-        initial={{ name: learner.display_name, kind: learner.kind, mode: learner.mode, age: learner.age_group, style: learner.sticker_style, readingLevel: learner.reading_level, spanishLevel: learner.spanish_level, spellingLevel: learner.spelling_level ?? 1, avatar: learner.avatar ?? null }}
+        initial={{ name: learner.display_name, kind: learner.kind, mode: learner.mode, age: learner.age_group, style: learner.sticker_style, levels: startLevels(learner), avatar: learner.avatar ?? null }}
         footer={<p className="text-xs text-slate-500">Stars and stickers aren’t changed. To delete a learner, use ⚙️ Account.</p>} />
       <LinkDevicePanel learner={learner} verified={verified} />
     </div>

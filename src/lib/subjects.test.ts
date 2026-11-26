@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { masteryKey } from './progress'
-import { SUBJECTS, isSubjectId, subject, subjectBest, subjectLevel, withSubjectLevel } from './subjects'
+import { SUBJECTS, isSubjectId, levelRows, subject, subjectBest, subjectLevel, withSubjectLevel } from './subjects'
 
 describe('subject list', () => {
   it('has unique ids, columns and mastery suffixes', () => {
@@ -25,5 +25,17 @@ describe('subject list', () => {
   })
   it('keeps the mastery keys saved progress already uses', () => {
     expect([masteryKey(12, 'reading'), masteryKey(12, 'spanish'), masteryKey(12, 'spelling')]).toEqual(['12', '12_es', '12_sp'])
+  })
+  it('prefers the per-subject rows and keeps them in step with the columns', () => {
+    const l = { id: 'x', reading_level: 5, reading_best: 5, levels: { reading: { level: 8, best: 10 } } }
+    expect(subjectLevel(l, 'reading')).toBe(8)
+    expect(subjectBest(l, 'reading')).toBe(10)
+    const next = withSubjectLevel(l, 'reading', 9)
+    expect(next.levels?.reading).toEqual({ level: 9, best: 10 })
+    expect([next.reading_level, next.reading_best]).toEqual([9, 10])
+    expect(levelRows(next, ['reading', 'spanish'])).toEqual([
+      { learner_id: 'x', subject: 'reading', level: 9, best: 10 },
+      { learner_id: 'x', subject: 'spanish', level: 1, best: 1 },
+    ])
   })
 })

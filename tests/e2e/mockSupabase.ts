@@ -34,6 +34,9 @@ export interface MockState {
   rounds: Record<string, unknown>[]
   problems: Record<string, unknown>[]
   patches: number
+  /** Level saves to learner_subjects (database update 015). Set `levelRowsTable: false` to act like an older database. */
+  levelUpserts: number
+  levelRowsTable: boolean
   admin: boolean
   rpcCalls: { name: string; body: unknown }[]
   terms: string
@@ -69,7 +72,7 @@ const strong = (route: Route) => {
 }
 
 export async function mockSupabase(page: Page, init: Partial<MockState> = {}): Promise<MockState> {
-  const state: MockState = { learners: [], rounds: [], problems: [], patches: 0, admin: false, rpcCalls: [], terms: TERMS_VERSION, ...init }
+  const state: MockState = { learners: [], rounds: [], problems: [], patches: 0, levelUpserts: 0, levelRowsTable: true, admin: false, rpcCalls: [], terms: TERMS_VERSION, ...init }
   await page.route(`${SUPABASE_URL}/**`, async (route) => {
     const req = route.request()
     const url = new URL(req.url())
@@ -86,7 +89,15 @@ export async function mockSupabase(page: Page, init: Partial<MockState> = {}): P
 
     if (path === '/rest/v1/learners') {
       const visible = (l: MockLearner) => l.kind === 'self' || strong(route)
-      if (method === 'GET') return json(state.learners.filter(visible))
+      if (method === 'GET') {
+        const embed = state.levelRowsTable && (url.searchParams.get('select') ?? '').includes('learner_subjects')
+        if (!state.levelRowsTable && (url.searchParams.get('select') ?? '').includes('learner_subjects')) {
+          return json({ code: 'PGRST200', message: "Could not find a relationship between 'learners' and 'learner_subjects' in the schema cache" }, 400)
+        }
+        return json(state.learners.filter(visible).map((l) => embed
+          ? { ...l, learner_subjects: (['reading', 'spanish', 'spelling'] as const).map((s) => ({ subject: s, level: l[`${s}_level`], best: l[`${s}_best`] })) }
+          : l))
+      }
       if (method === 'PATCH') {
         const id = (url.searchParams.get('id') ?? '').replace('eq.', '')
         const l = state.learners.find((x) => x.id === id && visible(x))
@@ -98,6 +109,17 @@ export async function mockSupabase(page: Page, init: Partial<MockState> = {}): P
         state.learners.push(row)
         return json(row, 201)
       }
+    }
+    if (path === '/rest/v1/learner_subjects') {
+      if (!state.levelRowsTable) return json({ code: '42501', message: 'permission denied for table learner_subjects' }, 403)
+      for (const r of (Array.isArray(body) ? body : [body]) as { learner_id: string; subject: 'reading' | 'spanish' | 'spelling'; level: number; best: number }[]) {
+        const l = state.learners.find((x) => x.id === r.learner_id)
+        if (!l) return json({ message: 'new row violates row-level security policy' }, 403)
+        l[`${r.subject}_level`] = r.level
+        l[`${r.subject}_best`] = Math.max(l[`${r.subject}_best`], r.best, r.level)
+      }
+      state.levelUpserts += 1
+      return route.fulfill({ status: 201 })
     }
     if (path === '/rest/v1/practice_rounds') {
       if (method === 'POST') { state.rounds.push({ ...(Array.isArray(body) ? body[0] : body), created_at: new Date().toISOString() }); return route.fulfill({ status: 201 }) }

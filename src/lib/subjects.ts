@@ -23,9 +23,12 @@ export interface Subject {
   speechLang: 'en-US' | 'es-US'
   /** Suffix for mastered-item keys per level ("12", "12_es", "12_sp"). */
   masterySuffix: string
-  /** Learner columns that hold the current level and the best level ever reached. */
-  levelColumn: 'reading_level' | 'spanish_level' | 'spelling_level'
-  bestColumn: 'reading_best' | 'spanish_best' | 'spelling_best'
+  /**
+   * Older learner columns that also hold this subject's level and best level. Only the first three
+   * subjects have them; levels live in learner_subjects, so a new subject leaves these out.
+   */
+  levelColumn?: 'reading_level' | 'spanish_level' | 'spelling_level'
+  bestColumn?: 'reading_best' | 'spanish_best' | 'spelling_best'
   /** Name of the level scale shown in Help. */
   scaleNote: string
   /** Subject switch colors (active tab). */
@@ -81,21 +84,33 @@ export const isSubjectId = (v: unknown): v is SubjectId => typeof v === 'string'
 /** "📖 Reading" */
 export const subjectName = (id: string | null | undefined) => `${subject(id).icon} ${subject(id).label}`
 
-type LevelFields = Partial<Pick<Learner, Subject['levelColumn'] | Subject['bestColumn']>>
+type LevelFields = Partial<Pick<Learner, NonNullable<Subject['levelColumn']> | NonNullable<Subject['bestColumn']> | 'levels'>>
 
 /** A learner's current level in a subject (1 when not started or not available yet). */
 export function subjectLevel(l: LevelFields, id: SubjectId): number {
-  return l[subject(id).levelColumn] ?? 1
+  const col = subject(id).levelColumn
+  return l.levels?.[id]?.level ?? (col ? l[col] : undefined) ?? 1
 }
 
 /** Highest level ever reached in a subject (never below the current level). */
 export function subjectBest(l: LevelFields, id: SubjectId): number {
-  const s = subject(id)
-  return Math.max(l[s.bestColumn] ?? 1, l[s.levelColumn] ?? 1)
+  const col = subject(id).bestColumn
+  return Math.max(l.levels?.[id]?.best ?? 1, (col ? l[col] : undefined) ?? 1, subjectLevel(l, id))
 }
 
 /** The fields to change to put a learner at `level` in a subject (best only ever goes up). */
 export function withSubjectLevel<T extends LevelFields>(l: T, id: SubjectId, level: number): T {
   const s = subject(id)
-  return { ...l, [s.levelColumn]: level, [s.bestColumn]: Math.max(l[s.bestColumn] ?? 1, level) }
+  const best = Math.max(subjectBest(l, id), level)
+  return {
+    ...l,
+    ...(s.levelColumn ? { [s.levelColumn]: level } : {}),
+    ...(s.bestColumn ? { [s.bestColumn]: best } : {}),
+    levels: { ...l.levels, [id]: { level, best } },
+  }
+}
+
+/** Every subject's level and best, as rows for the learner_subjects table. */
+export function levelRows(l: LevelFields & { id: string }, ids: readonly SubjectId[] = SUBJECTS.map((s) => s.id)) {
+  return ids.map((id) => ({ learner_id: l.id, subject: id, level: subjectLevel(l, id), best: subjectBest(l, id) }))
 }

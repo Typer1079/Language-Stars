@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { adminKpis, dbMessage, subjectsInSync, type AdminKpis } from '../lib/learnersApi'
+import { adminKpis, dbMessage, levelsSavedAsRows, subjectsInSync, type AdminKpis } from '../lib/learnersApi'
 import { BarChart, LineChart, Tile } from './Charts'
 import { AdminLeaderboards } from './Ranks'
 import { AdminUsers } from './AdminUsers'
@@ -138,7 +138,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
               {sync !== undefined && (
                 <span className={`text-[11px] font-semibold ${sync === null ? 'text-slate-400' : sync.mismatched ? 'text-rose-700' : 'text-emerald-700'}`}
                   title="Levels are also kept in one row per learner per subject (database update 014). This checks both copies match.">
-                  {sync === null ? 'Per-subject table: run database update 014' : sync.mismatched ? `Per-subject table: ${sync.mismatched} differences ✗` : `Per-subject table: ${sync.rows} rows, in sync ✓`}
+                  {sync === null ? 'Per-subject table: run database update 014' : sync.mismatched ? `Per-subject table: ${sync.mismatched} differences ✗` : `Per-subject table: ${sync.rows} rows, in sync ✓${levelsSavedAsRows() ? ' · levels saved here' : ''}`}
                 </span>
               )}
             </div>

@@ -139,3 +139,26 @@ test('Reading from level 31: a meaning question follows some items', async ({ pa
   await question.getByRole('button').first().click()
   await expect(question).toContainText(/Yes! \+1 ⭐|Good try/)
 })
+
+test('a level change is saved per subject and is still there after reloading', async ({ page }) => {
+  const state = await mockSupabase(page, { learners: [learner({ id: 'l1', display_name: 'Olivia', reading_level: 4, reading_best: 9 })] })
+  await signIn(page)
+  await page.getByRole('button', { name: 'Edit Olivia' }).click()
+  await page.getByRole('button', { name: '📖 Reading level up' }).click()
+  await page.getByRole('button', { name: 'Save changes' }).click()
+  await expect.poll(() => state.learners[0].reading_level).toBe(5)
+  expect(state.levelUpserts).toBeGreaterThan(0)
+  expect(state.learners[0].reading_best).toBe(9)
+  await page.reload()
+  await expect(page.getByRole('group', { name: 'What Olivia practices today' })).toContainText('Reading L5')
+})
+
+test('an older database (before update 015) still saves levels', async ({ page }) => {
+  const state = await mockSupabase(page, { levelRowsTable: false, learners: [learner({ id: 'l1', display_name: 'Olivia', spanish_level: 2 })] })
+  await signIn(page)
+  await page.getByRole('button', { name: 'Edit Olivia' }).click()
+  await page.getByRole('button', { name: '🇪🇸 Spanish level up' }).click()
+  await page.getByRole('button', { name: 'Save changes' }).click()
+  await expect.poll(() => state.learners[0].spanish_level).toBe(3)
+  expect(state.levelUpserts).toBe(0)
+})
