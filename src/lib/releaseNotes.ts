@@ -12,6 +12,17 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.8.1',
+    date: '2026-11-26',
+    title: 'Fixes for the new languages',
+    items: [
+      'Beginners are no longer asked for harder bonus words they haven\'t learned yet. Bonus words come back once half of a level is learned.',
+      'Stuck on a word? At the guided pace Iris now says the answer by herself after a short pause, then keeps listening.',
+      'Answers are checked more carefully: saying a different word from the same level (six for five, grandfather for father, "I don\'t like it" for "I like it") no longer counts.',
+      'World ranks now work for every language, and each learner only sees ranks for the languages they\'ve started.',
+    ],
+  },
+  {
     version: '1.8.0',
     date: '2026-11-25',
     title: 'Seven new languages',

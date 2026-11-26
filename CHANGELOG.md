@@ -2,6 +2,24 @@
 
 Versions follow major.minor.patch. The version shown in the app comes from `package.json`.
 
+## 1.8.1 — 2026-11-26
+Bug fixes from the first Portuguese testers (problem reports: "three → três" and "here → aqui" skipped).
+- **No untaught bonus items for beginners**: in a language, stretch items from higher levels only appear
+  once 5 of the current level's 10 are mastered (or the learner has been higher before)
+  (`LANGUAGE_STRETCH_AFTER`). Reading and Spelling Bee are unchanged.
+- **Iris helps beginners**: in a language at the guided pace, Iris says the answer by herself once after
+  9 s with no match (counts as help), then keeps listening. Brisk learners still ask with Ask Iris.
+- **Stricter, fairer answer checking** (`src/lib/languageMatch.ts`, `answerScore` in `match.ts`): answers
+  must line up with whole words; near misses only for longer words; and an answer only counts if no
+  other item of the same level fits better. Fixes French "six" counting for "cinq", "la famille"
+  counting for "ami", Korean "할아버지" for "아버지", "안 좋아해요" for "좋아해요", and similar (a test checks
+  every item of every language). Spanish keeps its accent-forgiving check, plus the same-level rule.
+- **Database update 018**: world ranks for the newer languages (they showed "Couldn't load this ranking");
+  Admin → Accounts lists each learner's level in every subject; `admin_subject_levels()` for Admin.
+- Admin: "Reading / Spelling / Languages" tile with learners per language; the levels table shows only
+  subjects in use, so columns line up again.
+- A learner's World ranks only list languages they've started.
+
 ## 1.8.0 — 2026-11-25
 - **Seven new language paths (Beta)**: French, Portuguese (Portugal), Tagalog, Japanese, Korean, Mandarin
   (Simplified) and Farsi, 30 levels each (300 items), from greetings to everyday sentences. One shared

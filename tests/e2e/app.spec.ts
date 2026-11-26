@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
 import { FAKE_SPEECH, learner, mockSupabase, signIn } from './mockSupabase'
+import { readFileSync } from 'node:fs'
+
+const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { version: string }
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(FAKE_SPEECH)
@@ -321,6 +324,18 @@ test('Help has release notes and the version history', async ({ page }) => {
   await signIn(page)
   await page.getByRole('button', { name: /Help/ }).click()
   await page.getByRole('tab', { name: /What’s new/ }).click()
-  await expect(page.getByRole('region', { name: 'Version 1.8.0' })).toContainText('Latest')
+  await expect(page.getByRole('region', { name: `Version ${pkg.version}` })).toContainText('Latest')
   await expect(page.getByRole('region', { name: 'Version 1.0.0' })).toContainText('First release')
+})
+
+test('admin counts learners on every language and shows only the subjects in use', async ({ page }) => {
+  const state = await mockSupabase(page, { admin: true, learners: [learner({ id: 'l1', display_name: 'Ethan' }), learner({ id: 'l2', display_name: 'Maius', mode: 'portuguese' })] })
+  state.extraLevels.l2 = { portuguese: { level: 4, best: 4 } }
+  await signIn(page, 'admin@example.com')
+  await page.getByRole('button', { name: /Admin/ }).click()
+  await expect(page.getByText('Reading / Spelling / Languages')).toBeVisible()
+  await expect(page.getByText('🇵🇹 1')).toBeVisible()
+  const table = page.locator('table').filter({ hasText: 'Levels' })
+  await expect(table.locator('th')).toContainText(['Levels', '📖 Reading', '🇪🇸 Spanish', '🐝 Spelling', '🇵🇹 Portuguese'])
+  await expect(table.locator('th', { hasText: 'Korean' })).toHaveCount(0)
 })

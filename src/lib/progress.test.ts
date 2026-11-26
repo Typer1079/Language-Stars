@@ -137,3 +137,15 @@ describe('faster progress', () => {
     expect(_endRound(base, 5, 7, { stretchCleared: [12] }).learner.reading_level).toBe(10)
   })
 })
+
+describe('languages: beginners', () => {
+  it('no harder bonus items until half the level is mastered', () => {
+    const pt: Learner = { ...base, mode: 'portuguese' }
+    expect(pickRound(pt).some((i) => i.stretchLevel)).toBe(false)
+    const keys = levelItems(1, 'portuguese').slice(0, 5).map((i) => i.key)
+    const ready: Learner = { ...pt, mastered: { '1_por': keys } }
+    expect(pickRound(ready).some((i) => i.stretchLevel)).toBe(true)
+    // Reading is unchanged: bonus items from the start.
+    expect(pickRound(base).some((i) => i.stretchLevel)).toBe(true)
+  })
+})

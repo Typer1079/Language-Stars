@@ -273,9 +273,17 @@ export async function adminKpis(days = 30): Promise<AdminKpis> {
   return data as AdminKpis
 }
 
+/** Learners per subject (current choice) and per 10-level band (database update 018); null before it. */
+export interface SubjectLevels { modes: Record<string, number>; bands: { subject: string; band: number; n: number }[] }
+export async function adminSubjectLevels(): Promise<SubjectLevels | null> {
+  const { data, error } = await supabase.rpc('admin_subject_levels')
+  if (error) return null
+  return data as SubjectLevels
+}
+
 // ---- worldwide rankings (names are never returned: others appear as codenames) ---------------
 
-export type RankMetric = 'stars' | 'stars_week' | 'reading' | 'spanish' | 'spelling' | 'biggest_sticker' | 'stickers' | 'words' | 'minutes_week' | 'days30' | 'questions'
+export type RankMetric = 'stars' | 'stars_week' | Mode | 'biggest_sticker' | 'stickers' | 'words' | 'minutes_week' | 'days30' | 'questions'
 
 export interface MyRank { rank: number | null; total: number; value: number }
 export type MyRanks = Partial<Record<RankMetric, MyRank>>
@@ -340,7 +348,7 @@ export interface AdminUser {
   paying?: boolean
   plan_status?: 'active' | 'trialing' | 'past_due' | 'canceled' | 'expired' | null
   last_notice?: 'free_60' | 'free_83' | 'paid_45' | null
-  learners: { name: string; kind: string; mode: string; avatar: string | null; reading: number; spanish: number; spelling: number | null; stars: number }[]
+  learners: { name: string; kind: string; mode: string; avatar: string | null; reading: number; spanish: number; spelling: number | null; stars: number; levels?: Record<string, number> }[]
 }
 
 export async function adminUsers(): Promise<AdminUser[]> {

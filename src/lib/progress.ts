@@ -15,6 +15,8 @@ export interface PracticeItem {
   spell?: SpellEntry
   /** Stretch item from a higher level, mixed in to spot learners who are ready to jump ahead. */
   stretchLevel?: number
+  /** Level this item belongs to (languages: other items of the same level are checked as rivals). */
+  level?: number
 }
 
 export const ROUND_SIZE = 10
@@ -22,6 +24,8 @@ export const ROUND_SIZE = 10
 export const STRETCH_STEPS = [2, 4, 6]
 /** Master this many of a level's 10 items (without help) to move up. */
 export const LEVEL_UP_AT = 8
+/** Languages: mastered items at this level before bonus items from higher levels appear. */
+export const LANGUAGE_STRETCH_AFTER = 5
 
 /** Highest level in a subject (100; the newer language paths have 30 so far). */
 export function maxLevel(mode?: Mode): number {
@@ -50,7 +54,7 @@ export function levelItems(level: number, mode: Mode): PracticeItem[] {
   }
   if (subject(mode).language) {
     const levels = mode === 'spanish' ? SPANISH_LEVELS : LANGUAGE_LEVELS[mode]
-    return (levels[level] ?? levels[1]).map((e) => ({ key: e.en.toLowerCase(), target: e.say ?? e.es, spanish: e }))
+    return (levels[level] ?? levels[1]).map((e) => ({ key: e.en.toLowerCase(), target: e.say ?? e.es, spanish: e, level }))
   }
   return (READING_LEVELS[level] ?? READING_LEVELS[1]).map((w) => ({ key: w.toLowerCase(), target: w }))
 }
@@ -73,6 +77,9 @@ export function shuffle<T>(arr: T[], rand: () => number = Math.random): T[] {
 export function pickStretch(l: Learner, rand: () => number = Math.random): PracticeItem[] {
   const level = activeLevel(l)
   const out: PracticeItem[] = []
+  // Languages: no harder items until half of this level is mastered (or the learner has been higher),
+  // so a beginner isn't asked for words nobody has taught them yet.
+  if (subject(l.mode).language && bestOf(l, l.mode) <= level && levelItems(level, l.mode).length - unmasteredItems(l, level).length < LANGUAGE_STRETCH_AFTER) return out
   for (const step of STRETCH_STEPS) {
     const at = Math.min(level + step, maxLevel(l.mode))
     if (at <= level || out.some((o) => o.stretchLevel === at)) continue

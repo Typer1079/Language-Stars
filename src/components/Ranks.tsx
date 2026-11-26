@@ -1,22 +1,23 @@
 import { useEffect, useState } from 'react'
 import { leaderboard, myRanks, type Leaderboard, type MyRanks, type RankMetric } from '../lib/learnersApi'
 import { medal, RANK_METRICS } from '../lib/ranks'
+import { subject } from '../lib/subjects'
 
 /** The top of one ranking. Everyone else appears under a codename; your own row shows your name. */
 export function LeaderboardList({ metric, learnerId, myName, top = 10 }: { metric: RankMetric; learnerId: string | null; myName?: string; top?: number }) {
   const [board, setBoard] = useState<Leaderboard | null>(null)
-  const [error, setError] = useState(false)
+  const [error, setError] = useState<string | false>(false)
   const m = RANK_METRICS.find((x) => x.id === metric)!
 
   useEffect(() => {
     let live = true
     leaderboard(metric, learnerId, top)
       .then((b) => { if (live) { setBoard(b); setError(false) } })
-      .catch(() => { if (live) setError(true) })
+      .catch((e) => { if (live) setError(/unknown ranking/i.test(String(e?.message)) ? 'This ranking needs database update 018.' : 'Couldn’t load this ranking.') })
     return () => { live = false }
   }, [metric, learnerId, top])
 
-  if (error) return <p className="text-xs text-rose-700">Couldn’t load this ranking.</p>
+  if (error) return <p className="text-xs text-rose-700">{error}</p>
   if (!board) return <p className="py-3 text-center text-xs text-slate-500">Loading…</p>
   if (board.top.length === 0) return <p className="py-3 text-center text-xs text-slate-500">Nobody is ranked here yet. Be the first!</p>
   const meShown = board.top.some((t) => t.me)
@@ -67,7 +68,8 @@ export function RanksSection({ learnerId, name }: { learnerId: string; name: str
       {!ranks && <p className="py-4 text-center text-sm text-slate-500">Loading…</p>}
       {ranks && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {RANK_METRICS.map((m) => {
+          {/* Language ranks only for languages this learner has started (all ten would crowd the page). */}
+          {RANK_METRICS.filter((m) => !subject(m.id).language || m.id === 'spanish' || (ranks[m.id]?.value ?? 0) > 0).map((m) => {
             const r = ranks[m.id]
             const ranked = r && r.rank
             const first = r?.rank === 1

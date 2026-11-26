@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { adminKpis, dbMessage, levelsSavedAsRows, subjectsInSync, type AdminKpis } from '../lib/learnersApi'
+import { adminKpis, adminSubjectLevels, dbMessage, type SubjectLevels, levelsSavedAsRows, subjectsInSync, type AdminKpis } from '../lib/learnersApi'
 import { BarChart, LineChart, Tile } from './Charts'
 import { AdminLeaderboards } from './Ranks'
 import { AdminUsers } from './AdminUsers'
@@ -7,7 +7,12 @@ import { AdminProblems } from './AdminProblems'
 import { Notice } from './ui/Notice'
 import { PageHeader } from './ui/PageHeader'
 import { formatTime } from '../lib/format'
-import { SUBJECTS } from '../lib/subjects'
+import { SUBJECTS, subject } from '../lib/subjects'
+
+/** "🇪🇸 1 · 🇵🇹 1": learners on each language right now. */
+function languageMix(modes: Record<string, number>): string {
+  return SUBJECTS.filter((s) => s.language && modes[s.id]).map((s) => `${s.icon} ${modes[s.id]}`).join(' · ')
+}
 
 const RANGES = [7, 30, 90, 365] as const
 
@@ -42,6 +47,8 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState('')
   const [sync, setSync] = useState<{ rows: number; mismatched: number } | null | undefined>(undefined)
   useEffect(() => { void subjectsInSync().then(setSync) }, [])
+  const [subj, setSubj] = useState<SubjectLevels | null>(null)
+  useEffect(() => { void adminSubjectLevels().then(setSubj) }, [])
 
   useEffect(() => {
     let live = true
@@ -95,7 +102,12 @@ export default function Admin({ onBack }: { onBack: () => void }) {
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Tile label="Accounts" value={k.accounts} sub={`+${k.accounts_new} in ${k.days}d`} />
             <Tile label="Learners" value={k.learners} sub={`${k.learners_kids} managed by a parent`} />
-            <Tile label="Reading / Spanish / Spelling" value={`${k.learners_reading} / ${k.learners_spanish} / ${k.learners_spelling ?? 0}`} sub="current choice" />
+            {subj ? (
+              <Tile label="Reading / Spelling / Languages" sub={languageMix(subj.modes) || 'current choice'}
+                value={`${subj.modes.reading ?? 0} / ${subj.modes.spelling ?? 0} / ${Object.entries(subj.modes).filter(([m]) => subject(m).language).reduce((n, [, c]) => n + c, 0)}`} />
+            ) : (
+              <Tile label="Reading / Spanish / Spelling" value={`${k.learners_reading} / ${k.learners_spanish} / ${k.learners_spelling ?? 0}`} sub="current choice" />
+            )}
             <Tile label="Active learners" value={k.active_learners_7d} sub="last 7 days" />
             <Tile label="Active today" value={k.active_accounts_1d} sub="accounts, last 24h" />
             <Tile label="Weekly active" value={k.active_accounts_7d} sub="accounts" />
@@ -142,32 +154,54 @@ export default function Admin({ onBack }: { onBack: () => void }) {
                 </span>
               )}
             </div>
-            <table className="w-full text-left text-xs">
-              <thead className="text-[11px] uppercase tracking-wide text-slate-500">
-                <tr><th className="py-1">Levels</th>{SUBJECTS.map((s) => <th key={s.id} className="py-1">{s.icon} {s.shortLabel}</th>)}</tr>
-              </thead>
-              <tbody>
-                {k.levels.map((b) => {
-                  const most = Math.max(1, ...k.levels.map((x) => Math.max(x.reading, x.spanish, x.spelling ?? 0)))
-                  return (
-                    <tr key={b.band} className="border-t border-slate-100">
-                      <td className="py-1.5 pr-2 whitespace-nowrap">{b.band * 10 + 1}–{b.band * 10 + 10}</td>
-                      {[b.reading, b.spanish, b.spelling ?? 0].map((n, i) => (
-                        <td key={i} className="py-1.5 pr-3">
-                          <div className="flex items-center gap-2">
-                            <div className={`h-2.5 rounded-full ${i === 2 ? 'bg-emerald-500' : i ? 'bg-amber-400' : 'bg-indigo-500'}`} style={{ width: `${Math.max(n ? 4 : 0, (n / most) * 110)}px` }} />
-                            <span>{n}</span>
-                          </div>
-                        </td>
-                      ))}
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            <LevelTable rows={levelRows(k, subj)} />
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+type LevelRow = { band: number; counts: Record<string, number> }
+
+/** Learners per 10-level band in each subject: from learner_subjects (update 018), else the older three columns. */
+function levelRows(k: AdminKpis, subj: SubjectLevels | null): LevelRow[] {
+  if (!subj) return k.levels.map((b) => ({ band: b.band, counts: { reading: b.reading, spanish: b.spanish, spelling: b.spelling ?? 0 } }))
+  const top = Math.max(9, ...subj.bands.map((b) => b.band))
+  return Array.from({ length: top + 1 }, (_, band) => ({
+    band, counts: Object.fromEntries(subj.bands.filter((b) => b.band === band).map((b) => [b.subject, b.n])),
+  }))
+}
+
+function LevelTable({ rows }: { rows: LevelRow[] }) {
+  // Only subjects someone is learning get a column (all ten would not fit).
+  const cols = SUBJECTS.filter((s) => !s.language || s.id === 'spanish' || rows.some((r) => r.counts[s.id]))
+  const most = Math.max(1, ...rows.flatMap((r) => cols.map((c) => r.counts[c.id] ?? 0)))
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left text-xs">
+        <thead className="text-[11px] uppercase tracking-wide text-slate-500">
+          <tr><th className="py-1">Levels</th>{cols.map((s) => <th key={s.id} className="py-1">{s.icon} {s.shortLabel}</th>)}</tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.band} className="border-t border-slate-100">
+              <td className="py-1.5 pr-2 whitespace-nowrap">{r.band * 10 + 1}–{r.band * 10 + 10}</td>
+              {cols.map((c) => {
+                const n = r.counts[c.id] ?? 0
+                return (
+                  <td key={c.id} className="py-1.5 pr-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`h-2.5 rounded-full ${c.chart.dot}`} style={{ width: `${Math.max(n ? 4 : 0, (n / most) * 110)}px` }} />
+                      <span>{n}</span>
+                    </div>
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

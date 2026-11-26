@@ -177,6 +177,15 @@ export async function mockSupabase(page: Page, init: Partial<MockState> = {}): P
           return json(null)
         }
         case 'subjects_in_sync': return json({ rows: state.learners.length * 3, mismatched: 0 })
+        case 'admin_subject_levels': {
+          const modes: Record<string, number> = {}
+          for (const l of state.learners) modes[l.mode] = (modes[l.mode] ?? 0) + 1
+          const bands = [
+            ...state.learners.flatMap((l) => (['reading', 'spanish', 'spelling'] as const).map((s) => ({ subject: s, band: Math.floor((l[`${s}_level`] - 1) / 10), n: 1 }))),
+            ...Object.values(state.extraLevels).flatMap((m) => Object.entries(m).map(([subject, v]) => ({ subject, band: Math.floor((v.level - 1) / 10), n: 1 }))),
+          ]
+          return json({ modes, bands })
+        }
         case 'admin_kpis': {
           const day = (i: number) => new Date(Date.now() - i * 86400000).toISOString().slice(0, 10)
           return json({

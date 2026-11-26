@@ -1,3 +1,4 @@
+import { SUBJECTS } from '../lib/subjects'
 import { useEffect, useMemo, useState } from 'react'
 import { adminAccountAction, adminSetPlan, adminUsers, dbMessage, type AdminUser } from '../lib/learnersApi'
 import { TERMS_VERSION } from '../lib/legal'
@@ -105,7 +106,7 @@ export function AdminUsers() {
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {u.learners.map((l, i) => (
                   <span key={i} className="rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200">
-                    {l.avatar ?? (l.kind === 'child' ? '🧒' : '🧑')} {l.name}{l.kind === 'child' ? ' (child)' : ''} · {modeIcon(l.mode)} 📖{l.reading} 🇪🇸{l.spanish}{l.spelling ? ` 🐝${l.spelling}` : ''} · ⭐{l.stars.toLocaleString()}
+                    {l.avatar ?? (l.kind === 'child' ? '🧒' : '🧑')} {l.name}{l.kind === 'child' ? ' (child)' : ''} · {modeIcon(l.mode)} {learnerLevels(l)} · ⭐{l.stars.toLocaleString()}
                   </span>
                 ))}
               </div>
@@ -143,4 +144,11 @@ export function AdminUsers() {
       )}
     </div>
   )
+}
+
+/** "📖88 🇪🇸11 🐝38 🇵🇹4": the subjects a learner has started (all levels from update 018, else the first three). */
+function learnerLevels(l: { mode: string; reading: number; spanish: number; spelling: number | null; levels?: Record<string, number> }): string {
+  const lv = l.levels ?? { reading: l.reading, spanish: l.spanish, ...(l.spelling ? { spelling: l.spelling } : {}) }
+  return SUBJECTS.filter((s) => lv[s.id] !== undefined && (lv[s.id] > 1 || s.id === l.mode || ['reading', 'spanish'].includes(s.id)))
+    .map((s) => `${s.icon}${lv[s.id]}`).join(' ')
 }

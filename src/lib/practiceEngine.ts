@@ -1,5 +1,6 @@
-import { isNativeMatch, isSpanishMatch, isWordMatch } from './match'
-import type { PracticeItem } from './progress'
+import { isWordMatch } from './match'
+import { isLanguageAnswer } from './languageMatch'
+import { levelItems, type PracticeItem } from './progress'
 import { canFilterNoise, createRecognition, getCleanMicTrack, releaseCleanMic, speakSegments, cancelSpeech, hasVoice, IS_IOS, type RecognitionLike, type VoiceSegment } from './speech'
 import type { Mode } from './types'
 import { ENCOURAGING_NICKNAMES } from './wordBanks'
@@ -93,11 +94,12 @@ export class PracticeEngine {
 
   /**
    * Reading mode brings in the coach automatically and moves on after a few tries.
-   * Spanish mode keeps listening until the word is said correctly or Skip is pressed;
-   * the coach only speaks when asked (AI Coach button / Space).
+   * Languages keep listening until the word is said correctly or Skip is pressed. At the guided
+   * pace Iris says the answer once by herself after a pause (a beginner may never have heard it);
+   * otherwise she only speaks when asked (Ask Iris / Space).
    */
   private get autoCoach(): boolean {
-    return this.mode === 'reading'
+    return this.mode === 'reading' || (Boolean(this.lang) && this.pace === 'guided' && !this.usedCoach)
   }
 
   /** What happens when a listening window ends without the word (reading mode only). */
@@ -109,6 +111,8 @@ export class PracticeEngine {
   /** How long to wait in Reading before the coach steps in: longer for longer phrases and for brisk learners. */
   private get listenMs(): number {
     const words = this.item ? this.item.target.split(' ').length : 1
+    // Languages: a longer think before Iris helps (she only steps in by herself at the guided pace).
+    if (this.lang) return 9000 + (words - 1) * 700
     return this.pace === 'brisk' ? LISTEN_MS + 2800 + (words - 1) * 500 : LISTEN_MS + (words - 1) * 700
   }
 
@@ -465,8 +469,7 @@ export class PracticeEngine {
   private matches(heard: string, it: PracticeItem): boolean {
     const e = it.spanish
     if (!this.lang || !e) return isWordMatch(heard, it.target)
-    if (this.lang.script === 'latin') return isSpanishMatch(heard, it.target, e.variants)
-    return isNativeMatch(heard, it.target, e.variants, e.es)
+    return isLanguageAnswer(heard, it, it.level ? levelItems(it.level, this.mode) : [], this.lang)
   }
 
   /** How the coach addresses the learner: usually by name; kid nicknames only in Reading mode. */

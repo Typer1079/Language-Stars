@@ -359,3 +359,57 @@ export function isNativeMatch(transcript: string, target: string, variants: stri
   // Some recognizers write a short answer in English letters ("ok", "hai").
   return Boolean(romanized && /[a-z]/i.test(transcript) && fold(romanized).length >= 3 && isSpanishMatch(transcript, romanized))
 }
+
+// ---- Language answers: how well what was heard fits an item --------------------------------
+
+const latinTokens = (s: string) => fold(s).replace(/[-‐–]/g, ' ').replace(/[^a-z0-9'\s]/g, ' ').replace(/'/g, '').split(/\s+/).filter(Boolean)
+/** Light sound key for French, Portuguese and Tagalog: no h, no doubled letters. */
+const lightKey = (s: string) => s.replace(/h/g, '').replace(/(.)\1+/g, '$1')
+function latinTolerance(len: number): number {
+  if (len <= 4) return 0
+  if (len <= 8) return 1
+  if (len <= 14) return 2
+  return Math.floor(len * 0.15)
+}
+
+/**
+ * How well `heard` fits any of `answers` (0 = not at all). An exact answer scores its length; a near
+ * miss scores a little less. Answers must line up with whole words (Latin) or stand alone when they
+ * are one or two characters (other scripts), so "la famille" never counts as "ami".
+ */
+export function answerScore(heard: string, answers: string[], script: 'latin' | 'cjk' | 'persian'): number {
+  let best = 0
+  if (script === 'latin') {
+    const h = latinTokens(heard)
+    if (!h.length) return 0
+    for (const a of answers) {
+      const at = latinTokens(a)
+      if (!at.length) continue
+      const key = lightKey(at.join(''))
+      for (const n of new Set([at.length - 1, at.length, at.length + 1])) {
+        if (n < 1 || n > h.length) continue
+        for (let i = 0; i + n <= h.length; i++) {
+          const w = lightKey(h.slice(i, i + n).join(''))
+          if (w === key) best = Math.max(best, key.length)
+          else if (Math.abs(w.length - key.length) <= latinTolerance(key.length)) {
+            const d = editDistance(w, key)
+            if (d <= latinTolerance(key.length)) best = Math.max(best, key.length - d - 0.5)
+          }
+        }
+      }
+    }
+    return best
+  }
+  const h = nativeKey(heard)
+  if (!h) return 0
+  for (const a of answers) {
+    const c = nativeKey(a)
+    if (!c) continue
+    if (c.length <= 2 ? h === c : h.includes(c)) best = Math.max(best, c.length)
+    else if (c.length >= 6 && h.length >= c.length * 0.7) {
+      const d = bestWindowDistance(c, h)
+      if (d <= Math.floor(c.length * 0.15)) best = Math.max(best, c.length - d - 0.5)
+    }
+  }
+  return best
+}
