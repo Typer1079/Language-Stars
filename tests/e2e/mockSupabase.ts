@@ -34,11 +34,14 @@ export interface MockState {
   rounds: Record<string, unknown>[]
   problems: Record<string, unknown>[]
   patches: number
+  signups: number
   /** Level saves to learner_subjects (database update 015). Set `levelRowsTable: false` to act like an older database. */
   levelUpserts: number
   levelRowsTable: boolean
   admin: boolean
   rpcCalls: { name: string; body: unknown }[]
+  /** Accounts the admin list shows. */
+  users: Record<string, unknown>[]
   terms: string
 }
 
@@ -72,7 +75,7 @@ const strong = (route: Route) => {
 }
 
 export async function mockSupabase(page: Page, init: Partial<MockState> = {}): Promise<MockState> {
-  const state: MockState = { learners: [], rounds: [], problems: [], patches: 0, levelUpserts: 0, levelRowsTable: true, admin: false, rpcCalls: [], terms: TERMS_VERSION, ...init }
+  const state: MockState = { learners: [], rounds: [], problems: [], patches: 0, signups: 0, levelUpserts: 0, levelRowsTable: true, admin: false, rpcCalls: [], users: [], terms: TERMS_VERSION, ...init }
   await page.route(`${SUPABASE_URL}/**`, async (route) => {
     const req = route.request()
     const url = new URL(req.url())
@@ -82,6 +85,7 @@ export async function mockSupabase(page: Page, init: Partial<MockState> = {}): P
     const json = (data: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data), headers: { 'access-control-allow-origin': '*' } })
     if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' } })
 
+    if (path === '/auth/v1/signup') { state.signups += 1; return json({ id: 'new', email: body?.email, identities: [{}] }) }
     if (path === '/auth/v1/token') return json(session(body?.email === 'admin@example.com' || state.admin ? ['passkey'] : ['password']))
     if (path === '/auth/v1/user') return json(user())
     if (path === '/auth/v1/logout') return route.fulfill({ status: 204 })
@@ -149,7 +153,12 @@ export async function mockSupabase(page: Page, init: Partial<MockState> = {}): P
           for (const p of state.problems) if ((body?.ids ?? []).includes(p.id)) { p.resolved_at = body?.resolved === false ? null : new Date().toISOString(); n++ }
           return json(n)
         }
-        case 'admin_users': return json([])
+        case 'admin_users': return json(state.users)
+        case 'admin_set_plan': {
+          const u = state.users.find((x) => x.id === body?.target)
+          if (u) Object.assign(u, body?.new_status === 'none' ? { paying: false, plan_status: null } : { paying: true, plan_status: body?.new_status })
+          return json(null)
+        }
         case 'subjects_in_sync': return json({ rows: state.learners.length * 3, mismatched: 0 })
         case 'admin_kpis': {
           const day = (i: number) => new Date(Date.now() - i * 86400000).toISOString().slice(0, 10)

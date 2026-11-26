@@ -182,6 +182,34 @@ Run each file once, in order, in Supabase → SQL Editor. All are safe to run ag
 | 013 | delete my account |
 | 014 | `learner_subjects`: one row per learner per subject (kept in sync with the level columns) |
 | 015 | `subjects` list; the app saves levels to `learner_subjects` (copied back to the old columns) |
+| 016 | paid plans (`account_plans`), inactivity reminder emails, paying accounts never paused |
+
+## Inactivity reminders and paid plans
+- **Free accounts:** a reminder email at 60 days without activity and another at 83 days; paused at 90
+  days (nothing deleted; reopening needs a sign-in link, Face ID or authenticator code).
+- **Paying accounts** (`account_plans` status active / trialing, or a failed renewal within 14 days):
+  never paused; a friendly check-in email at 45 days. When a plan ends, the 90 days start from the end date.
+- Plans are set by the payment system later (a webhook with the service key) or by the admin
+  (Admin → Accounts → 🎁 Give plan) for gifts and testing.
+
+**Turning on the emails** (one time):
+1. Make a free account at resend.com and verify the domain you'll send from.
+2. Supabase → Edge Functions → Secrets: add `RESEND_API_KEY`, `NOTICE_FROM` (for example
+   `Language Stars <hello@yourdomain.com>`), `APP_URL` (the site address) and `CRON_SECRET` (a long random text).
+3. Deploy: `supabase functions deploy inactivity-notices --no-verify-jwt` (from this folder, with the
+   Supabase CLI), or paste `supabase/functions/inactivity-notices/index.ts` into a new function in the dashboard
+   with "Verify JWT" turned off.
+4. Try it without sending: call the function with header `x-cron-secret` and body `{"dryRun": true}`.
+5. Schedule it daily (Database → Extensions: enable `pg_cron` and `pg_net`, then run once in the SQL Editor):
+   ```sql
+   select cron.schedule('inactivity-notices', '15 15 * * *', $$
+     select net.http_post(
+       url := 'https://YOUR-PROJECT.supabase.co/functions/v1/inactivity-notices',
+       headers := jsonb_build_object('x-cron-secret', 'YOUR-CRON-SECRET', 'content-type', 'application/json'),
+       body := '{}'::jsonb)
+   $$);
+   ```
+   The function also pauses free accounts that reached 90 days, so it replaces the older `archive-inactive` job.
 
 ## Adding a subject
 1. Database: add a row to `subjects` (for example `insert into subjects (id, label) values ('french', 'French')`).

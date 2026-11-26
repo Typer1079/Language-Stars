@@ -61,9 +61,9 @@ export function HelpGuide({ onClose, start = 'rules', highlight }: { onClose: ()
               <li>From Level 56, every word and sentence gets a meaning question.</li>
             </Section>
             <Section title="🐝 Spelling Bee rules">
-              <li>Iris is the pronouncer: she says the word slowly, twice. Spell it out loud, one letter at a time; letters appear as you say them.</li>
+              <li>Iris is the pronouncer: she says the word slowly, twice. Spell it out loud, one letter at a time (letters appear as you say them), <b>or type the word</b> in the box under the letters and tap Check. Typing turns the microphone off until you tap 🎤 again.</li>
               <li>Like the National Spelling Bee, you may ask, by tapping or by saying it: <b>“repeat”</b>, <b>“definition”</b>, <b>“sentence”</b>, <b>“part of speech”</b> or <b>“origin”</b>. Asking never counts against you. Say “start over” to begin the word again.</li>
-              <li>A wrong spelling counts as a miss and shows the right one. If the microphone misheard you, tap “The mic misheard me” to try again. “Type it instead” is a backup.</li>
+              <li>A wrong spelling counts as a miss and shows the right one. If the microphone misheard you, tap “The mic misheard me” to try again.</li>
               <li>Asking Iris to spell it for you counts as help (not on your own).</li>
             </Section>
             <Section title="🏆 World ranks">

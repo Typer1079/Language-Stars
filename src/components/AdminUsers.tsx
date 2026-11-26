@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { adminAccountAction, adminUsers, dbMessage, type AdminUser } from '../lib/learnersApi'
+import { adminAccountAction, adminSetPlan, adminUsers, dbMessage, type AdminUser } from '../lib/learnersApi'
 import { TERMS_VERSION } from '../lib/legal'
 import { Notice } from './ui/Notice'
 import { formatDate } from '../lib/format'
@@ -27,6 +27,19 @@ export function AdminUsers() {
     return (users ?? []).filter((u) => (showArchived || !u.archived_at) &&
       (!t || (u.email ?? '').toLowerCase().includes(t) || u.learners.some((l) => l.name.toLowerCase().includes(t))))
   }, [users, q, showArchived])
+
+  async function changePlan(u: AdminUser, status: 'active' | 'none') {
+    setBusy(true)
+    try {
+      await adminSetPlan(u.id, status)
+      setNote(status === 'none' ? `Plan removed for ${u.email}.` : `${u.email} now has a plan (given by hand). It won't be paused for inactivity.`)
+      await load()
+    } catch (e) {
+      setNote(/admin_set_plan/.test(String((e as Error)?.message)) ? 'Run database update 016 to manage plans.' : dbMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function run() {
     if (!confirm) return
@@ -67,6 +80,10 @@ export function AdminUsers() {
                   <span className="truncate font-bold text-slate-900">{u.email ?? '(no email)'}</span>
                   {u.is_admin && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800">ADMIN</span>}
                   {u.archived_at && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">{u.archive_kind === 'inactive' ? 'INACTIVE 90 DAYS' : 'ARCHIVED'} {when(u.archived_at)}</span>}
+                  {u.paying !== undefined && (u.paying
+                    ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800" title="Paying accounts are never paused for inactivity">💳 {u.plan_status === 'trialing' ? 'TRIAL' : u.plan_status === 'past_due' ? 'PAYMENT DUE' : 'PAID'}</span>
+                    : <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">FREE{u.plan_status ? ` (${u.plan_status})` : ''}</span>)}
+                  {u.last_notice && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900" title="Last inactivity email sent">✉️ {u.last_notice === 'paid_45' ? '45-day check-in sent' : u.last_notice === 'free_83' ? 'pause warning sent' : '60-day reminder sent'}</span>}
                   {(u.devices ?? 0) > 0 && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-800">📱 {u.devices} learner device{u.devices === 1 ? '' : 's'}</span>}
                   {u.terms_version !== TERMS_VERSION && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">{u.terms_version ? 'OLD TERMS' : 'TERMS NOT ACCEPTED'}</span>}
                 </div>
@@ -78,6 +95,9 @@ export function AdminUsers() {
                   {!u.archived_at && <button type="button" className="pill pill-slate" onClick={() => setConfirm({ user: u, action: 'sign_out' })}>🚪 Sign out</button>}
                   {!u.archived_at && <button type="button" className="pill pill-rose" onClick={() => setConfirm({ user: u, action: 'archive' })}>🗄️ Archive</button>}
                   {u.archived_at && <button type="button" className="pill pill-emerald" onClick={() => setConfirm({ user: u, action: 'restore' })}>↩️ Restore</button>}
+                  {u.paying !== undefined && (u.paying
+                    ? (u.plan_status && <button type="button" className="pill pill-slate" title="Remove the hand-given plan" onClick={() => void changePlan(u, 'none')}>Remove plan</button>)
+                    : <button type="button" className="pill pill-emerald" title="Give this account a plan by hand (gift or test)" onClick={() => void changePlan(u, 'active')}>🎁 Give plan</button>)}
                 </div>
               )}
             </div>

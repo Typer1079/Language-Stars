@@ -54,4 +54,11 @@ describe('stickers', () => {
     expect(pool.some((s) => s.id === 'panda')).toBe(true)
     expect(pool.every((s) => s.themes.includes('boy') || s.themes.includes('9+'))).toBe(true)
   })
+  it('sizes keep growing along the Fibonacci sequence', () => {
+    const sizes = [0, 1, 2, 3, 4, 5, 6, 7, 8].map((growCount) => stickerScale({ growCount }))
+    expect(sizes).toEqual([1, 1.25, 1.5, 2, 2.75, 4, 6, 9.25, 14.5])
+    // every step is bigger than the step before it
+    for (let i = 2; i < sizes.length; i++) expect(sizes[i] - sizes[i - 1]).toBeGreaterThan(sizes[i - 1] - sizes[i - 2] - 1e-9)
+    expect(stickerScale({ growCount: 3, scale: 1.5 })).toBe(2.5)
+  })
 })

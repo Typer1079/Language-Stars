@@ -101,7 +101,7 @@ export function SignInMethods({ verified, signedInWith, onAddApp, onSetUp, onVer
       setFactors(
         (data?.all ?? [])
           .filter((f) => f.status === 'verified' && (f.factor_type === 'totp' || f.factor_type === 'webauthn'))
-          .map((f) => ({ id: f.id, type: f.factor_type as 'totp' | 'webauthn', name: f.friendly_name ?? '', created: f.created_at })),
+          .map((f) => ({ id: f.id, type: f.factor_type as 'totp' | 'webauthn', name: (f.friendly_name ?? '').replace(/Read Aloud Stars/gi, 'Language Stars'), created: f.created_at })),
       ),
     )
   }

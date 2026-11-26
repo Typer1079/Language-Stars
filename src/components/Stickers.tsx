@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { buySticker, growCost, growSticker, makeCatalog, MAX_GROW, sellSticker, sellValue, stickerScale, type CatalogItem } from '../lib/stickers'
+import { buySticker, growCost, growSticker, makeCatalog, MAX_GROW, MAX_STICKER_PX, sellSticker, sellValue, stickerScale, type CatalogItem } from '../lib/stickers'
 import { FOR_YOU, loadPackChoice, savePackChoice, STICKER_PACKS } from '../lib/stickerPacks'
 import { playChime } from '../lib/sfx'
 import type { ConfettiPiece } from '../lib/confetti'
@@ -58,7 +58,7 @@ function DraggableSticker({ st, onMove, size }: { st: PlacedSticker; onMove: Mov
       ref={el}
       className="placed-sticker"
       title={`${st.label} • drag to move`}
-      style={{ left: `${st.x}%`, top: `${st.y}%`, fontSize: `${Math.round(42 * stickerScale(st) * size)}px`, transform: `rotate(${st.rot}deg)` }}
+      style={{ left: `${st.x}%`, top: `${st.y}%`, fontSize: `${Math.min(MAX_STICKER_PX, Math.round(42 * stickerScale(st) * size))}px`, transform: `rotate(${st.rot}deg)` }}
       onPointerDown={(e) => {
         const r = e.currentTarget.getBoundingClientRect()
         drag.current = { dx: e.clientX - r.left, dy: e.clientY - r.top, x: st.x, y: st.y }
@@ -161,7 +161,7 @@ export function StickerShop({ learner, reason, onChange, onClose, onSignOut }: {
         </div>
 
         <div className="mb-4 border-t border-slate-200 pt-3">
-          <div className="mb-2 text-xs font-bold uppercase tracking-wider text-purple-700">🔍 Grow or sell your stickers (growing costs 1, 2, 3, 5, 8… stars; selling refunds what you spent)</div>
+          <div className="mb-2 text-xs font-bold uppercase tracking-wider text-purple-700">🔍 Grow or sell your stickers (growing costs 1, 2, 3, 5, 8… stars and each grow is bigger than the last; selling refunds what you spent)</div>
           <div className="flex flex-wrap gap-2">
             {learner.stickers.length === 0 && <span className="text-xs text-slate-500">Buy a sticker above to place it on your screen, grow it, or sell it for stars!</span>}
             {learner.stickers.map((st) => {
@@ -173,7 +173,7 @@ export function StickerShop({ learner, reason, onChange, onClose, onSignOut }: {
                 <div key={st.id} className="flex items-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50/70 px-2.5 py-1.5 text-xs font-bold">
                   <button type="button" disabled={!can} onClick={() => apply(growSticker(learner, st.id))}
                     className={`flex items-center gap-1 rounded-lg px-2 py-1 transition ${can ? 'bg-purple-600 text-white hover:bg-purple-700' : 'cursor-not-allowed bg-slate-200 text-slate-400'}`}>
-                    <span>{st.emoji}</span><span>{st.label} (x{g + 1})</span><span className="rounded bg-amber-300 px-1.5 text-slate-900">{maxed ? 'Max' : `+${cost}⭐`}</span>
+                    <span>{st.emoji}</span><span>{st.label} (×{+stickerScale(st).toFixed(2)})</span><span className="rounded bg-amber-300 px-1.5 text-slate-900">{maxed ? 'Max' : `+${cost}⭐`}</span>
                   </button>
                   <button type="button" title={`Sell ${st.label} for ${sellValue(st)} stars`} onClick={() => apply(sellSticker(learner, st.id))}
                     className="rounded-lg bg-rose-100 px-2 py-1 text-rose-800 transition hover:bg-rose-200">

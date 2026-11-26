@@ -319,6 +319,10 @@ export interface AdminUser {
   is_admin: boolean
   terms_version: string | null
   last_active: string | null
+  /** Database update 016: paid plan and the last inactivity email. */
+  paying?: boolean
+  plan_status?: 'active' | 'trialing' | 'past_due' | 'canceled' | 'expired' | null
+  last_notice?: 'free_60' | 'free_83' | 'paid_45' | null
   learners: { name: string; kind: string; mode: string; avatar: string | null; reading: number; spanish: number; spelling: number | null; stars: number }[]
 }
 
@@ -332,6 +336,12 @@ export async function adminAccountAction(target: string, action: 'sign_out' | 'a
   const { data, error } = await supabase.rpc('admin_account_action', { target, action, reason: reason ?? null })
   if (error) throw error
   return ((data as { notes?: string[] })?.notes ?? [])
+}
+
+/** Admin: give, change or remove a plan by hand (gifts and testing; payments will update plans themselves). */
+export async function adminSetPlan(target: string, status: 'active' | 'trialing' | 'canceled' | 'none'): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_plan', { target, new_status: status, new_plan: 'family', period_end: null })
+  if (error) throw error
 }
 
 // ---- learner devices (a child's own phone, linked by the parent) ------------------------------

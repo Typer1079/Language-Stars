@@ -47,7 +47,7 @@ export const TERMS: LegalDoc = {
     { heading: '5. Account suspension and closure', body: [
       'We may sign out, suspend or archive an account that breaks these Terms, puts a child at risk, or threatens the security of the service. Archived accounts can\'t sign in or see their data; we can restore them.',
       `You can delete a learner profile at any time (Account → Delete a learner), and delete your whole account at any time (Account → Delete my account) or by emailing ${CONTACT_EMAIL}.`,
-      'Accounts with no activity for 90 days are archived automatically for safety. Nothing is deleted; the account holder can reopen it by confirming their identity (emailed sign-in link, Face ID or authenticator code).',
+      'Free accounts with no activity for 90 days are paused automatically for safety; we email the account holder a reminder at 60 days and again a week before. Nothing is deleted; the account holder can reopen it by confirming their identity (emailed sign-in link, Face ID or authenticator code). Accounts with an active subscription are never paused for inactivity; we may send a friendly check-in email instead. When a subscription ends, the 90 days start from the end date.',
     ] },
     { heading: '6. Changes', body: [
       'We may update the app and these Terms. If the Terms change in a meaningful way, we\'ll ask you to accept the new version the next time you sign in. If you don\'t accept, stop using the app and ask us to delete your account.',
@@ -107,7 +107,7 @@ export const PRIVACY: LegalDoc = {
       'When a parent links a child\'s own device, that device signs in without any personal information (no email, phone number or password); it gets a random identifier only. It can read and update only that child\'s progress, stickers and settings for today\'s subject, and is listed for the parent, who can unlink it at any time. Unlinking deletes the device\'s sign-in.',
     ] },
     { heading: 'How long we keep it', body: [
-      'Account and learner data: until you delete it or ask us to. Practice history: up to 2 years. Security activity logs: 1 year. Problem reports: 90 days. Accounts with no activity for 90 days are archived automatically and need the account holder to confirm their identity to reopen. Archived accounts are kept so they can be restored, unless you ask for deletion.',
+      'Account and learner data: until you delete it or ask us to. Practice history: up to 2 years. Security activity logs: 1 year. Problem reports: 90 days. Free accounts with no activity for 90 days are paused (after two reminder emails) and need the account holder to confirm their identity to reopen; accounts with an active subscription are not paused. Archived accounts are kept so they can be restored, unless you ask for deletion.',
     ] },
     { heading: 'Security', body: [
       'Encrypted connections, row-level database security so each family can only reach its own data, two-step sign-in for children\'s profiles, automatic sign-out after inactivity, and an audit log. No system is perfectly secure; tell us right away if you think your account was misused.',

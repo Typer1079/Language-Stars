@@ -480,7 +480,7 @@ function ImportLearners({ verified, onUnlockKids, onImport }: { verified: boolea
   const needsVerify = drafts.some((d) => d.pick && d.kind === 'child') && !verified
   return (
     <div className="card mt-4 space-y-4">
-      <p className="text-sm text-slate-600">Choose a backup file: a save from the old Read Aloud Stars page, or a backup downloaded from this app.</p>
+      <p className="text-sm text-slate-600">Choose a backup file downloaded from this app (Account → Download backup), or one from an earlier version.</p>
       <input ref={input} type="file" accept="application/json,.json" className="hidden" onChange={(e) => { read(e.target.files?.[0]); e.target.value = '' }} />
       <button type="button" className="btn-secondary w-full" onClick={() => input.current?.click()}>Choose file…</button>
       {drafts.length > 0 && (

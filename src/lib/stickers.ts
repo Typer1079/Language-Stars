@@ -22,10 +22,27 @@ export function sellValue(st: Pick<PlacedSticker, 'growCount' | 'spent'>): numbe
   return 1 + (g * (g + 1)) / 2
 }
 
-export function stickerScale(st: PlacedSticker): number {
-  const base = typeof st.scale === 'number' && Number.isFinite(st.scale) ? st.scale : 1
-  return base + (Number(st.growCount) || 0) * 0.25
+/** Fibonacci number n (1, 1, 2, 3, 5, 8, 13 ...). */
+function fib(n: number): number {
+  let a = 0
+  let b = 1
+  for (let i = 0; i < n; i++) [a, b] = [b, a + b]
+  return a
 }
+
+/**
+ * How big a sticker is. Each grow adds a quarter of the next Fibonacci number, so it keeps getting
+ * bigger faster: ×1, ×1.25, ×1.5, ×2, ×2.75, ×4, ×6, ×9.25, ×14.5 … (the first two steps match the
+ * old +0.25 growth, so nobody's stickers shrink). Very big stickers go behind the practice card.
+ */
+export function stickerScale(st: Pick<PlacedSticker, 'scale' | 'growCount'>): number {
+  const base = typeof st.scale === 'number' && Number.isFinite(st.scale) ? st.scale : 1
+  const g = Math.max(0, Math.min(MAX_GROW, Math.floor(Number(st.growCount) || 0)))
+  return base + 0.25 * (fib(g + 2) - 1)
+}
+
+/** Largest size actually drawn (px), so a giant sticker can't slow the page down. */
+export const MAX_STICKER_PX = 2400
 
 export interface CatalogItem extends StickerItem {
   uid: string

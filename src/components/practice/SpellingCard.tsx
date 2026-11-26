@@ -20,7 +20,10 @@ export function SpellingCard(p: {
 }) {
   const { item, revealed, spelled, spellMiss, success, beeInfo, typing, setTyping, askBee, misheard, submitTyped, onStartOver, onTypeInstead } = p
   return (    <div className="my-3 flex w-full max-w-lg flex-col items-center rounded-3xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 via-lime-50 to-amber-50 p-5">
-      <span className="mb-2 text-xs font-bold uppercase tracking-widest text-emerald-700">🐝 Spelling Bee • listen, then spell it</span>
+      <span className="mb-1 text-xs font-bold uppercase tracking-widest text-emerald-700">🐝 Spelling Bee • listen, then spell it</span>
+      {!spellMiss && !success && (
+        <p className="mb-3 text-center text-sm font-semibold text-emerald-900">🎤 Say the letters out loud <span className="font-normal text-emerald-800/80">or</span> ⌨️ type the word in the box below.</p>
+      )}
       <button type="button" onClick={() => askBee('repeat')} className="flex items-center gap-2 rounded-2xl bg-white px-5 py-3 font-kids text-xl font-bold text-emerald-800 shadow-sm ring-1 ring-emerald-200 transition hover:bg-emerald-50 active:scale-95">
         🔊 Hear the word
       </button>
@@ -52,14 +55,19 @@ export function SpellingCard(p: {
       )}
       <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs font-bold">
         {!spellMiss && !success && spelled.length > 0 && <button type="button" className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 hover:bg-slate-200" onClick={onStartOver}>↺ Start over</button>}
-        {!spellMiss && !success && typing === null && <button type="button" className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 hover:bg-slate-200" onClick={onTypeInstead}>⌨️ Type it instead</button>}
         {spellMiss && <button type="button" className="rounded-full bg-amber-100 px-3 py-1.5 text-amber-900 hover:bg-amber-200" onClick={misheard}>🎤 The mic misheard me, try again</button>}
       </div>
-      {typing !== null && (
-        <form className="mt-3 flex w-full max-w-xs gap-2" onSubmit={(e) => { e.preventDefault(); submitTyped(typing) }}>
-          <input className="input flex-1 text-center font-kids text-xl uppercase tracking-widest" autoFocus autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off"
-            aria-label="Type the spelling" value={typing} onChange={(e) => setTyping(e.target.value.replace(/[^A-Za-z]/g, ''))} />
-          <button className="btn-primary px-4">Check</button>
+      {!spellMiss && !success && (
+        <form className="mt-3 w-full max-w-xs" onSubmit={(e) => { e.preventDefault(); if (typing) submitTyped(typing) }}>
+          <label htmlFor="type-spelling" className="mb-1 block text-center text-xs font-bold text-emerald-800">⌨️ Or type it here</label>
+          <div className="flex gap-2">
+            <input id="type-spelling" className="input flex-1 text-center font-kids text-xl uppercase tracking-widest" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off"
+              enterKeyHint="done" placeholder="spell it" value={typing ?? ''}
+              // Typing turns the microphone off so it doesn't hear the keyboard; 🎤 turns it back on.
+              onFocus={() => { if (typing === null) onTypeInstead() }}
+              onChange={(e) => setTyping(e.target.value.replace(/[^A-Za-z'-]/g, ''))} />
+            <button className="btn-primary px-4" disabled={!typing}>Check</button>
+          </div>
         </form>
       )}
     </div>

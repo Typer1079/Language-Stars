@@ -2,6 +2,19 @@
 
 Versions follow major.minor.patch. The version shown in the app comes from `package.json`.
 
+## 1.5.0 — 2026-11-25
+- **Spelling Bee typing**: a "type it here" box is always under the letters, with instructions to say
+  the letters or type the word. Typing turns the microphone off until 🎤 is tapped.
+- **Password help**: sign-up and new-password screens list every requirement (12+ characters,
+  lowercase, uppercase, number, symbol, no spaces at the ends) and tick each off while typing; Show/Hide;
+  Caps Lock warning; a second "type it again" box; clear messages for server password errors.
+- **Paid plans and inactivity** (database update 016): paying accounts are never paused for inactivity;
+  free accounts get reminder emails at 60 and 83 days before the 90-day pause; an Edge Function
+  (`supabase/functions/inactivity-notices`) sends them. Admin → Accounts shows FREE / PAID and the last
+  reminder, and can give a plan by hand.
+- **Stickers** keep growing along the Fibonacci sequence (×1, 1.25, 1.5, 2, 2.75, 4, 6, 9.25, 14.5 …).
+- **Old name removed**: new authenticator codes are labeled Language Stars; old labels show as Language Stars.
+
 ## 1.4.0 — 2026-11-25
 - **Levels are saved per subject** (database update 015): the app writes each subject's level to
   `learner_subjects`, with the same rules as before (parent; children's profiles only with Face ID /

@@ -7,15 +7,17 @@ import { StartDeviceLink } from './Devices'
 import { TERMS_VERSION } from '../lib/legal'
 import { KEYS, local } from '../lib/storage'
 import { Notice } from './ui/Notice'
+import { PasswordField } from './ui/PasswordField'
+import { checkPassword, missingSentence, passwordErrorText } from '../lib/password'
 
 type Mode = 'signin' | 'signup' | 'reset'
 
-export const MIN_PASSWORD = 12
 
 export default function Auth() {
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [password2, setPassword2] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ kind: 'error' | 'info'; text: string } | null>(null)
   const [agree, setAgree] = useState({ adult: false, guardian: false, agree: false })
@@ -44,8 +46,11 @@ export default function Auth() {
         if (error) throw new Error('Email or password is incorrect, or the email isn’t confirmed yet.')
       } else if (mode === 'signup') {
         if (!agree.adult || !agree.agree) throw new Error('To create an account, confirm you are 18 or older and agree to the Terms of Use and Privacy Policy.')
-        if (password.length < MIN_PASSWORD) throw new Error(`Use a password of at least ${MIN_PASSWORD} characters.`)
+        if (!checkPassword(password).ok) throw new Error(missingSentence(password))
+        if (password !== password2) throw new Error('The two passwords don’t match. Type the same password in both boxes.')
         const { error } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: redirectTo } })
+        const pwText = passwordErrorText(error)
+        if (pwText) throw new Error(pwText)
         if (error) throw new Error('Couldn’t create the account. New sign-ups may be turned off; ask the family admin for an invite.')
         // Recorded in the database at first sign-in (there's no session until the email is confirmed).
         local.setJson(KEYS.pendingTerms, { email: email.trim().toLowerCase(), version: TERMS_VERSION, adult: agree.adult, guardian: agree.guardian })
@@ -91,12 +96,9 @@ export default function Auth() {
         </div>
         {mode !== 'reset' && (
           <div>
-            <label className="label" htmlFor="password">Password</label>
-            <input id="password" name="password" className="input" type="password"
-              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-              minLength={mode === 'signup' ? MIN_PASSWORD : undefined} maxLength={128} required
-              value={password} onChange={(e) => setPassword(e.target.value)} />
-            {mode === 'signup' && <p className="mt-1 text-xs text-slate-500">At least {MIN_PASSWORD} characters. A passphrase works well.</p>}
+            <PasswordField id="password" label="Password" value={password} onChange={setPassword} isNew={mode === 'signup'}
+              {...(mode === 'signup' ? { confirm: password2, onConfirmChange: setPassword2 } : {})} />
+            {mode === 'signup' && <p className="mt-1 text-xs text-slate-500">Tip: three or four words with a number and a symbol are easy to remember (for example Blue-Kite-Tacos-7).</p>}
           </div>
         )}
         {mode === 'signup' && <AgreementChecks {...agree} onChange={setAgree} />}
@@ -136,16 +138,18 @@ export default function Auth() {
 /** Shown after following a password-reset link. */
 export function NewPassword({ onDone }: { onDone: () => void }) {
   const [password, setPassword] = useState('')
+  const [password2, setPassword2] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    if (password.length < MIN_PASSWORD) return setError(`Use at least ${MIN_PASSWORD} characters.`)
+    if (!checkPassword(password).ok) return setError(missingSentence(password))
+    if (password !== password2) return setError('The two passwords don’t match. Type the same password in both boxes.')
     setBusy(true)
     const { error: err } = await supabase.auth.updateUser({ password })
     setBusy(false)
-    if (err) return setError(/reauthentication|aal2|mfa/i.test(err.message) ? 'Verify your authenticator code first, then set the new password.' : 'Couldn’t update the password. Try the reset link again.')
+    if (err) return setError(passwordErrorText(err) ?? (/reauthentication|aal2|mfa/i.test(err.message) ? 'Verify your authenticator code first, then set the new password.' : 'Couldn’t update the password. Try the reset link again.'))
     onDone()
   }
 
@@ -154,9 +158,7 @@ export function NewPassword({ onDone }: { onDone: () => void }) {
       <h1 className="font-kids text-2xl font-bold">Set a new password</h1>
       <form onSubmit={submit} className="mt-6 space-y-4">
         <div>
-          <label className="label" htmlFor="new-password">New password</label>
-          <input id="new-password" name="password" type="password" className="input" autoComplete="new-password"
-            minLength={MIN_PASSWORD} maxLength={128} required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordField id="new-password" label="New password" value={password} onChange={setPassword} isNew confirm={password2} onConfirmChange={setPassword2} />
         </div>
         {error && <Notice tone="error">{error}</Notice>}
         <button className="btn-primary w-full" disabled={busy}>{busy ? 'Saving…' : 'Save password'}</button>
