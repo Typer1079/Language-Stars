@@ -21,8 +21,10 @@ export default defineConfig({
       ...(process.env.PW_CHROME ? { executablePath: process.env.PW_CHROME } : {}),
     },
   },
+  // Listen on 127.0.0.1 explicitly: on GitHub's Linux runners "localhost" can mean the IPv6 address,
+  // and the tests would wait for a server they can't reach.
   webServer: {
-    command: `npm run build:e2e && npx vite preview --outDir dist-e2e --port ${port} --strictPort --base /Language-Stars/`,
+    command: `npm run build:e2e && npx vite preview --outDir dist-e2e --host 127.0.0.1 --port ${port} --strictPort --base /Language-Stars/`,
     url: `http://127.0.0.1:${port}/Language-Stars/`,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
