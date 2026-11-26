@@ -16,3 +16,6 @@ dist-ssr
 # Local save files with family progress: never commit
 *save*.json
 read-aloud-stars-import.json
+dist-e2e
+test-results
+playwright-report

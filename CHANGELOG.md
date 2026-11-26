@@ -2,6 +2,13 @@
 
 Versions follow major.minor.patch. The version shown in the app comes from `package.json`.
 
+## 1.3.0 — 2026-11-25
+- **Browser tests in the repo** (`tests/e2e`, Playwright): public pages, reading a word and saving the star,
+  Spanish reveal and answer, Spelling Bee letters, meaning questions, subject switch, mic off in the
+  background, delete my account, and the admin Problems copy. They run on every push before deploying.
+- **Practice screen split up**: SubjectTabs, ReadingWord, SpanishCard, SpellingCard, QuizCard and the
+  background-microphone hook now live in `src/components/practice/`.
+
 ## 1.2.0 — 2026-11-25
 - **One subject list** (`src/lib/subjects.ts`): names, icons, colors, voice language, level columns and
   the "stuck" timer for Reading, Spanish and Spelling Bee are defined once. The subject switch, learner

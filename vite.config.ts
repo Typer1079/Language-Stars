@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
@@ -71,4 +72,6 @@ export default defineConfig({
       },
     }),
   ],
+  // Unit tests live next to the code (src/**/*.test.ts); browser tests (tests/e2e) run with Playwright.
+  test: { include: ['src/**/*.test.ts'] },
 })

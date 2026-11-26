@@ -133,7 +133,8 @@ npm run dev                     # http://localhost:5173
 | Command | What it does |
 |---|---|
 | `npm run dev` | local dev server |
-| `npm test` | unit tests (word matching, progress, stickers, backup import) |
+| `npm test` | unit tests (word matching, progress, subjects, stickers, backup import) |
+| `npm run test:e2e` | browser tests: sign-in, practice in all three subjects, mic off in background, delete account, admin problems (fake Supabase, no accounts needed; first time run `npx playwright install chromium`) |
 | `npm run lint` | lint |
 | `npm run build` | type-check and production build to `dist/` |
 
@@ -144,6 +145,9 @@ src/
   App.tsx                 sign-in flow, two-step check, terms, saving, idle sign-out, screens
   components/             screens: Auth, LearnerPicker, Practice, Progress, Ranks, Stickers,
                           Account, Admin (+ AdminUsers, AdminProblems), HelpGuide, Legal, PublicPage
+    practice/             pieces of the practice screen: SubjectTabs, ReadingWord, SpanishCard,
+                          SpellingCard, QuizCard, useBackgroundMic
+    ui/                   shared pieces: Notice, PageHeader
   lib/
     practiceEngine.ts     listening + Iris turn logic
     speech.ts, mic.ts     speech recognition, voices, microphone
@@ -157,7 +161,8 @@ src/
     legal.ts              Terms, Privacy Policy, Support text and TERMS_VERSION
     validate.ts           cleans everything read from files (SI-10)
 supabase/migrations/      numbered database updates; run each new one once, in order
-.github/workflows/        audit + lint + test + build + deploy
+.github/workflows/        audit + lint + unit tests + browser tests + build + deploy
+tests/e2e/                browser tests and the fake Supabase they use
 ```
 
 ## Database updates

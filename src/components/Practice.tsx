@@ -8,7 +8,6 @@ import { recognitionSupported, speakSegments } from '../lib/speech'
 import { COMPREHENSION_FROM, questionFor, type Question } from '../lib/comprehension'
 import { ADVANCED_FROM } from '../lib/readingAdvanced'
 import { type Learner, type Mode } from '../lib/types'
-import { wordHelp } from '../lib/phonics'
 import { makeConfetti, type ConfettiPiece } from '../lib/confetti'
 import { Confetti, StickerBoard, StickerCanvas, StickerShop } from './Stickers'
 import { useWideScreen } from '../lib/useWideScreen'
@@ -21,7 +20,13 @@ import { setThemeChoice } from '../lib/theme'
 import { logRound } from '../lib/learnersApi'
 import { avatarFor } from '../lib/avatars'
 import { reportProblem, type ProblemKind } from '../lib/problems'
-import { SUBJECTS, subject } from '../lib/subjects'
+import { subject } from '../lib/subjects'
+import { SubjectTabs } from './practice/SubjectTabs'
+import { useBackgroundMic } from './practice/useBackgroundMic'
+import { QuizCard } from './practice/QuizCard'
+import { ReadingWord } from './practice/ReadingWord'
+import { SpanishCard } from './practice/SpanishCard'
+import { SpellingCard } from './practice/SpellingCard'
 
 export type SaveStatus = 'saved' | 'saving' | 'offline' | 'error'
 
@@ -549,30 +554,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     }, 5000)
     return () => clearInterval(t)
   }, [])
-  useEffect(() => {
-    let asleep = false
-    const sleep = () => {
-      if (asleep) return
-      asleep = true
-      engineRef.current?.sleep()
-      log('MIC', 'off: app in background')
-    }
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') sleep()
-      else if (asleep) {
-        asleep = false
-        engineRef.current?.wake(anyModalRef.current)
-      }
-    }
-    document.addEventListener('visibilitychange', onVisibility)
-    window.addEventListener('pagehide', sleep)
-    document.addEventListener('freeze', sleep)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility)
-      window.removeEventListener('pagehide', sleep)
-      document.removeEventListener('freeze', sleep)
-    }
-  }, [log])
+  useBackgroundMic(engineRef, anyModalRef, log)
 
   const skip = () => {
     if (anyModal) return
@@ -678,15 +660,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
             This browser can’t listen to speech. Use Chrome, Edge or Safari for the microphone. Ask Iris and Next still work.
           </p>
         )}
-        <div className="grid w-full max-w-2xl grid-cols-3 gap-1.5 rounded-2xl border border-slate-200 bg-white/90 p-1.5 shadow-sm" role="group" aria-label="What to practice today">
-          {SUBJECTS.map(({ id: m, activeClass, icon, shortLabel }) => (
-            <button key={m} type="button" aria-pressed={learner.mode === m} onClick={() => switchMode(m)}
-              className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 font-kids text-sm font-bold transition sm:text-base ${learner.mode === m ? activeClass : 'text-slate-600 hover:bg-slate-100'}`}>
-              <span className="text-lg">{icon}</span>{shortLabel}
-              <span className={`hidden rounded-full px-1.5 text-[10px] sm:inline ${learner.mode === m ? 'bg-white/25' : 'bg-slate-100'}`}>L{levelOf(learner, m)}</span>
-            </button>
-          ))}
-        </div>
+        <SubjectTabs learner={learner} onSwitch={switchMode} />
         <div className="flex w-full max-w-2xl flex-col gap-2 rounded-2xl border border-indigo-100 bg-white/90 p-3 shadow-sm backdrop-blur-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2" title="Master every word in a level to move up">
@@ -714,132 +688,17 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
         </div>
 
         <section className={`relative flex w-full max-w-2xl flex-col items-center justify-center rounded-3xl border-4 bg-white/95 p-6 text-center shadow-xl backdrop-blur-md transition-all duration-300 sm:p-8 ${success ? 'border-emerald-400' : 'border-indigo-100'}`}>
-          {item && reading && !item.target.includes(' ') && (
-            <div key={`${learner.id}-${index}-${item.key}`} className="my-3 flex min-h-[120px] flex-wrap items-center justify-center gap-3 sm:min-h-[145px] sm:gap-4">
-              {(() => {
-                const help = wordHelp(item.target, '')
-                return (
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3" aria-label={item.target}>
-                      {help.chunks.map((chunk, i) => (
-                        <div key={i} className="animate-tile-pop flex items-center" style={{ animationDelay: `${i * 60}ms` }}>
-                          {i > 0 && <span className="mr-2 text-2xl font-bold text-indigo-300 sm:mr-3" aria-hidden>·</span>}
-                          <div className={`flex h-20 items-center justify-center rounded-2xl border-2 px-3 font-kids font-bold shadow-sm sm:h-24 sm:px-4 ${chunk.length > 12 ? 'text-2xl sm:text-4xl' : chunk.length > 8 ? 'text-3xl sm:text-5xl' : 'text-4xl sm:text-5xl'} ${i % 2 ? 'border-amber-200 bg-gradient-to-b from-amber-50 to-white text-amber-900' : 'border-indigo-200 bg-gradient-to-b from-indigo-50 to-white text-indigo-900'}`}>{chunk}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {help.rhymes.length > 0 && (
-                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900">rhymes with {help.rhymes.join(' · ')}</span>
-                    )}
-                    {help.kind === 'syllables' && (
-                      <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-800">👏 {help.chunks.length} claps</span>
-                    )}
-                  </div>
-                )
-              })()}
-            </div>
-          )}
-
-          {item && reading && item.target.includes(' ') && (
-            <div key={`${learner.id}-${index}-${item.key}`} className="my-3 flex min-h-[120px] flex-wrap items-center justify-center gap-2 sm:min-h-[145px] sm:gap-3" aria-label={item.target}>
-              {item.target.split(' ').map((w, i, all) => (
-                <span key={i} className={`animate-tile-pop rounded-2xl border-2 border-indigo-200 bg-gradient-to-b from-indigo-50 to-white px-3 py-2 font-kids font-bold text-indigo-900 shadow-sm ${all.length <= 4 ? 'text-4xl sm:text-5xl' : all.length <= 8 ? 'text-2xl sm:text-4xl' : 'text-xl sm:text-3xl'}`}
-                  style={{ animationDelay: `${i * 45}ms` }}>
-                  {w}
-                </span>
-              ))}
-            </div>
-          )}
+          {item && reading && <ReadingWord item={item} tileKey={`${learner.id}-${index}-${item.key}`} />}
 
           {item?.spell && spellingMode && (
-            <div className="my-3 flex w-full max-w-lg flex-col items-center rounded-3xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 via-lime-50 to-amber-50 p-5">
-              <span className="mb-2 text-xs font-bold uppercase tracking-widest text-emerald-700">🐝 Spelling Bee • listen, then spell it</span>
-              <button type="button" onClick={() => askBee('repeat')} className="flex items-center gap-2 rounded-2xl bg-white px-5 py-3 font-kids text-xl font-bold text-emerald-800 shadow-sm ring-1 ring-emerald-200 transition hover:bg-emerald-50 active:scale-95">
-                🔊 Hear the word
-              </button>
-              <div className="mt-4 flex min-h-[64px] flex-wrap items-center justify-center gap-1.5" aria-live="polite" aria-label="Letters you spelled">
-                {(revealed ? item.target.split('') : spelled).map((c, i) => {
-                  const wrongHere = spellMiss && spellMiss[i] !== undefined && spellMiss[i] !== item.target[i]?.toLowerCase()
-                  return (
-                    <span key={i} className={`animate-tile-pop flex h-14 w-11 items-center justify-center rounded-xl border-2 font-kids text-3xl font-bold uppercase shadow-sm sm:h-16 sm:w-12 sm:text-4xl ${success ? 'border-emerald-400 bg-emerald-100 text-emerald-900' : revealed ? (wrongHere ? 'border-rose-300 bg-rose-50 text-rose-900' : 'border-emerald-300 bg-white text-emerald-900') : 'border-emerald-200 bg-white text-slate-900'}`}>{c}</span>
-                  )
-                })}
-                {!revealed && spelled.length === 0 && <span className="text-sm font-semibold text-emerald-800/70">Your letters will appear here as you say them</span>}
-              </div>
-              {spellMiss && spellMiss.length > 0 && <p className="mt-1 text-xs font-semibold text-rose-700">You spelled: {spellMiss.join('').toUpperCase()}</p>}
-              <div className="mt-4 flex flex-wrap justify-center gap-1.5">
-                {([['definition', '📖 Definition'], ['sentence', '🗣️ Sentence'], ['pos', '🏷️ Part of speech'], ['origin', '🌍 Origin']] as const).map(([k, label]) => (
-                  <button key={k} type="button" onClick={() => askBee(k)} disabled={Boolean(spellMiss) || success}
-                    className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-emerald-900 shadow-sm ring-1 ring-emerald-200 transition hover:bg-emerald-50 disabled:opacity-50">{label}</button>
-                ))}
-              </div>
-              {beeInfo.length > 0 && (
-                <dl className="mt-3 w-full space-y-1.5 text-left text-sm">
-                  {beeInfo.map((b) => (
-                    <div key={b.label} className="rounded-xl bg-white/80 px-3 py-2 ring-1 ring-emerald-100">
-                      <dt className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">{b.label}</dt>
-                      <dd className="text-slate-800">{b.text}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-              <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs font-bold">
-                {!spellMiss && !success && spelled.length > 0 && <button type="button" className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 hover:bg-slate-200" onClick={() => engineRef.current?.retryWord()}>↺ Start over</button>}
-                {!spellMiss && !success && typing === null && <button type="button" className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700 hover:bg-slate-200" onClick={() => { engineRef.current?.stopAll(); setTyping('') }}>⌨️ Type it instead</button>}
-                {spellMiss && <button type="button" className="rounded-full bg-amber-100 px-3 py-1.5 text-amber-900 hover:bg-amber-200" onClick={misheard}>🎤 The mic misheard me, try again</button>}
-              </div>
-              {typing !== null && (
-                <form className="mt-3 flex w-full max-w-xs gap-2" onSubmit={(e) => { e.preventDefault(); submitTyped(typing) }}>
-                  <input className="input flex-1 text-center font-kids text-xl uppercase tracking-widest" autoFocus autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off"
-                    aria-label="Type the spelling" value={typing} onChange={(e) => setTyping(e.target.value.replace(/[^A-Za-z]/g, ''))} />
-                  <button className="btn-primary px-4">Check</button>
-                </form>
-              )}
-            </div>
+            <SpellingCard item={item} revealed={revealed} spelled={spelled} spellMiss={spellMiss} success={success} beeInfo={beeInfo}
+              typing={typing} setTyping={setTyping} askBee={askBee} misheard={misheard} submitTyped={submitTyped}
+              onStartOver={() => engineRef.current?.retryWord()} onTypeInstead={() => { engineRef.current?.stopAll(); setTyping('') }} />
           )}
 
-          {item?.spanish && spanish && (
-            <div className="my-3 flex w-full max-w-lg flex-col items-center justify-center rounded-3xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 via-sky-50 to-amber-50 p-5">
-              <span className="mb-1 text-xs font-bold uppercase tracking-widest text-indigo-500">Say this English word in Spanish</span>
-              <div className={`font-kids font-bold tracking-tight ${item.spanish.en.length <= 14 ? 'text-4xl sm:text-6xl' : item.spanish.en.length <= 30 ? 'text-3xl sm:text-4xl' : 'text-2xl sm:text-3xl'}`}>{item.spanish.en}</div>
-              <div className="mt-2.5 flex w-full flex-col items-center gap-2 text-xs sm:text-sm">
-                <span className="rounded-full border border-indigo-200 bg-white px-3 py-1 font-semibold text-indigo-700">
-                  {revealed ? `Spanish: "${item.spanish.es}"${item.spanish.phonetic ? ` (${item.spanish.phonetic})` : ''}` : 'Stuck? Tap Reveal (or press Shift)'}
-                </span>
-                {!revealed && (
-                  <button type="button" onClick={() => setRevealed(true)}
-                    className="mt-1 w-full max-w-xs rounded-2xl border-2 border-indigo-300 bg-white px-6 py-3 font-kids text-lg font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-50 active:scale-95">
-                    👀 Reveal the Spanish
-                  </button>
-                )}
-                {phraseShown && item.spanish.phraseEs && (
-                  <div className="w-full max-w-md rounded-2xl border border-amber-300 bg-amber-50/90 px-3.5 py-2 text-center text-amber-950">
-                    <div className="text-sm font-bold sm:text-base">💬 “{item.spanish.phraseEs}”</div>
-                    <div className="mt-0.5 text-[11px] text-amber-800">({item.spanish.phraseEn})</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          {item?.spanish && spanish && <SpanishCard spanish={item.spanish} revealed={revealed} onReveal={() => setRevealed(true)} phraseShown={phraseShown} />}
 
-          {quiz && (
-            <div className="mt-2 mb-5 w-full max-w-lg rounded-2xl border-2 border-violet-300 bg-violet-50 p-4" role="group" aria-label="Question">
-              <div className="mb-3 font-kids text-lg font-bold text-violet-900 sm:text-xl">🤔 {quiz.q.prompt}</div>
-              <div className="grid gap-2">
-                {quiz.q.choices.map((c, i) => {
-                  const done = quiz.picked !== null
-                  const state = !done ? 'border-violet-200 bg-white hover:bg-violet-100' : i === quiz.q.answer ? 'border-emerald-400 bg-emerald-100 text-emerald-900' : i === quiz.picked ? 'border-rose-300 bg-rose-100 text-rose-900' : 'border-slate-200 bg-white opacity-50'
-                  return (
-                    <button key={i} type="button" disabled={done} onClick={() => answerQuiz(i)}
-                      className={`rounded-2xl border-2 px-4 py-3 text-left font-kids text-base font-bold transition active:scale-[0.98] sm:text-lg ${state}`}>
-                      {done && i === quiz.q.answer ? '✅ ' : done && i === quiz.picked ? '❌ ' : ''}{c}
-                    </button>
-                  )
-                })}
-              </div>
-              {quiz.picked !== null && <div className="mt-2 text-sm font-semibold text-violet-800">{quiz.picked === quiz.q.answer ? 'Yes! +1 ⭐' : 'Good try — the green one is right.'}</div>}
-            </div>
-          )}
+          {quiz && <QuizCard quiz={quiz} onAnswer={answerQuiz} />}
 
           <div role="status" aria-live="polite" className={`mt-2 mb-5 ${quiz ? 'hidden' : ''} w-full max-w-lg rounded-2xl border px-4 py-3 transition-colors ${toneClass[feedback.tone]}`}>
             <div className="font-kids text-lg font-bold sm:text-xl">{feedback.title}</div>
