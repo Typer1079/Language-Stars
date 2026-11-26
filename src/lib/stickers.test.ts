@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buySticker, growCost, growSticker, makeCatalog, sellSticker, sellValue, stickerPoolFor, stickerScale } from './stickers'
+import { bringStickerForward, tidyStickers, buySticker, growCost, growSticker, makeCatalog, sellSticker, sellValue, stickerPoolFor, stickerScale } from './stickers'
 import type { Learner } from './types'
 
 const l: Learner = {
@@ -60,5 +60,23 @@ describe('stickers', () => {
     // every step is bigger than the step before it
     for (let i = 2; i < sizes.length; i++) expect(sizes[i] - sizes[i - 1]).toBeGreaterThan(sizes[i - 1] - sizes[i - 2] - 1e-9)
     expect(stickerScale({ growCount: 3, scale: 1.5 })).toBe(2.5)
+  })
+  it('tidy up brings every sticker back into view, biggest first', () => {
+    const many = { ...l, stickers: Array.from({ length: 7 }, (_, i) => ({ id: `s${i}`, emoji: '⭐', label: 'Star', x: 500, y: -40, rot: 0, growCount: i })) }
+    const t = tidyStickers(many, { width: 400, height: 600, px: 42 })
+    expect(t.stickers.every((st) => st.x >= 0 && st.x <= 92 && st.y >= 0 && st.y <= 90)).toBe(true)
+    expect(new Set(t.stickers.map((st) => `${st.x},${st.y}`)).size).toBe(7)
+    const biggest = t.stickers.find((st) => st.id === 's6')!
+    expect(biggest.y).toBe(t.stickers.reduce((m, st) => Math.min(m, st.y), 100))
+    // a big set on a small board zooms out so everything fits
+    expect(t.zoom).toBeLessThan(1)
+    expect(tidyStickers({ ...many, stickers: many.stickers.slice(0, 2) }, { width: 1000, height: 700, px: 42 }).zoom).toBe(1)
+    expect(t.stickers.map((st) => st.growCount)).toEqual(many.stickers.map((st) => st.growCount))
+  })
+  it('bring forward puts a sticker in the middle, on top', () => {
+    const two = { ...l, stickers: [{ id: 'a', emoji: '⭐', label: 'A', x: 1, y: 1, rot: 0 }, { id: 'b', emoji: '⭐', label: 'B', x: 2, y: 2, rot: 0 }] }
+    const f = bringStickerForward(two, 'a')
+    expect(f.stickers.map((st) => st.id)).toEqual(['b', 'a'])
+    expect([f.stickers[1].x, f.stickers[1].y]).toEqual([40, 35])
   })
 })

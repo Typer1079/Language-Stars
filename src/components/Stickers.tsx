@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { buySticker, growCost, growSticker, makeCatalog, MAX_GROW, MAX_STICKER_PX, sellSticker, sellValue, stickerScale, type CatalogItem } from '../lib/stickers'
+import { bringStickerForward, buySticker, growCost, growSticker, makeCatalog, MAX_GROW, MAX_STICKER_PX, moveSticker, sellSticker, sellValue, stickerScale, tidyStickers, type CatalogItem } from '../lib/stickers'
 import { FOR_YOU, loadPackChoice, savePackChoice, STICKER_PACKS } from '../lib/stickerPacks'
 import { playChime } from '../lib/sfx'
 import type { ConfettiPiece } from '../lib/confetti'
@@ -80,6 +80,96 @@ function DraggableSticker({ st, onMove, size }: { st: PlacedSticker; onMove: Mov
       onPointerCancel={() => { drag.current = null }}
     >
       {st.emoji}
+    </div>
+  )
+}
+
+/**
+ * A learner's sticker wall, outside practice (no microphone): every sticker on one screen, with a
+ * zoom so giant ones fit, a list to find any sticker, and "Tidy up" to bring everything back into view.
+ */
+export function StickerWall({ learner, onChange, onClose }: {
+  learner: Learner
+  onChange: (l: Learner) => void
+  onClose: () => void
+}) {
+  const [l, setL] = useState(learner)
+  const board = useRef<HTMLDivElement>(null)
+  const [fit, setFit] = useState(1)
+  const [zoom, setZoom] = useState<number | null>(null) // null = fit automatically
+  const biggest = Math.max(1, ...l.stickers.map((st) => stickerScale(st)))
+
+  // "Fit": the biggest sticker takes at most about half the board's height.
+  useEffect(() => {
+    const measure = () => {
+      const h = board.current?.clientHeight ?? 600
+      setFit(Math.max(0.1, Math.min(1, (h * 0.5) / (42 * biggest))))
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [biggest])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const size = zoom ?? fit
+  const apply = (next: Learner) => { setL(next); onChange(next) }
+  // Lay everything out side by side at the current zoom, zooming out if they don't all fit.
+  const tidy = () => {
+    const el = board.current
+    const { zoom: z, ...next } = tidyStickers(l, { width: el?.clientWidth ?? 1000, height: el?.clientHeight ?? 700, px: 42 * size })
+    if (z < 1) setZoom(size * z)
+    apply(next)
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col bg-gradient-to-br from-fuchsia-50 via-white to-indigo-50" role="dialog" aria-modal="true" aria-labelledby="wall-title">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-fuchsia-100 bg-white/90 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
+        <div>
+          <h2 id="wall-title" className="font-kids text-xl font-bold text-indigo-900">🖼️ {l.display_name}'s stickers</h2>
+          <p className="text-xs text-slate-500">{l.stickers.length} sticker{l.stickers.length === 1 ? '' : 's'} · drag to move them · changes save by themselves</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
+            🔍 Zoom
+            <input type="range" min={0.1} max={1} step={0.05} value={size} aria-label="Sticker zoom"
+              onChange={(e) => setZoom(Number(e.target.value))} className="w-28 accent-fuchsia-600" />
+          </label>
+          <button type="button" className="pill pill-slate" onClick={() => setZoom(null)} disabled={zoom === null}>Fit</button>
+          <button type="button" className="pill pill-fuchsia" onClick={tidy} disabled={l.stickers.length === 0}>🧹 Tidy up</button>
+          <button type="button" className="btn-primary btn-sm" onClick={onClose}>Done</button>
+        </div>
+      </div>
+
+      <div ref={board} className="relative min-h-0 flex-1 overflow-hidden"
+        style={{ backgroundImage: 'radial-gradient(rgb(217 70 239 / 0.12) 1.5px, transparent 1.5px)', backgroundSize: '22px 22px' }}>
+        {l.stickers.length === 0 && (
+          <p className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm font-semibold text-slate-500">No stickers yet. Earn stars while practicing and buy some in the shop!</p>
+        )}
+        {l.stickers.map((st) => (
+          <DraggableSticker key={st.id} st={st} size={size} onMove={(id, x, y) => apply(moveSticker(l, id, x, y))} />
+        ))}
+      </div>
+
+      {l.stickers.length > 0 && (
+        <div className="border-t border-fuchsia-100 bg-white/90 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          <p className="mb-1 text-[11px] font-semibold text-slate-500">Can’t find one? Tap it to bring it to the middle:</p>
+          <ul className="flex gap-1.5 overflow-x-auto pb-1" aria-label="All stickers">
+            {l.stickers.map((st) => (
+              <li key={st.id} className="shrink-0">
+              <button type="button" onClick={() => apply(bringStickerForward(l, st.id))}
+                title={`${st.label} (×${+stickerScale(st).toFixed(2)})`} aria-label={`Bring ${st.label} to the middle`}
+                className="flex shrink-0 items-center gap-1 rounded-xl bg-fuchsia-50 px-2 py-1 text-xs font-bold text-fuchsia-900 ring-1 ring-fuchsia-100 hover:bg-fuchsia-100">
+                <span className="text-xl">{st.emoji}</span>×{+stickerScale(st).toFixed(2)}
+              </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

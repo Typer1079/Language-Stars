@@ -2,6 +2,12 @@
 
 Versions follow major.minor.patch. The version shown in the app comes from `package.json`.
 
+## 1.6.0 — 2026-11-25
+- **Sticker wall**: 🖼️ on each learner card (and "Arrange my stickers" in the practice menu) opens all of a
+  learner's stickers on one screen, outside practice: drag them around, zoom out so giant ones fit,
+  "Tidy up" lays every sticker out side by side (zooming out if needed), and a list at the bottom brings
+  any sticker back to the middle. Changes save by themselves.
+
 ## 1.5.1 — 2026-11-25
 - Spelling Bee: on a keyboard, just start typing after the word is said (no need to click the box first); Enter checks it.
 

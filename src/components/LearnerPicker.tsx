@@ -3,6 +3,7 @@ import type React from 'react'
 import { activeLevel, levelOf } from '../lib/progress'
 import { FaceIdOffer } from './FaceId'
 import { ProgressView } from './Progress'
+import { StickerWall } from './Stickers'
 import { AVATAR_GROUPS, SKIN_TONES, avatarFor, toneOf, withTone } from '../lib/avatars'
 import { availableSubjects, avatarsAvailable, myRanks } from '../lib/learnersApi'
 import { medal } from '../lib/ranks'
@@ -38,6 +39,7 @@ export default function LearnerPicker(p: Props) {
   const [panel, setPanel] = useState<'none' | 'add' | 'import'>('none')
   const [editing, setEditing] = useState<Learner | null>(null)
   const [viewing, setViewing] = useState<Learner | null>(null)
+  const [wall, setWall] = useState<Learner | null>(null)
   const [help, setHelp] = useState(false)
 
   return (
@@ -60,7 +62,7 @@ export default function LearnerPicker(p: Props) {
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {p.learners.map((l) => (
-          <LearnerCard key={l.id} learner={l} onMode={(m) => { void p.onUpdate({ ...l, mode: m }).catch(() => {}) }} onPlay={() => p.onPick(l)} onProgress={() => setViewing(l)} onEdit={() => { setPanel('none'); setEditing(l) }} />
+          <LearnerCard key={l.id} learner={l} onMode={(m) => { void p.onUpdate({ ...l, mode: m }).catch(() => {}) }} onPlay={() => p.onPick(l)} onProgress={() => setViewing(l)} onStickers={() => setWall(l)} onEdit={() => { setPanel('none'); setEditing(l) }} />
         ))}
         {!p.loading && p.learners.length === 0 && (
           <p className="card text-sm text-slate-600 sm:col-span-2">No learners yet. Add one below, or import a backup from the old app.</p>
@@ -88,6 +90,7 @@ export default function LearnerPicker(p: Props) {
 
       {help && <HelpGuide onClose={() => setHelp(false)} />}
       {viewing && <ProgressView learner={viewing} parentView onClose={() => setViewing(null)} />}
+      {wall && <StickerWall learner={wall} onChange={(next) => { void p.onUpdate(next).catch(() => {}) }} onClose={() => setWall(null)} />}
       {editing && <EditReader key={editing.id} verified={p.verified} learner={editing} onCancel={() => setEditing(null)} onSave={async (l) => { await p.onUpdate(l); setEditing(null) }} />}
       {panel === 'add' && <AddLearner verified={p.verified} onUnlockKids={p.onUnlockKids} onCancel={() => setPanel('none')} onCreate={async (d) => { await p.onCreate(d); setPanel('none') }} />}
       {panel === 'import' && <ImportLearners verified={p.verified} onUnlockKids={p.onUnlockKids} onImport={async (d) => { await p.onImport(d); setPanel('none') }} />}
@@ -114,7 +117,7 @@ const THEMES = {
 
 /** Form field that holds each subject's starting level. */
 
-function LearnerCard({ learner: l, onPlay, onProgress, onEdit, onMode }: { learner: Learner; onPlay: () => void; onProgress: () => void; onEdit: () => void; onMode: (m: Mode) => void }) {
+function LearnerCard({ learner: l, onPlay, onProgress, onStickers, onEdit, onMode }: { learner: Learner; onPlay: () => void; onProgress: () => void; onStickers: () => void; onEdit: () => void; onMode: (m: Mode) => void }) {
   // Each learner keeps the same colors (picked from their name), so cards are easy to tell apart.
   const t = THEMES[l.mode][[...l.display_name].reduce((n, c) => n + c.charCodeAt(0), 0) % 2]
   const level = activeLevel(l)
@@ -191,6 +194,10 @@ function LearnerCard({ learner: l, onPlay, onProgress, onEdit, onMode }: { learn
           </button>
           <button type="button" onClick={onProgress} aria-label={`${l.display_name}'s progress`} title="Progress"
             className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-xl shadow-sm transition hover:bg-slate-50 active:scale-95">📈</button>
+          <button type="button" onClick={onStickers} aria-label={`${l.display_name}'s stickers`} title="Stickers: see and arrange them"
+            className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-xl shadow-sm transition hover:bg-slate-50 active:scale-95">🖼️
+            {l.stickers.length > 0 && <span className="absolute -top-1.5 -right-1.5 rounded-full bg-fuchsia-600 px-1.5 text-[10px] font-bold text-white">{l.stickers.length}</span>}
+          </button>
           <button type="button" onClick={onEdit} aria-label={`Edit ${l.display_name}`} title="Edit"
             className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-xl shadow-sm transition hover:bg-slate-50 active:scale-95">✏️</button>
         </div>

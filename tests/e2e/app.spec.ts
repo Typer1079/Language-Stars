@@ -215,3 +215,18 @@ test('admin can give a free account a plan, so it is never paused for inactivity
   expect(state.rpcCalls.find((c) => c.name === 'admin_set_plan')?.body).toMatchObject({ target: 'u2', new_status: 'active' })
 })
 
+test('stickers can be seen and arranged from the learner card, outside practice', async ({ page }) => {
+  const stickers = [0, 4, 8].map((g, i) => ({ id: `s${i}`, emoji: '🦄', label: 'Unicorn', x: 90, y: 88, rot: 0, growCount: g }))
+  const state = await mockSupabase(page, { learners: [learner({ id: 'l1', display_name: 'Ethan', stickers })] })
+  await signIn(page)
+  await page.getByRole('button', { name: "Ethan's stickers" }).click()
+  const wall = page.getByRole('dialog', { name: /Ethan's stickers/ })
+  await expect(wall).toContainText('3 stickers')
+  await wall.getByRole('button', { name: '🧹 Tidy up' }).click()
+  await expect.poll(() => (state.learners[0].stickers as { x: number }[]).map((s) => s.x).sort((a, b) => a - b)[0]).toBeLessThan(10)
+  await wall.getByRole('button', { name: 'Bring Unicorn to the middle' }).first().click()
+  await expect.poll(() => (state.learners[0].stickers as { id: string; x: number }[]).at(-1)).toMatchObject({ id: 's0', x: 40 })
+  await wall.getByRole('button', { name: 'Done' }).click()
+  await expect(wall).toBeHidden()
+})
+

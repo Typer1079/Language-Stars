@@ -9,7 +9,7 @@ import { COMPREHENSION_FROM, questionFor, type Question } from '../lib/comprehen
 import { ADVANCED_FROM } from '../lib/readingAdvanced'
 import { type Learner, type Mode } from '../lib/types'
 import { makeConfetti, type ConfettiPiece } from '../lib/confetti'
-import { Confetti, StickerBoard, StickerCanvas, StickerShop } from './Stickers'
+import { Confetti, StickerBoard, StickerCanvas, StickerShop, StickerWall } from './Stickers'
 import { useWideScreen } from '../lib/useWideScreen'
 import { ProgressView } from './Progress'
 import { HelpGuide } from './HelpGuide'
@@ -70,6 +70,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const [logOpen, setLogOpen] = useState(false)
   const [progressOpen, setProgressOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [wallOpen, setWallOpen] = useState(false)
   const [micHelp, setMicHelp] = useState<'blocked' | 'dictation' | null>(null)
   // Spelling Bee: letters heard so far, a wrong spelling to show, help Iris gave, and typing.
   const [spelled, setSpelled] = useState<string[]>([])
@@ -452,7 +453,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
 
   // ---- controls ------------------------------------------------------------------------------
 
-  const anyModal = Boolean(shop) || roundDone || logOpen || Boolean(quiz) || progressOpen || helpOpen || Boolean(micHelp)
+  const anyModal = Boolean(shop) || roundDone || logOpen || Boolean(quiz) || progressOpen || helpOpen || Boolean(micHelp) || wallOpen
 
   const answerQuiz = (i: number) => {
     if (!quiz || quiz.picked !== null) return
@@ -606,6 +607,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       <Confetti pieces={confetti} />
       {progressOpen && <ProgressView learner={learner} onClose={() => setProgressOpen(false)} />}
       {micHelp && <MicHelp reason={micHelp} onClose={() => setMicHelp(null)} onGranted={() => { setMicHelp(null); log('MIC', 'allowed after help'); setTimeout(() => engineRef.current?.listenNow(), 300) }} />}
+      {wallOpen && <StickerWall learner={learner} onChange={onChange} onClose={() => setWallOpen(false)} />}
       {helpOpen && <HelpGuide start={learner.mode} highlight={{ mode: learner.mode, level }} onClose={() => setHelpOpen(false)} />}
 
       <header className="relative z-30 mx-auto w-full max-w-5xl px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 sm:px-6">
@@ -635,6 +637,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
               {menuOpen && (
                 <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm font-semibold shadow-xl" onClick={() => setMenuOpen(false)}>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setProgressOpen(true)}>📈 My progress</button>
+                  <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setWallOpen(true)}>🖼️ Arrange my stickers</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50" onClick={() => setHelpOpen(true)}>❓ How levels work</button>
                   <button type="button" className="block w-full px-4 py-3 text-left hover:bg-slate-50"
                     onClick={() => { const dark = document.documentElement.classList.contains('dark'); setThemeChoice(dark ? 'light' : 'dark'); setMenuOpen(false) }}>

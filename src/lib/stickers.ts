@@ -99,6 +99,54 @@ export function sellSticker(l: Learner, id: string): Learner | null {
   return { ...l, spendable_stars: l.spendable_stars + Math.max(0, refund), stickers: l.stickers.filter((s) => s.id !== id) }
 }
 
+/**
+ * Puts every sticker back in view without overlapping: biggest first, packed in rows ("shelves")
+ * across a board of `width` × `height` pixels where a ×1 sticker is `px` pixels. If they don't all
+ * fit, `zoom` (below 1) is how much to shrink the view so they do. Only positions change.
+ * Positions are percentages, the same way dragging stores them.
+ */
+export function tidyStickers(l: Learner, board: { width: number; height: number; px: number } = { width: 1000, height: 700, px: 42 }): Learner & { zoom: number } {
+  const order = [...l.stickers].sort((a, b) => stickerScale(b) - stickerScale(a))
+  const pack = (px: number) => {
+    const gap = 8
+    const out = new Map<string, { x: number; y: number }>()
+    let x = gap
+    let y = gap
+    let shelf = 0
+    for (const st of order) {
+      const size = Math.min(MAX_STICKER_PX, stickerScale(st) * px) * 1.15 // emoji box is a bit taller than the font size
+      if (x + size > board.width && x > gap) { x = gap; y += shelf + gap; shelf = 0 }
+      out.set(st.id, { x, y })
+      x += size + gap
+      shelf = Math.max(shelf, size)
+    }
+    return { out, bottom: y + shelf }
+  }
+  let zoom = 1
+  let packed = pack(board.px)
+  for (let i = 0; i < 20 && packed.bottom > board.height; i++) {
+    zoom *= 0.85
+    packed = pack(board.px * zoom)
+  }
+  const pctX = (v: number) => Math.min(92, Math.max(0, (v / Math.max(board.width - 40, 1)) * 100))
+  const pctY = (v: number) => Math.min(90, Math.max(0, (v / Math.max(board.height - 40, 1)) * 100))
+  return {
+    ...l,
+    zoom,
+    stickers: l.stickers.map((st) => {
+      const p = packed.out.get(st.id) ?? { x: 0, y: 0 }
+      return { ...st, x: Math.round(pctX(p.x) * 10) / 10, y: Math.round(pctY(p.y) * 10) / 10 }
+    }),
+  }
+}
+
+/** Moves one sticker to the middle and on top of the others (drawn last). */
+export function bringStickerForward(l: Learner, id: string): Learner {
+  const st = l.stickers.find((s) => s.id === id)
+  if (!st) return l
+  return { ...l, stickers: [...l.stickers.filter((s) => s.id !== id), { ...st, x: 40, y: 35 }] }
+}
+
 export function moveSticker(l: Learner, id: string, x: number, y: number): Learner {
   const cx = Math.max(0, Math.min(92, x))
   const cy = Math.max(0, Math.min(90, y))
