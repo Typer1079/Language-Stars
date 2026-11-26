@@ -390,10 +390,11 @@ test('asking Iris again and again gives more pronunciation help', async ({ page 
   await page.waitForTimeout(800)
   await ask.click()
   await expect(page.getByRole('status').filter({ hasText: 'Piece by piece' })).toBeVisible()
-  const said = await page.evaluate(() => (window as unknown as { __said: string[] }).__said)
-  // Slow Japanese, and single pieces (kana beats) said on their own.
-  expect(said.some((x) => x.startsWith('ja-JP|0.6'))).toBe(true)
-  expect(said.filter((x) => x.startsWith('ja-JP|0.60|')).some((x) => [...x.split('|')[2]].length <= 2)).toBe(true)
+  // Slow Japanese, and single pieces (kana beats) said on their own. Iris says them after her
+  // introduction, so wait for them rather than checking at once (slower machines lag behind).
+  const said = () => page.evaluate(() => (window as unknown as { __said: string[] }).__said)
+  await expect.poll(async () => (await said()).some((x) => x.startsWith('ja-JP|0.6')), { timeout: 10000 }).toBe(true)
+  await expect.poll(async () => (await said()).filter((x) => x.startsWith('ja-JP|0.60|')).some((x) => [...x.split('|')[2]].length <= 2), { timeout: 10000 }).toBe(true)
 })
 
 test('progress handles every language: subject filter, level charts per scale, and a table by subject', async ({ page }) => {
