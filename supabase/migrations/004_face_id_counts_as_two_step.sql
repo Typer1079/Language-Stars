@@ -1,4 +1,4 @@
--- Read Aloud Stars 004: a Face ID (passkey / WebAuthn) sign-in counts as two-step on its own.
+-- Language Stars 004: a Face ID (passkey / WebAuthn) sign-in counts as two-step on its own.
 -- A passkey is something you have (the device) plus something you are (Face ID), which NIST
 -- SP 800-63B treats as multi-factor (AAL2). Kids' profiles accept either an aal2 session or a
 -- session that was signed in with a passkey. Safe to run more than once.

@@ -3,15 +3,15 @@ import { MAX_LEVEL, READING_LEVELS, SPANISH_LEVELS, SPELLING_LEVELS } from './cu
 import type { SpanishEntry } from './wordBanks'
 import type { SpellEntry } from './spellingWords'
 
-/** One word to practice. `target` is what the reader must say out loud. */
+/** One word to practice. `target` is what the learner must say out loud. */
 export interface PracticeItem {
   /** Key used for mastery (the English word in both modes). */
   key: string
   target: string
   spanish?: SpanishEntry
-  /** Spelling bee word details (definition, part of speech, sentence, origin). */
+  /** Spelling Bee word details (definition, part of speech, sentence, origin). */
   spell?: SpellEntry
-  /** Stretch item from a higher level, mixed in to spot readers who are ready to jump ahead. */
+  /** Stretch item from a higher level, mixed in to spot learners who are ready to jump ahead. */
   stretchLevel?: number
 }
 
@@ -66,7 +66,7 @@ export function shuffle<T>(arr: T[], rand: () => number = Math.random): T[] {
   return copy
 }
 
-/** Higher-level items to test whether the reader can skip ahead (one each from +2, +4, +6). */
+/** Higher-level items to test whether the learner can skip ahead (one each from +2, +4, +6). */
 export function pickStretch(l: Learner, rand: () => number = Math.random): PracticeItem[] {
   const level = activeLevel(l)
   const out: PracticeItem[] = []
@@ -143,7 +143,7 @@ export function solveWord(l: Learner, item: PracticeItem, coached: boolean, opts
   let next: Learner = { ...l, lifetime_stars: l.lifetime_stars + 1, spendable_stars: l.spendable_stars + 1 }
   // Challenge items belong to a higher level: they earn a star but don't count toward this level.
   if (coached || opts.challenge) return { learner: next, leveledUpTo: null, bonus: 0 }
-  // Stretch items: remembered as mastered in their own (higher) level, for when the reader gets there.
+  // Stretch items: remembered as mastered in their own (higher) level, for when the learner gets there.
   if (item.stretchLevel) {
     const sk = masteryKey(item.stretchLevel, l.mode)
     const sl = next.mastered[sk] ?? []
@@ -200,7 +200,7 @@ function moveUp(l: Learner, to: number): { learner: Learner; bonus: number } {
 
 /**
  * End of a round: a rough round (lots of skips or coach help) means some of this level hasn't
- * stuck yet, so step back one level to practice it again. The reader climbs back up the same
+ * stuck yet, so step back one level to practice it again. The learner climbs back up the same
  * way as before, by mastering every item in that level. Stars are never taken away.
  */
 export function endRound(l: Learner, clean: number, attempts: number, opts: { challengeLevel?: number | null; stretchCleared?: number[] } = {}): RoundResult {

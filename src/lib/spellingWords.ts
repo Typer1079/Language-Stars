@@ -1,5 +1,5 @@
 /**
- * Spelling bee word list, easiest to hardest: first-grade words up to Scripps National Spelling
+ * Spelling Bee word list, easiest to hardest: first-grade words up to Scripps National Spelling
  * Bee championship words. Each line: word | part of speech | definition | sentence | language of origin.
  * Spellers may ask for any of these, as the National Spelling Bee rules allow.
  */

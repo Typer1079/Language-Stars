@@ -8,8 +8,8 @@ import { beeRequest, extractLetters, judgeSpelling, sayLetters, wantsRestart, ty
 
 export type Tone = 'neutral' | 'listening' | 'success' | 'coach'
 /**
- * guided: young or new readers. Spoken welcome, "your turn" prompts, sound-it-out coaching.
- * brisk: adults and readers who are doing well. No chatter: listen right away, the coach just says
+ * guided: young or new learners. Spoken welcome, "your turn" prompts, sound-it-out coaching.
+ * brisk: adults and learners who are doing well. No chatter: listen right away, the coach just says
  *        the answer, faster voice, quicker move to the next item.
  */
 export type Pace = 'guided' | 'brisk'
@@ -22,18 +22,18 @@ export type MicState = 'idle' | 'listening' | 'warming'
 export interface EngineHooks {
   feedback(title: string, subtitle: string, tone: Tone): void
   mic(state: MicState, label?: string): void
-  /** The reader said the word. */
+  /** The learner said the word. */
   solved(heard: string, coached: boolean): void
   /** The coach gave up on this word; move to the next one. */
   advance(afterCoach: boolean): void
   revealSpanish(): void
   showPhrase(): void
   log(tag: string, detail?: string): void
-  /** Spelling bee: the letters heard so far for this word. */
+  /** Spelling Bee: the letters heard so far for this word. */
   spelling?(letters: string[]): void
-  /** Spelling bee: the word was spelled wrong (these letters were heard). */
+  /** Spelling Bee: the word was spelled wrong (these letters were heard). */
   spellWrong?(letters: string[]): void
-  /** Spelling bee: the speller asked out loud for the definition, a sentence, etc. */
+  /** Spelling Bee: the speller asked out loud for the definition, a sentence, etc. */
   beeAsk?(kind: BeeRequest): void
   /** The microphone (or iOS Dictation) is switched off for this site. */
   micBlocked?(reason: 'blocked' | 'dictation'): void
@@ -45,7 +45,7 @@ const pick = <T,>(list: T[]): T => list[Math.floor(Math.random() * list.length)]
 
 /**
  * Runs one practice word: opens the microphone, listens for the word, and brings in the
- * Iris (word chunks and rhymes / Spanish example) when the reader needs help.
+ * Iris (word chunks and rhymes / Spanish example) when the learner needs help.
  * Ported from the original app's turn logic; UI updates go through `hooks`.
  */
 export class PracticeEngine {
@@ -103,7 +103,7 @@ export class PracticeEngine {
     return () => gen === this.gen && !this.solved && !this.paused && this.coach()
   }
 
-  /** How long to wait in Reading before the coach steps in: longer for longer phrases and for brisk readers. */
+  /** How long to wait in Reading before the coach steps in: longer for longer phrases and for brisk learners. */
   private get listenMs(): number {
     const words = this.item ? this.item.target.split(' ').length : 1
     return this.pace === 'brisk' ? LISTEN_MS + 2800 + (words - 1) * 500 : LISTEN_MS + (words - 1) * 700
@@ -182,7 +182,7 @@ export class PracticeEngine {
     const spanish = this.mode === 'spanish'
     if (this.mode === 'spelling') {
       if (this.pace === 'brisk') return this.pronounce(gen)
-      this.hooks.feedback(`Hi ${this.name}! Spelling bee time`, 'Iris is your pronouncer…', 'coach')
+      this.hooks.feedback(`Hi ${this.name}! Spelling Bee time`, 'Iris is your pronouncer…', 'coach')
       this.say([{ text: `Hi ${this.name}! I'm Iris, your pronouncer. I'll say a word, and you spell it out loud, one letter at a time. You can ask for the definition, a sentence, or where the word comes from.`, lang: 'en-US' }], () => {
         if (gen !== this.gen || this.solved) return
         this.pronounce(gen)
@@ -224,7 +224,7 @@ export class PracticeEngine {
     })
   }
 
-  /** Spelling bee: Iris says the word (twice for younger spellers), then listens. */
+  /** Spelling Bee: Iris says the word (twice for younger spellers), then listens. */
   private pronounce(gen: number) {
     const w = this.item?.target ?? ''
     this.hooks.spelling?.([])
@@ -238,7 +238,7 @@ export class PracticeEngine {
     })
   }
 
-  /** Spelling bee help (say it again, definition, sentence, origin): Iris answers, then listens again. No penalty. */
+  /** Spelling Bee help (say it again, definition, sentence, origin): Iris answers, then listens again. No penalty. */
   sayInfo(text: string, slow = false) {
     if (this.solved || this.paused || !this.item) return
     const gen = ++this.gen
@@ -260,7 +260,7 @@ export class PracticeEngine {
     this.say([{ text, lang: 'en-US' }])
   }
 
-  /** Spelling bee: clear the letters and spell this word again (start over, or the mic misheard). */
+  /** Spelling Bee: clear the letters and spell this word again (start over, or the mic misheard). */
   retryWord() {
     if (this.paused || !this.item) return
     const gen = ++this.gen
@@ -311,7 +311,7 @@ export class PracticeEngine {
             { text: `Now you try, ${callout}!`, lang: 'en-US' },
           ]
         : [
-            // Phrases and sentences: say it, then once more for the reader to copy.
+            // Phrases and sentences: say it, then once more for the learner to copy.
             { text: `In Spanish, you'd say:`, lang: 'en-US' },
             { text: es, lang: 'es-ES' },
             { text: `Now you try, ${callout}!`, lang: 'en-US' },
@@ -430,7 +430,7 @@ export class PracticeEngine {
     })
   }
 
-  /** How the coach addresses the reader: usually by name; kid nicknames only in Reading mode. */
+  /** How the coach addresses the learner: usually by name; kid nicknames only in Reading mode. */
   private callout(): string {
     if (this.name && (this.mode === 'spanish' || Math.random() < 0.6)) return this.name
     return ENCOURAGING_NICKNAMES[Math.floor(Math.random() * ENCOURAGING_NICKNAMES.length)]
@@ -488,7 +488,7 @@ export class PracticeEngine {
     }
   }
 
-  /** Spelling bee: show letters as they're said; judge once the word is complete. */
+  /** Spelling Bee: show letters as they're said; judge once the word is complete. */
   private onSpelling(results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }>, from: number) {
     const item = this.item!
     const tops: string[] = []
@@ -583,7 +583,7 @@ export class PracticeEngine {
         this.onSpelling(event.results, from)
         return
       }
-      // Single words: a long run of words is background talk (TV, other people), not the reader,
+      // Single words: a long run of words is background talk (TV, other people), not the learner,
       // so it can't count as a match — but a short result inside it still can.
       const words = (t: string) => t.trim().split(/\s+/).filter(Boolean).length
       const single = !this.item.target.trim().includes(' ')

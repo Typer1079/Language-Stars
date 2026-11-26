@@ -1,5 +1,5 @@
--- Read Aloud Stars 003: levels now go up to 100 in both Reading and Spanish
--- (words -> phrases -> sentences), and readers can move down a level after a rough round.
+-- Language Stars 003: levels now go up to 100 in both Reading and Spanish
+-- (words -> phrases -> sentences), and learners can move down a level after a rough round.
 -- Safe to run more than once.
 -- Run in Supabase: SQL Editor -> New query -> paste -> Run.
 
@@ -8,7 +8,7 @@ alter table public.learners drop constraint if exists learners_spanish_level_che
 alter table public.learners add constraint learners_reading_level_check check (reading_level between 1 and 100);
 alter table public.learners add constraint learners_spanish_level_check check (spanish_level between 1 and 100);
 
--- Highest level ever reached in each mode. Readers can move down a level after a rough round
+-- Highest level ever reached in each mode. Learners can move down a level after a rough round
 -- and climb back; the level-up star bonus is only paid for new highs.
 alter table public.learners add column if not exists reading_best int not null default 1;
 alter table public.learners add column if not exists spanish_best int not null default 1;

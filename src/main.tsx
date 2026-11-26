@@ -8,13 +8,16 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { initTheme } from './lib/theme'
+import { migrateLegacyStorage } from './lib/storage'
 
+// Settings saved under the app's old name move to the new keys (once).
+migrateLegacyStorage()
 // Light or dark before the first paint, so there's no flash.
 initTheme()
 import { registerSW } from 'virtual:pwa-register'
-import App from './App.tsx'
 import ErrorBoundary from './components/ErrorBoundary'
 import { watchForErrors } from './lib/problems'
+import Root from './Root'
 
 // App errors go to the admin's problem list (src/lib/problems.ts).
 watchForErrors()
@@ -37,7 +40,7 @@ registerSW({
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      <Root />
     </ErrorBoundary>
   </StrictMode>,
 )

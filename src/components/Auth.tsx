@@ -5,6 +5,8 @@ import InstallApp from './InstallApp'
 import { AgreementChecks, LegalLinks } from './Legal'
 import { StartDeviceLink } from './Devices'
 import { TERMS_VERSION } from '../lib/legal'
+import { KEYS, local } from '../lib/storage'
+import { Notice } from './ui/Notice'
 
 type Mode = 'signin' | 'signup' | 'reset'
 
@@ -46,7 +48,7 @@ export default function Auth() {
         const { error } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: redirectTo } })
         if (error) throw new Error('Couldn’t create the account. New sign-ups may be turned off; ask the family admin for an invite.')
         // Recorded in the database at first sign-in (there's no session until the email is confirmed).
-        try { localStorage.setItem('ras.pendingTerms', JSON.stringify({ email: email.trim().toLowerCase(), version: TERMS_VERSION, adult: agree.adult, guardian: agree.guardian })) } catch { /* private mode */ }
+        local.setJson(KEYS.pendingTerms, { email: email.trim().toLowerCase(), version: TERMS_VERSION, adult: agree.adult, guardian: agree.guardian })
         setMessage({ kind: 'info', text: 'Check your email for a confirmation link, then sign in.' })
         setMode('signin')
       } else {
@@ -99,9 +101,9 @@ export default function Auth() {
         )}
         {mode === 'signup' && <AgreementChecks {...agree} onChange={setAgree} />}
         {message && (
-          <p role="alert" className={`rounded-xl px-3 py-2 text-sm ${message.kind === 'error' ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-800'}`}>
+          <Notice tone={message.kind === 'error' ? 'error' : 'success'}>
             {message.text}
-          </p>
+          </Notice>
         )}
         <button className={`${mode === 'signin' && faceIdFirst ? 'btn-secondary' : 'btn-primary'} w-full`} disabled={busy}>
           {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'}
@@ -111,11 +113,11 @@ export default function Auth() {
       <div className="mt-6 flex justify-between text-sm">
         {mode === 'signin' ? (
           <>
-            <button type="button" className="text-slate-600 underline" onClick={() => setMode('signup')}>Create account</button>
-            <button type="button" className="text-slate-600 underline" onClick={() => setMode('reset')}>Forgot password?</button>
+            <button type="button" className="link" onClick={() => setMode('signup')}>Create account</button>
+            <button type="button" className="link" onClick={() => setMode('reset')}>Forgot password?</button>
           </>
         ) : (
-          <button type="button" className="text-slate-600 underline" onClick={() => setMode('signin')}>Back to sign in</button>
+          <button type="button" className="link" onClick={() => setMode('signin')}>Back to sign in</button>
         )}
       </div>
 
@@ -156,7 +158,7 @@ export function NewPassword({ onDone }: { onDone: () => void }) {
           <input id="new-password" name="password" type="password" className="input" autoComplete="new-password"
             minLength={MIN_PASSWORD} maxLength={128} required value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
-        {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        {error && <Notice tone="error">{error}</Notice>}
         <button className="btn-primary w-full" disabled={busy}>{busy ? 'Saving…' : 'Save password'}</button>
       </form>
     </div>

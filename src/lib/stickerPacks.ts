@@ -1,6 +1,7 @@
+import { KEYS, local } from './storage'
 import type { StickerItem } from './stickerPool'
 
-/** Themed packs a reader can pick for their next shop visit. All original (built-in emoji only). */
+/** Themed packs a learner can pick for their next shop visit. All original (built-in emoji only). */
 export interface StickerPack {
   id: string
   name: string
@@ -81,22 +82,14 @@ export function packById(id: string | null | undefined): StickerPack | undefined
   return STICKER_PACKS.find((p) => p.id === id)
 }
 
-const key = (learnerId: string) => `ras.pack.${learnerId}`
+const key = (learnerId: string) => KEYS.stickerPack(learnerId)
 
-/** The pack a reader chose for their next shop visit (kept on this device only). */
+/** The pack a learner chose for their next shop visit (kept on this device only). */
 export function loadPackChoice(learnerId: string): string {
-  try {
-    const v = localStorage.getItem(key(learnerId))
-    return v && (v === FOR_YOU || packById(v)) ? v : FOR_YOU
-  } catch {
-    return FOR_YOU
-  }
+  const v = local.get(key(learnerId))
+  return v && (v === FOR_YOU || packById(v)) ? v : FOR_YOU
 }
 
 export function savePackChoice(learnerId: string, packId: string) {
-  try {
-    localStorage.setItem(key(learnerId), packId)
-  } catch {
-    /* private browsing: choice just isn't remembered */
-  }
+  local.set(key(learnerId), packId) // private browsing: choice just isn't remembered
 }

@@ -108,3 +108,15 @@ describe('long words the phone mishears', () => {
       expect(isWordMatch(h, 'epistemology'), h).toBe(false)
   })
 })
+
+describe('two-word terms the phone mishears', () => {
+  it('accepts near-sounding spellings of the hard word', () => {
+    for (const h of ['cognitive dissonance', 'cognitive dissidence', 'cognitive dissonants', 'Cognitive dissonance.'])
+      expect(isWordMatch(h, 'cognitive dissonance'), h).toBe(true)
+    expect(isWordMatch('smokers who no the health risks may feel cognitive dissidence', 'Smokers who know the health risks may feel cognitive dissonance.')).toBe(true)
+  })
+  it('still needs both words', () => {
+    expect(isWordMatch('cognitive', 'cognitive dissonance')).toBe(false)
+    expect(isWordMatch('cognitive design', 'cognitive dissonance')).toBe(false)
+  })
+})

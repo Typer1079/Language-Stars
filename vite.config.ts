@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import pkg from './package.json' with { type: 'json' }
 
 // Content Security Policy for production builds (NIST 800-53 SC-18, SI-10).
 // GitHub Pages cannot set HTTP headers, so the policy is injected as a <meta> tag.
@@ -31,9 +32,13 @@ function cspPlugin(): Plugin {
 }
 
 export default defineConfig({
-  // Shown on the Account screen so it's easy to confirm a device has the newest version.
+  // App version: the release number from package.json (bump it for each release, as the App Store
+  // will need), plus the build number and commit from GitHub. Shown in Account and Help, and sent
+  // with problem reports, so it's easy to confirm which version a device is running.
   define: {
-    __APP_VERSION__: JSON.stringify(`${(process.env.GITHUB_SHA ?? 'local').slice(0, 7)} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`),
+    __APP_VERSION__: JSON.stringify(
+      `${pkg.version} (build ${process.env.GITHUB_RUN_NUMBER ?? 'local'} · ${(process.env.GITHUB_SHA ?? 'dev').slice(0, 7)} · ${new Date().toISOString().slice(0, 10)})`,
+    ),
   },
   // For a GitHub Pages project site this is "/<repo-name>/" (set by the deploy workflow).
   base: process.env.VITE_BASE ?? '/',
@@ -47,7 +52,7 @@ export default defineConfig({
       manifest: {
         name: 'Language Stars',
         short_name: 'Language Stars',
-        description: 'Reading practice for kids and English-to-Spanish speaking practice, with stars and stickers.',
+        description: 'Read-aloud practice for kids and adults: Reading, Spanish and Spelling Bee, with stars and stickers.',
         theme_color: '#4f46e5',
         background_color: '#e0e7ff',
         display: 'standalone',

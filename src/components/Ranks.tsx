@@ -105,7 +105,7 @@ export function RanksSection({ learnerId, name }: { learnerId: string; name: str
 export function AdminLeaderboards() {
   const [metric, setMetric] = useState<RankMetric>('stars')
   return (
-    <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+    <div className="mt-4 panel">
       <div className="mb-2 text-xs font-bold text-slate-700">🏆 World rankings (codenames only)</div>
       <div className="-mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Ranking">
         {RANK_METRICS.map((m) => (

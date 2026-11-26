@@ -4,6 +4,9 @@ import { BarChart, LineChart, Tile } from './Charts'
 import { AdminLeaderboards } from './Ranks'
 import { AdminUsers } from './AdminUsers'
 import { AdminProblems } from './AdminProblems'
+import { Notice } from './ui/Notice'
+import { PageHeader } from './ui/PageHeader'
+import { formatTime } from '../lib/format'
 
 const RANGES = [7, 30, 90, 365] as const
 
@@ -52,21 +55,19 @@ export default function Admin({ onBack }: { onBack: () => void }) {
     <div className="mx-auto min-h-dvh max-w-5xl px-4 pb-6">
       {/* Title, range and section chips stay pinned at the top while scrolling. */}
       <div id="admin-header" className="sticky top-0 z-20 -mx-4 mb-4 border-b border-slate-200/70 bg-slate-50/95 px-4 pt-3 pb-2 backdrop-blur">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="font-kids text-2xl font-bold">📊 Admin dashboard</h1>
-          <p className="text-xs text-slate-500">Site-wide numbers only. Each visit is recorded in the audit log.{k && ` Updated ${new Date(k.generated_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.`}</p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        title="📊 Admin dashboard"
+        subtitle={<>Site-wide numbers only. Each visit is recorded in the audit log.{k && ` Updated ${formatTime(k.generated_at)}.`}</>}
+        actions={<>
           <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white text-xs font-bold" role="group" aria-label="Time range">
             {RANGES.map((r) => (
               <button key={r} type="button" aria-pressed={days === r} onClick={() => setDays(r)}
                 className={`px-3 py-1.5 ${days === r ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{r}d</button>
             ))}
           </div>
-          <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={onBack}>← Back</button>
-        </div>
-      </div>
+          <button type="button" className="btn-secondary btn-sm" onClick={onBack}>← Back</button>
+        </>}
+      />
 
       {k && (
         <nav aria-label="Admin sections" className="mt-2">
@@ -82,12 +83,12 @@ export default function Admin({ onBack }: { onBack: () => void }) {
       )}
       </div>
 
-      {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+      {error && <Notice tone="error">{error}</Notice>}
       {!k && !error && <p className="py-10 text-center text-sm text-slate-500">Loading…</p>}
 
       {k && (
         <>
-          <h2 id="sec-users" className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Users</h2>
+          <h2 id="sec-users" className="section-label">Users</h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Tile label="Accounts" value={k.accounts} sub={`+${k.accounts_new} in ${k.days}d`} />
             <Tile label="Learners" value={k.learners} sub={`${k.learners_kids} managed by a parent`} />
@@ -99,7 +100,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <Tile label="Stickiness" value={pct(k.active_accounts_1d, k.active_accounts_30d)} sub="daily ÷ monthly active" />
           </div>
 
-          <h2 id="sec-learning" className="mt-5 mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Learning ({k.days} days)</h2>
+          <h2 id="sec-learning" className="mt-5 section-label">Learning ({k.days} days)</h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Tile label="Rounds" value={k.totals.rounds} />
             <Tile label="Words / items" value={k.totals.items} sub={`${pct(k.totals.clean, k.totals.items)} on their own`} />
@@ -128,7 +129,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
 
           <div id="sec-ranks"><AdminLeaderboards /></div>
 
-          <div id="sec-levels" className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+          <div id="sec-levels" className="mt-4 panel">
             <div className="mb-2 text-xs font-bold text-slate-700">Where learners are (current level)</div>
             <table className="w-full text-left text-xs">
               <thead className="text-[11px] uppercase tracking-wide text-slate-500">

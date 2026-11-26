@@ -21,7 +21,7 @@ export interface PlacedSticker {
   spent?: number
 }
 
-/** A reader profile, stored in the `learners` table. */
+/** A learner profile, stored in the `learners` table. */
 export interface Learner {
   id: string
   display_name: string
@@ -36,7 +36,7 @@ export interface Learner {
   /** Highest level ever reached; level-up bonuses are only paid for new highs. */
   reading_best: number
   spanish_best: number
-  /** Spelling bee path (needs database update 008; missing on older databases). */
+  /** Spelling Bee path (needs database update 008; missing on older databases). */
   spelling_level?: number
   spelling_best?: number
   lifetime_stars: number

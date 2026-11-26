@@ -10,7 +10,7 @@ const TABS: { id: Mode | 'rules'; label: string }[] = [
   { id: 'spelling', label: '🐝 Spelling levels' },
 ]
 
-/** Plain-language help: exactly how levels, stars, ranks and the spelling bee work, and what every level range means. */
+/** Plain-language help: exactly how levels, stars, ranks and the Spelling Bee work, and what every level range means. */
 export function HelpGuide({ onClose, start = 'rules', highlight }: { onClose: () => void; start?: Mode | 'rules'; highlight?: { mode: Mode; level: number } }) {
   const [tab, setTab] = useState<Mode | 'rules'>(start)
   useEffect(() => {
@@ -26,7 +26,7 @@ export function HelpGuide({ onClose, start = 'rules', highlight }: { onClose: ()
       <div className="mx-auto w-full max-w-3xl rounded-3xl border-4 border-indigo-100 bg-white p-4 shadow-2xl sm:p-6">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 id="help-title" className="font-kids text-2xl font-bold">❓ How Language Stars works</h2>
-          <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={onClose}>Close</button>
+          <button type="button" className="btn-secondary btn-sm" onClick={onClose}>Close</button>
         </div>
         <div className="-mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1" role="tablist">
           {TABS.map((t) => (
@@ -61,7 +61,7 @@ export function HelpGuide({ onClose, start = 'rules', highlight }: { onClose: ()
               <li>From Level 31, after every other phrase or sentence, Iris asks what it means (3 choices).</li>
               <li>From Level 56, every word and sentence gets a meaning question.</li>
             </Section>
-            <Section title="🐝 Spelling bee rules">
+            <Section title="🐝 Spelling Bee rules">
               <li>Iris is the pronouncer: she says the word slowly, twice. Spell it out loud, one letter at a time; letters appear as you say them.</li>
               <li>Like the National Spelling Bee, you may ask, by tapping or by saying it: <b>“repeat”</b>, <b>“definition”</b>, <b>“sentence”</b>, <b>“part of speech”</b> or <b>“origin”</b>. Asking never counts against you. Say “start over” to begin the word again.</li>
               <li>A wrong spelling counts as a miss and shows the right one. If the microphone misheard you, tap “The mic misheard me” to try again. “Type it instead” is a backup.</li>
@@ -96,6 +96,9 @@ export function HelpGuide({ onClose, start = 'rules', highlight }: { onClose: ()
             })}
           </ol>
         )}
+        <p className="mt-6 border-t border-slate-100 pt-3 text-center text-[11px] text-slate-400">
+          Version {__APP_VERSION__} · <a className="underline" href="#/support">Support</a> · <a className="underline" href="#/privacy">Privacy</a> · <a className="underline" href="#/terms">Terms</a>
+        </p>
       </div>
     </div>
   )

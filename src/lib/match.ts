@@ -125,10 +125,24 @@ function sameWord(a: string, b: string): boolean {
   if (a === b || stem(a) === stem(b)) return true
   const [s, l] = a.length <= b.length ? [a, b] : [b, a]
   if (s.length >= 4 && l.startsWith(s) && l.length - s.length <= 3) return true
-  if (s.length >= 8) return editDistance(a, b) <= 2
-  if (s.length >= 4) return editDistance(a, b) <= 1
+  if (SAME_SOUND.get(a) === b || SAME_SOUND.get(b) === a) return true
+  if (s.length >= 8 && editDistance(a, b) <= 2) return true
+  if (s.length >= 4 && editDistance(a, b) <= 1) return true
+  // Long words the phone writes as a near-sounding word ("dissonance" → "dissidence").
+  if (s.length >= 7 && a[0] === b[0]) {
+    const ka = soundKey(a)
+    const kb = soundKey(b)
+    if (Math.min(ka.length, kb.length) >= 4 && editDistance(ka, kb) <= 1) return true
+  }
   return false
 }
+
+// Words that sound the same; the phone picks one spelling at random.
+const SAME_SOUND = new Map<string, string>([
+  ['no', 'know'], ['knew', 'new'], ['there', 'their'], ['theyre', 'their'], ['write', 'right'], ['two', 'to'], ['too', 'to'],
+  ['four', 'for'], ['hear', 'here'], ['sea', 'see'], ['buy', 'by'], ['bye', 'by'], ['won', 'one'],
+  ['whole', 'hole'], ['weather', 'whether'], ['which', 'witch'], ['wear', 'where'], ['ate', 'eight'], ['peace', 'piece'],
+])
 
 /** Fraction of the target's words that were heard, in order (longest common subsequence). */
 export function phraseScore(heard: string, target: string): number {
@@ -149,7 +163,7 @@ const OPTIONAL_LEAD = new Set(['yo', 'el', 'ella', 'nosotros', 'ellos', 'ellas',
 
 /**
  * How many of the target's words must be heard, in order. Long sentences get more room for the
- * odd word the microphone misses (background noise, a fast reader): all of up to 6 words (a
+ * odd word the microphone misses (background noise, a fast learner): all of up to 6 words (a
  * dropped little word aside, see isPhraseMatch), all but one for 7-12 words, about 4 in 5 for longer sentences.
  */
 export function phraseNeed(wordCount: number): number {

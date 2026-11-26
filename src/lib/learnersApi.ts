@@ -5,7 +5,7 @@ const BASE_COLUMNS =
   'id, display_name, kind, age_group, sticker_style, mode, reading_level, spanish_level, reading_best, spanish_best, lifetime_stars, spendable_stars, mastered, stickers, updated_at'
 
 // Newer columns come from later database updates. Until an update is run, the app keeps
-// working without that feature instead of failing: 006 adds avatars, 008 adds the spelling bee.
+// working without that feature instead of failing: 006 adds avatars, 008 adds the Spelling Bee.
 const OPTIONAL: Record<string, string[]> = { avatar: ['avatar'], spelling: ['spelling_level', 'spelling_best'] }
 const missing = new Set<string>()
 const columns = () => [BASE_COLUMNS, ...Object.entries(OPTIONAL).filter(([g]) => !missing.has(g)).flatMap(([, c]) => c)].join(', ')
@@ -40,7 +40,7 @@ async function withFallback<R extends { error: { message?: string } | null }>(ru
 
 /** True once the database can store profile avatars (update 006). */
 export const avatarsAvailable = () => !missing.has('avatar')
-/** True once the database has the spelling bee (update 008). */
+/** True once the database has the Spelling Bee (update 008). */
 export const spellingAvailable = () => !missing.has('spelling')
 
 export async function listLearners(): Promise<Learner[]> {
@@ -65,6 +65,15 @@ export async function saveLearner(l: Learner): Promise<void> {
 
 export async function deleteLearner(id: string): Promise<void> {
   const { error } = await supabase.from('learners').delete().eq('id', id)
+  if (error) throw error
+}
+
+/**
+ * Deletes the signed-in account and everything in it (learners, history, devices). Needs the
+ * literal confirmation "DELETE"; accounts with children's profiles need a Face ID / two-step session.
+ */
+export async function deleteMyAccount(confirm: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_my_account', { confirm })
   if (error) throw error
 }
 

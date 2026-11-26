@@ -1,4 +1,4 @@
--- Read Aloud Stars 002: log when a reader switches between Reading and Spanish
+-- Language Stars 002: log when a learner switches between Reading and Spanish
 -- (now a profile setting changed from ✏️ Edit). Safe to run more than once.
 -- Run in Supabase: SQL Editor -> New query -> paste -> Run.
 

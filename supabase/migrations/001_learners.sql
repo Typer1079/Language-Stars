@@ -1,4 +1,4 @@
--- Read Aloud Stars: learner profiles, row-level security, MFA rule for children, audit log.
+-- Language Stars: learner profiles, row-level security, MFA rule for children, audit log.
 -- Run this once in the Supabase dashboard: SQL Editor -> New query -> paste -> Run.
 --
 -- NIST 800-53 controls noted inline: AC-3 (access enforcement), AC-6 (least privilege),
@@ -6,7 +6,7 @@
 -- provided by Supabase disk encryption).
 
 -- ---------------------------------------------------------------------------
--- Learners: one row per reader (a parent's child, or an adult practicing for themself).
+-- Learners: one row per learner (a parent's child, or an adult practicing for themself).
 -- Data minimization: first name / nickname and age group only. No birthdays, photos, voice.
 -- ---------------------------------------------------------------------------
 create table if not exists public.learners (

@@ -6,29 +6,22 @@
  * The private keys never leave the device (Apple Passwords / iCloud Keychain); Supabase stores only
  * public keys. Requires Passkeys and WebAuthn MFA to be turned on in the Supabase dashboard.
  */
+import { KEYS, local } from './storage'
 import { supabase } from './supabase'
 
-const USED_KEY = 'read-aloud-stars.faceid-on-this-device'
-const DISMISS_KEY = 'read-aloud-stars.faceid-offer-dismissed'
+const USED_KEY = KEYS.faceIdOnDevice
+const DISMISS_KEY = KEYS.faceIdOfferDismissed
 
 export function faceIdSupported(): boolean {
   return typeof window !== 'undefined' && 'PublicKeyCredential' in window && Boolean(navigator.credentials)
 }
 
 function store(key: string, on: boolean) {
-  try {
-    if (on) localStorage.setItem(key, '1')
-    else localStorage.removeItem(key)
-  } catch {
-    /* storage unavailable */
-  }
+  if (on) local.set(key, '1')
+  else local.remove(key)
 }
 function read(key: string): boolean {
-  try {
-    return localStorage.getItem(key) === '1'
-  } catch {
-    return false
-  }
+  return local.get(key) === '1'
 }
 export const faceIdOnDevice = () => read(USED_KEY)
 export const markFaceIdOnDevice = (on: boolean) => store(USED_KEY, on)

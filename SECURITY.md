@@ -2,7 +2,7 @@
 
 **What this document is.** NIST SP 800-53 is a catalog of controls that an *organization* selects,
 documents (in a System Security Plan) and has assessed. Software alone can't be "800-53 compliant."
-This file shows how Read Aloud Stars implements the controls that apply to a small web application,
+This file shows how Language Stars implements the controls that apply to a small web application,
 using the **Moderate baseline** as the reference, and is honest about what is inherited from service
 providers, what the account owner has to do, and what isn't covered.
 
@@ -18,9 +18,9 @@ or GitHub · **Owner** = a setting or practice the account owner must keep up ·
 ## Access control (AC)
 | Control | Status | How |
 |---|---|---|
-| AC-2 Account management | Implemented + Owner | Supabase Auth accounts with confirmed email. Owner closes public sign-up after family accounts exist and invites anyone new (README step 4). Deleting a user in Supabase deletes their readers and practice history (`on delete cascade`). Super admins are listed in `app_admins`, which the app can neither read nor change; admins are added only by the owner in the SQL editor. |
+| AC-2 Account management | Implemented + Owner | Supabase Auth accounts with confirmed email. Owner closes public sign-up after family accounts exist and invites anyone new (README step 4). Deleting a user in Supabase, or the user choosing Account → Delete my account (`delete_my_account`, needs a Face ID / two-step session when children's profiles exist), deletes their learners and practice history (`on delete cascade`). Super admins are listed in `app_admins`, which the app can neither read nor change; admins are added only by the owner in the SQL editor. |
 | AC-3 Access enforcement | Implemented | Postgres row-level security on `learners` and `audit_log` (`force row level security`); policies tested for cross-account reads, writes and owner changes. |
-| AC-6 Least privilege | Implemented | `anon` role has no table access; `authenticated` gets only select/insert/update/delete on its own rows and read-only access to its own audit entries. Trigger functions run with an empty `search_path` and are not callable by users. The `service_role` key is never used by the app. Practice history is insert/select only on your own readers (no edits or deletes). World rankings come from functions that return ranks, values and made-up codenames only (never names, avatars or ids), and only for readers you own. The admin dashboard is a single function that returns aggregated counts only and requires an admin account plus a two-step / Face ID session. |
+| AC-6 Least privilege | Implemented | `anon` role has no table access; `authenticated` gets only select/insert/update/delete on its own rows and read-only access to its own audit entries. Trigger functions run with an empty `search_path` and are not callable by users. The `service_role` key is never used by the app. Practice history is insert/select only on your own learners (no edits or deletes). World rankings come from functions that return ranks, values and made-up codenames only (never names, avatars or ids), and only for learners you own. The admin dashboard is a single function that returns aggregated counts only and requires an admin account plus a two-step / Face ID session. |
 | AC-7 Unsuccessful logon attempts | Inherited + Owner | Supabase Auth rate-limits sign-in and verification attempts (Authentication → Rate Limits). Error messages don't reveal whether an email exists. |
 | AC-8 System use notification | Implemented | Sign-in screen notice: private family app, authorized users only, activity logged. |
 | AC-11 / AC-12 Session lock and termination | Implemented | Automatic sign-out after 30 minutes without taps, keys or words read; "Sign out on all devices" revokes every session. |
@@ -30,8 +30,8 @@ or GitHub · **Owner** = a setting or practice the account owner must keep up ·
 ## Audit and accountability (AU)
 | Control | Status | How |
 |---|---|---|
-| AU-2 / AU-12 Event logging | Implemented + Inherited | Database trigger logs reader create/delete and every change to stars, balance, levels, sticker count and profile fields. Supabase Auth logs sign-ins, MFA events and password changes (Dashboard → Logs). Every admin-dashboard view is logged as `admin.view_kpis` (and `admin.view_leaderboard`). |
-| AU-3 Content of records | Implemented | Time, account ID, reader ID, action, MFA level of the session (`aal1`/`aal2`) and before → after values. No personal content is copied into the log. |
+| AU-2 / AU-12 Event logging | Implemented + Inherited | Database trigger logs learner create/delete and every change to stars, balance, levels, sticker count and profile fields. Supabase Auth logs sign-ins, MFA events and password changes (Dashboard → Logs). Every admin-dashboard view is logged as `admin.view_kpis` (and `admin.view_leaderboard`). |
+| AU-3 Content of records | Implemented | Time, account ID, learner ID, action, MFA level of the session (`aal1`/`aal2`) and before → after values. No personal content is copied into the log. |
 | AU-6 Review | Implemented + Owner | Account → Activity shows the account's own log. Owner reviews periodically. |
 | AU-9 Protection of audit information | Implemented | Users can read only their own entries and cannot insert, update or delete any; only the trigger writes. |
 | AU-11 Retention | Owner | One-year retention; purge query (or `pg_cron` schedule) is at the end of the migration. |
@@ -67,7 +67,7 @@ or GitHub · **Owner** = a setting or practice the account owner must keep up ·
 | Control | Status | How |
 |---|---|---|
 | SI-2 Flaw remediation | Implemented + Owner | Dependabot weekly updates; owner merges them. |
-| SI-10 Information input validation | Implemented | Backup files are size-limited, parsed safely and every field cleaned and clamped (`src/lib/validate.ts`, unit-tested with hostile input). The database enforces the same limits plus business rules (stars only go up; balance ≤ lifetime stars; 12 readers per account). |
+| SI-10 Information input validation | Implemented | Backup files are size-limited, parsed safely and every field cleaned and clamped (`src/lib/validate.ts`, unit-tested with hostile input). The database enforces the same limits plus business rules (stars only go up; balance ≤ lifetime stars; 12 learners per account). |
 | SI-11 Error handling | Implemented | Users see plain messages; database details aren't shown. An error screen replaces a blank page. |
 
 ## Risk assessment, acquisition, supply chain (RA, SA, SR)

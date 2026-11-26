@@ -12,6 +12,7 @@ import { LinkDevicePanel } from './Devices'
 import { MAX_LEVEL, stageName } from '../lib/curriculum'
 import { cleanName, parseSaveFile } from '../lib/validate'
 import { newLearnerDraft, type AgeGroup, type Learner, type LearnerDraft, type LearnerKind, type Mode, type StickerStyle } from '../lib/types'
+import { Notice } from './ui/Notice'
 
 interface Props {
   learners: Learner[]
@@ -24,7 +25,7 @@ interface Props {
   onCreate: (d: LearnerDraft) => Promise<void>
   onUpdate: (l: Learner) => Promise<void>
   onImport: (d: LearnerDraft[]) => Promise<void>
-  /** Opens two-step sign-in; `pending` readers are added automatically once it succeeds. */
+  /** Opens two-step sign-in; `pending` learners are added automatically once it succeeds. */
   onUnlockKids: (pending?: LearnerDraft[]) => void
   onAccount: () => void
   /** Only for super admins. */
@@ -65,7 +66,7 @@ export default function LearnerPicker(p: Props) {
         )}
         {p.loading && <p className="text-sm text-slate-500">Loading learners…</p>}
       </div>
-      {p.error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{p.error}</p>}
+      {p.error && <Notice tone="error" className="mt-3">{p.error}</Notice>}
 
       <FaceIdOffer />
 
@@ -87,8 +88,8 @@ export default function LearnerPicker(p: Props) {
       {help && <HelpGuide onClose={() => setHelp(false)} />}
       {viewing && <ProgressView learner={viewing} parentView onClose={() => setViewing(null)} />}
       {editing && <EditReader key={editing.id} verified={p.verified} learner={editing} onCancel={() => setEditing(null)} onSave={async (l) => { await p.onUpdate(l); setEditing(null) }} />}
-      {panel === 'add' && <AddReader verified={p.verified} onUnlockKids={p.onUnlockKids} onCancel={() => setPanel('none')} onCreate={async (d) => { await p.onCreate(d); setPanel('none') }} />}
-      {panel === 'import' && <ImportReaders verified={p.verified} onUnlockKids={p.onUnlockKids} onImport={async (d) => { await p.onImport(d); setPanel('none') }} />}
+      {panel === 'add' && <AddLearner verified={p.verified} onUnlockKids={p.onUnlockKids} onCancel={() => setPanel('none')} onCreate={async (d) => { await p.onCreate(d); setPanel('none') }} />}
+      {panel === 'import' && <ImportLearners verified={p.verified} onUnlockKids={p.onUnlockKids} onImport={async (d) => { await p.onImport(d); setPanel('none') }} />}
     </div>
   )
 }
@@ -305,7 +306,7 @@ export interface ReaderFields {
   avatar: string | null
 }
 
-/** The add / edit form for a reader profile. */
+/** The add / edit form for a learner profile. */
 export function ReaderForm({ initial, isNew, busy, error, submitLabel, onSubmit, onCancel, footer }: {
   initial: ReaderFields
   isNew: boolean
@@ -329,22 +330,22 @@ export function ReaderForm({ initial, isNew, busy, error, submitLabel, onSubmit,
       {isNew && (
         <div>
           <span className="label">Who is this learner?</span>
-          <Choice label="Who is this reader" value={f.kind} onChange={(v) => setF((x) => ({ ...x, kind: v, ...(v === 'self' ? { mode: 'spanish' as Mode, age: 'adult' as AgeGroup } : {}) }))}
+          <Choice label="Who is this learner" value={f.kind} onChange={(v) => setF((x) => ({ ...x, kind: v, ...(v === 'self' ? { mode: 'spanish' as Mode, age: 'adult' as AgeGroup } : {}) }))}
             options={[{ v: 'child', label: '🧒 Someone I manage' }, { v: 'self', label: '🙋 Me' }]} />
         </div>
       )}
       <AvatarPicker value={f.avatar} fallback={avatarFor({ avatar: null, sticker_style: f.style, age_group: f.age })} onChange={(v) => set('avatar', v)} />
       <div>
-        <label className="label" htmlFor="reader-name">First name or nickname</label>
-        <input id="reader-name" className="input" maxLength={40} autoComplete="off" value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g., Ethan" />
+        <label className="label" htmlFor="learner-name">First name or nickname</label>
+        <input id="learner-name" className="input" maxLength={40} autoComplete="off" value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g., Ethan" />
         <p className="mt-1 text-xs text-slate-500">Just a first name is enough. No last names or birthdays are stored.</p>
       </div>
       <div>
         <span className="label">What do they practice?</span>
         <Choice label="Practice" value={f.mode} onChange={(v) => set('mode', v)}
-          options={subjectsAvailable().map((x) => ({ v: x.m, label: x.m === 'reading' ? '📖 Reading (English)' : x.m === 'spanish' ? '🇪🇸 Spanish (English → Spanish)' : '🐝 Spelling bee' }))} />
+          options={subjectsAvailable().map((x) => ({ v: x.m, label: x.m === 'reading' ? '📖 Reading (English)' : x.m === 'spanish' ? '🇪🇸 Spanish (English → Spanish)' : '🐝 Spelling Bee' }))} />
         <p className="mt-1 text-xs text-slate-500">
-          {f.mode === 'reading' ? 'Read words, phrases and sentences out loud, then answer what they mean.' : f.mode === 'spanish' ? 'See an English word and say it in Spanish, with example phrases.' : 'Hear a word and spell it out loud, letter by letter, with spelling bee rules.'}
+          {f.mode === 'reading' ? 'Read words, phrases and sentences out loud, then answer what they mean.' : f.mode === 'spanish' ? 'See an English word and say it in Spanish, with example phrases.' : 'Hear a word and spell it out loud, letter by letter, with Spelling Bee rules.'}
           {!isNew && ' Progress in the other one is kept if you switch back.'}
         </p>
       </div>
@@ -362,7 +363,7 @@ export function ReaderForm({ initial, isNew, busy, error, submitLabel, onSubmit,
         <span className="label">Sticker packs</span>
         <Choice label="Sticker packs" value={f.style} onChange={(v) => set('style', v)} options={[{ v: 'any', label: '🌈 Mixed' }, { v: 'boy', label: '🦖 Boy' }, { v: 'girl', label: '🦄 Girl' }]} />
       </div>
-      {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+      {error && <Notice tone="error">{error}</Notice>}
       <div className="flex gap-2">
         {onCancel && <button type="button" className="btn-secondary flex-1" onClick={onCancel}>Cancel</button>}
         <button className="btn-primary flex-1" disabled={busy}>{busy ? 'Saving…' : submitLabel}</button>
@@ -372,7 +373,7 @@ export function ReaderForm({ initial, isNew, busy, error, submitLabel, onSubmit,
   )
 }
 
-function AddReader({ verified, onUnlockKids, onCreate, onCancel }: { verified: boolean; onUnlockKids: (pending?: LearnerDraft[]) => void; onCreate: (d: LearnerDraft) => Promise<void>; onCancel: () => void }) {
+function AddLearner({ verified, onUnlockKids, onCreate, onCancel }: { verified: boolean; onUnlockKids: (pending?: LearnerDraft[]) => void; onCreate: (d: LearnerDraft) => Promise<void>; onCancel: () => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -400,7 +401,7 @@ function AddReader({ verified, onUnlockKids, onCreate, onCancel }: { verified: b
   )
 }
 
-/** Edit an existing reader's name, practice type, age group and sticker packs. */
+/** Edit an existing learner's name, practice type, age group and sticker packs. */
 function EditReader({ learner, verified, onSave, onCancel }: { learner: Learner; verified: boolean; onSave: (l: Learner) => Promise<void>; onCancel: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -442,7 +443,7 @@ function EditReader({ learner, verified, onSave, onCancel }: { learner: Learner;
   )
 }
 
-function ImportReaders({ verified, onUnlockKids, onImport }: { verified: boolean; onUnlockKids: (pending?: LearnerDraft[]) => void; onImport: (d: LearnerDraft[]) => Promise<void> }) {
+function ImportLearners({ verified, onUnlockKids, onImport }: { verified: boolean; onUnlockKids: (pending?: LearnerDraft[]) => void; onImport: (d: LearnerDraft[]) => Promise<void> }) {
   const input = useRef<HTMLInputElement>(null)
   const [drafts, setDrafts] = useState<(LearnerDraft & { pick: boolean })[]>([])
   const [busy, setBusy] = useState(false)
@@ -498,8 +499,8 @@ function ImportReaders({ verified, onUnlockKids, onImport }: { verified: boolean
           ))}
         </ul>
       )}
-      <p className="text-xs text-slate-500">Import only the readers that belong on this account. For example, Olivia imports her own profile after signing in to her account.</p>
-      {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+      <p className="text-xs text-slate-500">Import only the learners that belong on this account. For example, Olivia imports her own profile after signing in to her account.</p>
+      {error && <Notice tone="error">{error}</Notice>}
       {drafts.length > 0 &&
         (needsVerify ? (
           <button type="button" className="btn-primary w-full" onClick={() => onUnlockKids(picked())}>Verify two-step sign-in and import</button>

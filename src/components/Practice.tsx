@@ -36,8 +36,8 @@ interface Props {
 }
 
 /**
- * Coaching pace: adults and experienced or confident readers get the brisk coach (no chatter,
- * faster voice, quick hand-back to the mic). Young or new readers get the guided coach.
+ * Coaching pace: adults and experienced or confident learners get the brisk coach (no chatter,
+ * faster voice, quick hand-back to the mic). Young or new learners get the guided coach.
  * A strong last round (8+ of 10 without help) switches to brisk; a rough one switches back.
  */
 function paceFor(l: Learner, lastRound: { clean: number; attempts: number } | null): Pace {
@@ -70,7 +70,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const [progressOpen, setProgressOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [micHelp, setMicHelp] = useState<'blocked' | 'dictation' | null>(null)
-  // Spelling bee: letters heard so far, a wrong spelling to show, help Iris gave, and typing.
+  // Spelling Bee: letters heard so far, a wrong spelling to show, help Iris gave, and typing.
   const [spelled, setSpelled] = useState<string[]>([])
   const [spellMiss, setSpellMiss] = useState<string[] | null>(null)
   const [beeInfo, setBeeInfo] = useState<{ label: string; text: string }[]>([])
@@ -90,7 +90,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   const attemptsRef = useRef(0)
   const levelUpPending = useRef(false)
   const lastRoundRef = useRef<{ clean: number; attempts: number } | null>(null)
-  // Stars earned since the last Round Complete screen; brisk readers only stop every 10.
+  // Stars earned since the last Round Complete screen; brisk learners only stop every 10.
   const starsSinceStop = useRef(0)
   const paceRef = useRef<Pace>(paceFor(learner, null))
 
@@ -119,7 +119,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
         items: r.items, clean: r.clean, coached: r.coached, skipped: r.skipped,
         stars: Math.max(0, l.lifetime_stars - r.stars0),
         questions: r.questions, questions_right: r.questionsRight,
-        // Counted time per round is capped, so a reader who walks away doesn't inflate it.
+        // Counted time per round is capped, so a learner who walks away doesn't inflate it.
         seconds: Math.min(Math.round((Date.now() - r.start) / 1000), 20 * 60),
       }).catch(() => { /* graphs are best effort; practice never waits on them */ })
     }
@@ -260,7 +260,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       note = `Good try! ${clean} of ${attempts}. Keep going at Level ${activeLevel(learnerRef.current)}.`
     }
     if (r.movedDownTo) log('MOVED_DOWN', `to L${r.movedDownTo} clean=${clean}/${attempts}`)
-    // Readers flying through: roll straight into the next round until 10 new stars are earned.
+    // Learners flying through: roll straight into the next round until 10 new stars are earned.
     if (paceRef.current === 'brisk' && !r.movedDownTo && starsSinceStop.current < 10) {
       setFeedback({ title: note || `Round done: ${clean} of ${attempts} ⭐`, sub: 'Next round starting…', tone: 'success' })
       log('ROUND_CONTINUE', `clean=${clean}/${attempts} starsSinceStop=${starsSinceStop.current}`)
@@ -340,7 +340,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
   }, [advance, log, onActivity, onChange])
 
   // Latest callbacks for the engine (created once).
-  /** Spelling bee: the word was spelled wrong. Show the right spelling; the reader can say the mic misheard. */
+  /** Spelling Bee: the word was spelled wrong. Show the right spelling; the learner can say the mic misheard. */
   const handleSpellWrong = useCallback((letters: string[]) => {
     const it = roundRef.current[indexRef.current]
     if (!it || solvedRef.current) return
@@ -371,7 +371,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     engineRef.current?.retryWord()
   }
 
-  /** Spelling bee: typed instead of spoken (when the microphone struggles). */
+  /** Spelling Bee: typed instead of spoken (when the microphone struggles). */
   const submitTyped = (text: string) => {
     const it = roundRef.current[indexRef.current]
     if (!it || solvedRef.current) return
@@ -383,7 +383,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     else handleSpellWrong(letters)
   }
 
-  /** Spelling bee help, as the National Spelling Bee allows: no penalty. */
+  /** Spelling Bee help, as the National Spelling Bee allows: no penalty. */
   const askBee = (kind: 'repeat' | 'definition' | 'pos' | 'sentence' | 'origin') => {
     const it = roundRef.current[indexRef.current]
     const e = it?.spell
@@ -437,7 +437,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       log,
     })
     engineRef.current = engine
-    // Starts the speech engine (an external system) and the first round for this reader.
+    // Starts the speech engine (an external system) and the first round for this learner.
     // eslint-disable-next-line react/set-state-in-effect
     startRound({ autoBegin: false, welcome: true })
     return () => {
@@ -446,7 +446,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
       engine.dispose()
       engineRef.current = null
     }
-    // Start once per reader.
+    // Start once per learner.
   }, [learner.id, log, startRound, flushLog])
 
   // ---- controls ------------------------------------------------------------------------------
@@ -486,7 +486,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
     else engineRef.current?.resume()
   }, [advance, roundDone])
 
-  // Iris reads the question and choices to younger readers.
+  // Iris reads the question and choices to younger learners.
   const cancelQuizVoice = useRef<(() => void) | null>(null)
   const quizQ = quiz?.q
   useEffect(() => {
@@ -757,7 +757,7 @@ export default function Practice({ learner, onChange, onExit, saveStatus, onActi
 
           {item?.spell && spellingMode && (
             <div className="my-3 flex w-full max-w-lg flex-col items-center rounded-3xl border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 via-lime-50 to-amber-50 p-5">
-              <span className="mb-2 text-xs font-bold uppercase tracking-widest text-emerald-700">🐝 Spelling bee • listen, then spell it</span>
+              <span className="mb-2 text-xs font-bold uppercase tracking-widest text-emerald-700">🐝 Spelling Bee • listen, then spell it</span>
               <button type="button" onClick={() => askBee('repeat')} className="flex items-center gap-2 rounded-2xl bg-white px-5 py-3 font-kids text-xl font-bold text-emerald-800 shadow-sm ring-1 ring-emerald-200 transition hover:bg-emerald-50 active:scale-95">
                 🔊 Hear the word
               </button>

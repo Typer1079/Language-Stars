@@ -559,7 +559,7 @@ export const READING_LEVELS: Record<number, string[]> = buildReading()
 export const SPANISH_LEVELS: Record<number, SpanishEntry[]> = buildSpanish()
 
 /**
- * Spelling bee: 100 levels of 10 words, easiest to championship. Each level overlaps the one
+ * Spelling Bee: 100 levels of 10 words, easiest to championship. Each level overlaps the one
  * before it by about half, so every word comes up twice for review.
  */
 function buildSpelling(): Record<number, SpellEntry[]> {

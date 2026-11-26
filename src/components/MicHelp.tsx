@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Notice } from './ui/Notice'
 
 type Where = 'ios-app' | 'ios-safari' | 'ios-other' | 'android-app' | 'android' | 'mac-safari' | 'desktop'
 
@@ -80,12 +81,12 @@ export function MicHelp({ reason, onGranted, onClose }: { reason: 'blocked' | 'd
             </ol>
           </>
         )}
-        {status === 'still' && <p role="alert" className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">Still blocked. Follow the steps above, then reload.</p>}
+        {status === 'still' && <Notice tone="warn" className="mt-3">Still blocked. Follow the steps above, then reload.</Notice>}
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button type="button" className="btn-primary" disabled={status === 'asking'} onClick={askAgain}>{status === 'asking' ? 'Asking…' : 'Ask again'}</button>
           <button type="button" className="btn-secondary" onClick={() => window.location.reload()}>Reload page</button>
         </div>
-        <button type="button" className="mt-3 w-full text-sm text-slate-500 underline" onClick={onClose}>Not now</button>
+        <button type="button" className="link mt-3 w-full text-sm" onClick={onClose}>Not now</button>
       </div>
     </div>
   )

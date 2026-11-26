@@ -2,8 +2,8 @@
 -- Safe to run more than once. Run in Supabase: SQL Editor -> New query -> paste -> Run.
 --
 -- Privacy (AC-3, AC-21, PT-2 minimization): rankings never return names, emails, avatars or ids.
--- Everyone else appears under a fixed made-up codename ("Brave Otter 47"); only your own reader
--- is marked "me" so the app can show your own name to you. Ranks are only for readers you own
+-- Everyone else appears under a fixed made-up codename ("Brave Otter 47"); only your own learner
+-- is marked "me" so the app can show your own name to you. Ranks are only for learners you own
 -- (kids' need a two-step / Face ID session) or for the super admin.
 
 -- One row of numbers per learner. Internal: not callable by app users.

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { formatDateTimeLong } from './format'
 
 /**
  * Problem reports: short technical notes sent when something breaks or a learner seems stuck, so
@@ -112,7 +113,7 @@ export const kindLabel = (k: string) => KIND_LABEL[k as ProblemKind] ?? k
 
 /** Plain text that pastes cleanly into a chat for analysis. */
 export function problemsToText(list: ProblemReport[], heading: string): string {
-  const fmt = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  const fmt = (iso: string) => formatDateTimeLong(iso)
   const lines = [`Language Stars problem reports — ${heading} — ${list.length} report${list.length === 1 ? '' : 's'} (copied ${fmt(new Date().toISOString())})`]
   list.forEach((p, i) => {
     lines.push('', `#${i + 1} ${kindLabel(p.kind).toUpperCase()} · ${fmt(p.created_at)}${p.resolved_at ? ' · marked fixed' : ''}`)

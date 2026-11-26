@@ -130,6 +130,6 @@ export function parseSaveFile(text: string): LearnerDraft[] {
       return cleanLearnerDraft(x, kind)
     })
     .filter((d): d is LearnerDraft => d !== null)
-  if (drafts.length === 0) throw new Error('No reader profiles found in that file.')
+  if (drafts.length === 0) throw new Error('No learner profiles found in that file.')
   return drafts
 }

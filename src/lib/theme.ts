@@ -1,14 +1,12 @@
 /** Light / dark appearance. 'system' follows the device setting. Saved per device. */
 export type ThemeChoice = 'system' | 'light' | 'dark'
-const KEY = 'ras.theme'
+import { KEYS, local } from './storage'
+
+const KEY = KEYS.theme
 
 export function getThemeChoice(): ThemeChoice {
-  try {
-    const v = localStorage.getItem(KEY)
-    return v === 'light' || v === 'dark' ? v : 'system'
-  } catch {
-    return 'system'
-  }
+  const v = local.get(KEY)
+  return v === 'light' || v === 'dark' ? v : 'system'
 }
 
 const media = () => window.matchMedia?.('(prefers-color-scheme: dark)')
@@ -20,7 +18,7 @@ export function applyTheme(choice: ThemeChoice = getThemeChoice()) {
 }
 
 export function setThemeChoice(choice: ThemeChoice) {
-  try { localStorage.setItem(KEY, choice) } catch { /* private mode: applies for this visit only */ }
+  local.set(KEY, choice) // private mode: applies for this visit only
   applyTheme(choice)
 }
 

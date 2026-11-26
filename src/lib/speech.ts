@@ -1,4 +1,4 @@
-// Browser speech: recognition (the reader's voice) and synthesis (the coach's voice).
+// Browser speech: recognition (the learner's voice) and synthesis (the coach's voice).
 // Audio is handled by the browser's own speech service; this app never records or uploads it.
 
 export interface VoiceSegment {
@@ -157,7 +157,7 @@ export function cancelSpeech() {
  * Speaks the segments in order (English and Spanish voices mixed), then calls done.
  * Returns a cancel function. done is called at most once, including on cancel.
  */
-/** speed: 1 = normal coach pace; above 1 = brisker voice for adults and confident readers. */
+/** speed: 1 = normal coach pace; above 1 = brisker voice for adults and confident learners. */
 export function speakSegments(segments: VoiceSegment[], done: () => void, speed = 1): () => void {
   let finished = false
   let cancelled = false

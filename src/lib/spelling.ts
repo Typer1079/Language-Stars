@@ -1,5 +1,5 @@
 /**
- * Spelling bee listening: turns what the microphone heard ("C A T", "see ay tee", "double you")
+ * Spelling Bee listening: turns what the microphone heard ("C A T", "see ay tee", "double you")
  * into letters, and judges them against the word, letter by letter.
  */
 

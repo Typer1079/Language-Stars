@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { downloadText } from '../lib/download'
-import { dbMessage, deleteLearner, listAudit, type AuditEntry } from '../lib/learnersApi'
+import { dbMessage, deleteLearner, deleteMyAccount, listAudit, type AuditEntry } from '../lib/learnersApi'
 import { irisVoiceName } from '../lib/speech'
 import { supabase } from '../lib/supabase'
 import { SignInMethods } from './FaceId'
 import type { Learner } from '../lib/types'
 import { LegalLinks } from './Legal'
 import { getThemeChoice, setThemeChoice, type ThemeChoice } from '../lib/theme'
+import { Notice } from './ui/Notice'
+import { PageHeader } from './ui/PageHeader'
+import { formatDateTime } from '../lib/format'
 
 interface Props {
   email: string
@@ -47,6 +50,10 @@ export default function Account(p: Props) {
   const [deleteId, setDeleteId] = useState('')
   const [confirmName, setConfirmName] = useState('')
   const [busy, setBusy] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const [closeText, setCloseText] = useState('')
+  const [closeError, setCloseError] = useState('')
+  const [needsVerify, setNeedsVerify] = useState(false)
 
   const names = new Map(p.learners.map((l) => [l.id, l.display_name]))
   const toDelete = p.learners.find((l) => l.id === deleteId)
@@ -57,8 +64,8 @@ export default function Account(p: Props) {
 
   function exportBackup() {
     const learners = p.learners.map(({ id: _id, updated_at: _u, ...rest }) => { void _id; void _u; return rest })
-    const payload = { app: 'read-aloud-stars', version: 3, exportedAt: new Date().toISOString(), learners }
-    downloadText(JSON.stringify(payload, null, 2), `read-aloud-stars-backup-${new Date().toISOString().slice(0, 10)}.json`)
+    const payload = { app: 'language-stars', version: 3, exportedAt: new Date().toISOString(), learners }
+    downloadText(JSON.stringify(payload, null, 2), `language-stars-backup-${new Date().toISOString().slice(0, 10)}.json`)
   }
 
   async function doDelete() {
@@ -77,18 +84,33 @@ export default function Account(p: Props) {
     }
   }
 
+  async function deleteAccount() {
+    if (closeText.trim() !== 'DELETE') return
+    setBusy(true)
+    setCloseError('')
+    try {
+      await deleteMyAccount('DELETE')
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+    } catch (err) {
+      const msg = String((err as { message?: string })?.message ?? '')
+      if (/Face ID|two-step/i.test(msg)) setNeedsVerify(true)
+      setCloseError(/Admin accounts/i.test(msg) ? 'Admin accounts can’t be deleted here. Remove the admin role in the database first.'
+        : /Face ID|two-step/i.test(msg) ? 'This account has children’s profiles. Confirm it’s you with Face ID or your two-step code, then try again.'
+        : /delete_my_account/.test(msg) ? 'Account deletion isn’t set up yet (database update 013).' : dbMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function signOutEverywhere() {
     await supabase.auth.signOut({ scope: 'global' })
   }
 
   return (
     <div className="mx-auto max-w-lg space-y-4 px-4 py-8">
-      <div className="flex items-center justify-between">
-        <h1 className="font-kids text-2xl font-bold">Account</h1>
-        <button type="button" className="chip" onClick={p.onBack}>← Learners</button>
-      </div>
+      <PageHeader title="Account" actions={<button type="button" className="btn-secondary btn-sm" onClick={p.onBack}>← Learners</button>} />
       <p className="text-sm text-slate-600">Signed in as <b>{p.email}</b></p>
-      {message && <p role="status" className="rounded-xl bg-indigo-50 px-3 py-2 text-sm text-indigo-900">{message}</p>}
+      {message && <Notice tone="info">{message}</Notice>}
 
       <SignInMethods verified={p.verified} signedInWith={p.signedInWith} onAddApp={() => p.onEnrollMfa('totp')} onSetUp={() => p.onEnrollMfa('choose')} onVerify={p.onVerify} onChanged={p.onChanged} />
 
@@ -119,7 +141,7 @@ export default function Account(p: Props) {
             {audit.map((e) => (
               <li key={e.id} className="flex justify-between gap-3 py-1.5">
                 <span>{describe(e, names)}</span>
-                <span className="shrink-0 text-xs text-slate-500">{new Date(e.at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+                <span className="shrink-0 text-xs text-slate-500">{formatDateTime(e.at)}</span>
               </li>
             ))}
           </ul>
@@ -128,7 +150,7 @@ export default function Account(p: Props) {
 
       <section className="card space-y-2">
         <h2 className="font-semibold">Delete a learner</h2>
-        <select className="input" value={deleteId} onChange={(e) => { setDeleteId(e.target.value); setConfirmName('') }} aria-label="Reader to delete">
+        <select className="input" value={deleteId} onChange={(e) => { setDeleteId(e.target.value); setConfirmName('') }} aria-label="Learner to delete">
           <option value="">Choose a learner…</option>
           {p.learners.map((l) => <option key={l.id} value={l.id}>{l.display_name}</option>)}
         </select>
@@ -147,7 +169,29 @@ export default function Account(p: Props) {
         <button type="button" className="btn-secondary" onClick={() => supabase.auth.signOut()}>🚪 Sign out</button>
         <button type="button" className="btn-secondary" onClick={signOutEverywhere}>Sign out on all devices</button>
       </section>
-      <p className="text-center text-[11px] text-slate-400">Version {__APP_VERSION__} · <LegalLinks /></p>
+      <section className="card space-y-2 border-rose-200">
+        <h2 className="font-semibold text-rose-800">Delete my account</h2>
+        {!closing ? (
+          <>
+            <p className="text-sm text-slate-600">Permanently deletes this account and everything in it: every learner profile, all progress, stickers and history, and any linked learner devices. This can’t be undone.</p>
+            <button type="button" className="btn-secondary text-rose-700" onClick={() => setClosing(true)}>Delete my account…</button>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-slate-700">You may want to <button type="button" className="link" onClick={exportBackup} disabled={p.learners.length === 0}>download a backup</button> first.</p>
+            <label className="label" htmlFor="confirm-close">Type <b>DELETE</b> to permanently delete <b>{p.email}</b></label>
+            <input id="confirm-close" className="input" value={closeText} onChange={(e) => setCloseText(e.target.value)} autoComplete="off" autoCapitalize="characters" />
+            {closeError && <Notice tone="error">{closeError}</Notice>}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn-danger" disabled={busy || closeText.trim() !== 'DELETE'} onClick={deleteAccount}>{busy ? 'Deleting…' : 'Delete my account'}</button>
+              {needsVerify && <button type="button" className="btn-secondary" onClick={p.onVerify}>Confirm it’s me</button>}
+              <button type="button" className="btn-secondary" onClick={() => { setClosing(false); setCloseText(''); setCloseError('') }}>Cancel</button>
+            </div>
+          </>
+        )}
+      </section>
+
+      <p className="text-center text-[11px] text-slate-400">Version {__APP_VERSION__} · <LegalLinks /> · <a className="underline" href="#/support">Support</a></p>
     </div>
   )
 }

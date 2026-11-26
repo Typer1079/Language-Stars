@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { adminAccountAction, adminUsers, dbMessage, type AdminUser } from '../lib/learnersApi'
 import { TERMS_VERSION } from '../lib/legal'
+import { Notice } from './ui/Notice'
+import { formatDate } from '../lib/format'
 
-const when = (d: string | null) => (d ? new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—')
+const when = (d: string | null) => (d ? formatDate(d) : '—')
 const modeIcon = (m: string) => (m === 'spanish' ? '🇪🇸' : m === 'spelling' ? '🐝' : '📖')
 
 /** Super admin: every account with its email and learners, and sign-out / archive / restore. */
@@ -43,16 +45,16 @@ export function AdminUsers() {
   }
 
   return (
-    <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+    <div className="mt-4 panel">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="text-xs font-bold text-slate-700">👥 Users ({users?.length ?? '…'} accounts) <span className="font-normal text-slate-500">· every view and action is logged</span></div>
+        <div className="text-xs font-bold text-slate-700">👥 Accounts ({users?.length ?? "…"}) <span className="font-normal text-slate-500">· every view and action is logged</span></div>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-1 text-xs text-slate-600"><input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> show archived</label>
           <input className="input w-48 py-1.5 text-sm" placeholder="Search email or name" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search users" />
         </div>
       </div>
-      {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
-      {note && <p role="status" className="mb-2 rounded-xl bg-indigo-50 px-3 py-2 text-sm text-indigo-900">{note}</p>}
+      {error && <Notice tone="error">{error}</Notice>}
+      {note && <Notice tone="info" className="mb-2">{note}</Notice>}
       {!users && !error && <p className="py-4 text-center text-sm text-slate-500">Loading…</p>}
 
       <ul className="divide-y divide-slate-100">
@@ -72,9 +74,9 @@ export function AdminUsers() {
               </div>
               {!u.is_admin && (
                 <div className="flex shrink-0 gap-1.5 text-xs font-bold">
-                  {!u.archived_at && <button type="button" className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-slate-700 hover:bg-slate-200" onClick={() => setConfirm({ user: u, action: 'sign_out' })}>🚪 Sign out</button>}
-                  {!u.archived_at && <button type="button" className="rounded-lg bg-rose-100 px-2.5 py-1.5 text-rose-800 hover:bg-rose-200" onClick={() => setConfirm({ user: u, action: 'archive' })}>🗄️ Archive</button>}
-                  {u.archived_at && <button type="button" className="rounded-lg bg-emerald-100 px-2.5 py-1.5 text-emerald-800 hover:bg-emerald-200" onClick={() => setConfirm({ user: u, action: 'restore' })}>↩️ Restore</button>}
+                  {!u.archived_at && <button type="button" className="pill pill-slate" onClick={() => setConfirm({ user: u, action: 'sign_out' })}>🚪 Sign out</button>}
+                  {!u.archived_at && <button type="button" className="pill pill-rose" onClick={() => setConfirm({ user: u, action: 'archive' })}>🗄️ Archive</button>}
+                  {u.archived_at && <button type="button" className="pill pill-emerald" onClick={() => setConfirm({ user: u, action: 'restore' })}>↩️ Restore</button>}
                 </div>
               )}
             </div>

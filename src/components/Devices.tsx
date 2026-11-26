@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { createPairingCode, dbMessage, linkThisDevice, listDevices, startDeviceSignIn, unlinkDevice, type LinkedDevice } from '../lib/learnersApi'
 import type { Learner } from '../lib/types'
+import { Notice } from './ui/Notice'
+import { formatDate } from '../lib/format'
 
 /** Parent: link a child's own phone or tablet to one learner, and see / unlink linked devices. */
 export function LinkDevicePanel({ learner, verified }: { learner: Learner; verified: boolean }) {
@@ -48,16 +50,16 @@ export function LinkDevicePanel({ learner, verified }: { learner: Learner; verif
       ) : (
         <button type="button" className="btn-secondary mt-2" disabled={busy} onClick={make}>{busy ? 'Making a code…' : '🔗 Make a link code'}</button>
       )}
-      {error && <p role="alert" className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
+      {error && <Notice tone="error" className="mt-2 text-xs">{error}</Notice>}
       {devices && devices.length > 0 && (
         <ul className="mt-3 space-y-1.5">
           {devices.map((d) => (
             <li key={d.id} className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200">
               <span className="min-w-0">
                 <span className="block truncate font-semibold">📱 {d.label || 'Linked device'}</span>
-                <span className="block text-[11px] text-slate-500">Linked {new Date(d.created_at).toLocaleDateString()}{d.last_seen_at ? ` · last used ${new Date(d.last_seen_at).toLocaleDateString()}` : ''}</span>
+                <span className="block text-[11px] text-slate-500">Linked {formatDate(d.created_at)}{d.last_seen_at ? ` · last used ${formatDate(d.last_seen_at)}` : ''}</span>
               </span>
-              <button type="button" className="shrink-0 rounded-lg bg-rose-100 px-2.5 py-1.5 text-xs font-bold text-rose-800 hover:bg-rose-200"
+              <button type="button" className="shrink-0 pill pill-rose"
                 onClick={async () => { try { await unlinkDevice(d.id); await load() } catch (e) { setError(dbMessage(e)) } }}>Unlink</button>
             </li>
           ))}
@@ -77,7 +79,7 @@ export function StartDeviceLink() {
         onClick={async () => { setBusy(true); setError(''); try { await startDeviceSignIn() } catch (e) { setError(e instanceof Error ? e.message : 'Couldn’t start.') } finally { setBusy(false) } }}>
         {busy ? 'One moment…' : '🧒 I’m a learner: link this device'}
       </button>
-      {error && <p role="alert" className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+      {error && <Notice tone="error" className="mt-2">{error}</Notice>}
     </>
   )
 }
@@ -106,10 +108,10 @@ export function LinkThisDevice({ onCancel, onLinked }: { onCancel: () => void; o
           <label className="label" htmlFor="link-label">Name this device (optional)</label>
           <input id="link-label" className="input" maxLength={40} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g., iPad" />
         </div>
-        {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        {error && <Notice tone="error">{error}</Notice>}
         <button className="btn-primary w-full" disabled={busy || code.replace(/-/g, '').length < 10}>{busy ? 'Linking…' : 'Link and start'}</button>
       </form>
-      <button type="button" className="mt-4 text-sm text-slate-600 underline" onClick={onCancel}>Cancel</button>
+      <button type="button" className="link mt-4 text-sm" onClick={onCancel}>Cancel</button>
     </div>
   )
 }

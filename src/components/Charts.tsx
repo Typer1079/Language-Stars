@@ -59,7 +59,7 @@ export function BarChart({ title, days, values, inner, unit, legend }: {
   const x = (i: number) => PAD.l + bw * i + bw / 2
   const y = (v: number) => H - PAD.b - (v / scaleMax) * (H - PAD.t - PAD.b)
   return (
-    <figure className="rounded-2xl border border-slate-200 bg-white p-3">
+    <figure className="panel">
       <figcaption className="mb-1 flex items-center justify-between text-xs font-bold text-slate-700">
         <span>{title}</span>
         {legend && (
@@ -100,7 +100,7 @@ export function LineChart({ title, days, series, max, unit }: {
   const x = (i: number) => PAD.l + step * i
   const y = (v: number) => H - PAD.b - (v / top) * (H - PAD.t - PAD.b)
   return (
-    <figure className="rounded-2xl border border-slate-200 bg-white p-3">
+    <figure className="panel">
       <figcaption className="mb-1 flex items-center justify-between text-xs font-bold text-slate-700">
         <span>{title}</span>
         {series.length > 1 && (

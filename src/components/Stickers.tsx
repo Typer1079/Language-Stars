@@ -24,7 +24,7 @@ export function StickerBoard({ name, stickers, onMove, onShop }: { name: string;
     <section id="sticker-board" className="relative z-20 mx-auto w-full max-w-4xl px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6" aria-label={`${name}'s sticker board`}>
       <div className="mb-2 flex items-center justify-between">
         <h2 className="font-kids text-lg font-bold text-indigo-900">🖼️ {name}'s sticker board</h2>
-        <button type="button" onClick={onShop} className="rounded-xl bg-fuchsia-100 px-3 py-1.5 text-xs font-bold text-fuchsia-800 hover:bg-fuchsia-200">🏪 Shop</button>
+        <button type="button" onClick={onShop} className="pill pill-fuchsia">🏪 Shop</button>
       </div>
       <div className="relative h-[75vh] min-h-[420px] overflow-hidden rounded-3xl border-4 border-dashed border-fuchsia-200 bg-white/70 shadow-inner"
         style={{ backgroundImage: 'radial-gradient(rgb(217 70 239 / 0.12) 1.5px, transparent 1.5px)', backgroundSize: '22px 22px' }}>
@@ -91,7 +91,7 @@ export function StickerShop({ learner, reason, onChange, onClose, onSignOut }: {
   onClose: () => void
   onSignOut: () => void
 }) {
-  // The reader picks a themed pack (remembered on this device); "New Pack" reshuffles within it.
+  // The learner picks a themed pack (remembered on this device); "New Pack" reshuffles within it.
   const [pack, setPack] = useState(() => loadPackChoice(learner.id))
   const [catalog, setCatalog] = useState<CatalogItem[]>(() => makeCatalog(learner, Math.random, pack))
   const choosePack = (id: string) => {
@@ -128,7 +128,7 @@ export function StickerShop({ learner, reason, onChange, onClose, onSignOut }: {
             <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 px-3 py-1.5 font-kids text-sm font-bold text-amber-800">
               Balance: {learner.spendable_stars} ⭐
             </div>
-            <button type="button" className="rounded-xl bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100" onClick={() => setCatalog(makeCatalog(learner, Math.random, pack))}>
+            <button type="button" className="pill pill-indigo" onClick={() => setCatalog(makeCatalog(learner, Math.random, pack))}>
               🎲 New Pack
             </button>
           </div>

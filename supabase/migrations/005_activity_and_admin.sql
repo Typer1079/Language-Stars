@@ -2,7 +2,7 @@
 -- Safe to run more than once. Run in Supabase: SQL Editor -> New query -> paste -> Run.
 --
 -- * practice_rounds: one row per finished round (counts and timings only, never audio or answers).
---   Append-only: readers' families can add and read their own rows; nobody can edit them (AU-9).
+--   Append-only: learners' families can add and read their own rows; nobody can edit them (AU-9).
 -- * app_admins: who may see the site-wide dashboard. Not readable or writable from the app;
 --   add an admin only here in the SQL editor (AC-2, AC-6 least privilege).
 -- * admin_kpis(): site-wide totals and daily trends, aggregated (no names, no emails). Requires a

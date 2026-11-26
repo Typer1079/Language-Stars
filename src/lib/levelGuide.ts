@@ -45,7 +45,7 @@ const SPELLING_BANDS = [
   { first: 'ship', stage: 'Word builder', grade: 'Grade 2', what: 'Blends, digraphs and long vowels (sheep, train)' },
   { first: 'because', stage: 'Tricky words', grade: 'Grade 3', what: 'Sight words and multi-syllable words (because, beautiful)' },
   { first: 'adventure', stage: 'Classroom bee', grade: 'Grade 4', what: 'Silent letters and tricky vowels (February, knuckle)' },
-  { first: 'brilliant', stage: 'School bee', grade: 'Grade 5–6', what: 'School spelling bee words (rhythm, souvenir)' },
+  { first: 'brilliant', stage: 'School bee', grade: 'Grade 5–6', what: 'School Spelling Bee words (rhythm, souvenir)' },
   { first: 'accommodate', stage: 'District bee', grade: 'Grade 6–7', what: 'District bee words (conscientious, mnemonic)' },
   { first: 'acquiesce', stage: 'Regional bee', grade: 'Grade 7–8', what: 'Regional bee words (dachshund, pseudonym)' },
   { first: 'abecedarian', stage: 'National prelims', grade: 'National bee', what: 'Early-round National Spelling Bee words (schadenfreude)' },

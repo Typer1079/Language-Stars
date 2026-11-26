@@ -6,12 +6,14 @@ import { gradeFor } from '../lib/levelGuide'
 import type { Learner } from '../lib/types'
 import { BarChart, LineChart, Tile } from './Charts'
 import { RanksSection } from './Ranks'
+import { Notice } from './ui/Notice'
+import { formatDateTime } from '../lib/format'
 
 const RANGES = [7, 30, 90] as const
 
 /**
- * A reader's activity and performance: practice time, words, accuracy, stars, levels and questions,
- * plus a list of recent rounds. Readers see it from the practice menu; parents from the reader list.
+ * A learner's activity and performance: practice time, words, accuracy, stars, levels and questions,
+ * plus a list of recent rounds. Learners see it from the practice menu; parents from the learner list.
  */
 export function ProgressView({ learner, onClose, parentView = false }: { learner: Learner; onClose: () => void; parentView?: boolean }) {
   const [days, setDays] = useState<(typeof RANGES)[number]>(30)
@@ -64,11 +66,11 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
                   className={`px-3 py-1.5 ${days === r ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{r}d</button>
               ))}
             </div>
-            <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={onClose}>Close</button>
+            <button type="button" className="btn-secondary btn-sm" onClick={onClose}>Close</button>
           </div>
         </div>
 
-        {error && <p role="alert" className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        {error && <Notice tone="error" className="mb-3">{error}</Notice>}
         {!rounds && !error && <p className="py-10 text-center text-sm text-slate-500">Loading…</p>}
 
         {rounds && (
@@ -124,7 +126,7 @@ export function ProgressView({ learner, onClose, parentView = false }: { learner
                   <tbody>
                     {recent.map((r, i) => (
                       <tr key={i} className="border-t border-slate-100">
-                        <td className="px-3 py-1.5 whitespace-nowrap">{r.created_at ? new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}</td>
+                        <td className="px-3 py-1.5 whitespace-nowrap">{r.created_at ? formatDateTime(r.created_at) : ''}</td>
                         <td className="px-2 py-1.5">{r.mode === 'spanish' ? '🇪🇸 Spanish' : r.mode === 'spelling' ? '🐝 Spelling' : '📖 Reading'}</td>
                         <td className="px-2 py-1.5 whitespace-nowrap">{r.level}{r.level_after !== r.level ? ` → ${r.level_after}` : ''}</td>
                         <td className="px-2 py-1.5">{r.items}</td>

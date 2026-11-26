@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { faceIdMessage, faceIdSupported, hasFaceIdFactor, setUpFaceId, signInWithFaceId, verifyWithFaceId, wasCancelled } from '../lib/faceid'
 import { supabase } from '../lib/supabase'
+import { Notice } from './ui/Notice'
 
 // Two-step sign-in with an authenticator app (NIST 800-53 IA-2(1), IA-2(2)).
 
@@ -75,20 +76,20 @@ export function MfaChallenge({ onDone, onCancel, cancelLabel = 'Sign out' }: { o
         </button>
       )}
       {faceId && !showCode && hasApp && (
-        <button type="button" className="mt-4 text-sm text-slate-600 underline" onClick={() => setShowCode(true)}>Use the 6-digit code instead</button>
+        <button type="button" className="link mt-4 text-sm" onClick={() => setShowCode(true)}>Use the 6-digit code instead</button>
       )}
-      {faceId && !hasApp && error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+      {faceId && !hasApp && error && <Notice tone="error" className="mt-3">{error}</Notice>}
       {(!faceId || showCode) && hasApp && (
       <>
       <p className="mt-4 text-sm text-slate-600">Open your authenticator app (for example Apple Passwords) and enter the 6-digit code for Language Stars (it may still be listed as Read Aloud Stars).</p>
       <form onSubmit={submit} className="mt-4 space-y-4">
         <CodeInput value={code} onChange={setCode} />
-        {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        {error && <Notice tone="error">{error}</Notice>}
         <button className={`${faceId ? 'btn-secondary' : 'btn-primary'} w-full`} disabled={busy || code.length !== 6}>{busy ? 'Checking…' : 'Verify code'}</button>
       </form>
       </>
       )}
-      <button type="button" className="mt-6 text-sm text-slate-600 underline" onClick={onCancel}>{cancelLabel}</button>
+      <button type="button" className="link mt-6 text-sm" onClick={onCancel}>{cancelLabel}</button>
     </div>
   )
 }
@@ -129,8 +130,8 @@ export function MfaEnroll({ onDone, onCancel, mode = 'choose' }: { onDone: () =>
         <button type="button" className="btn-primary mt-6 w-full py-4 text-base" disabled={busy} onClick={finishSignIn}>
           {busy ? 'Waiting for Face ID…' : 'Sign in with Face ID'}
         </button>
-        {error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
-        <button type="button" className="mt-5 text-sm text-slate-600 underline" onClick={() => setUseApp(true)}>Use an authenticator app instead</button>
+        {error && <Notice tone="error" className="mt-3">{error}</Notice>}
+        <button type="button" className="link mt-5 text-sm" onClick={() => setUseApp(true)}>Use an authenticator app instead</button>
       </div>
     )
   }
@@ -146,9 +147,9 @@ export function MfaEnroll({ onDone, onCancel, mode = 'choose' }: { onDone: () =>
       <button type="button" className="btn-primary mt-6 w-full py-4 text-base" disabled={busy} onClick={faceId}>
         {busy ? 'Waiting for Face ID…' : 'Use Face ID (recommended)'}
       </button>
-      {error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
-      <button type="button" className="mt-5 text-sm text-slate-600 underline" onClick={() => setUseApp(true)}>Use an authenticator app instead</button>
-      <button type="button" className="mt-3 text-sm text-slate-500 underline" onClick={onCancel}>Not now</button>
+      {error && <Notice tone="error" className="mt-3">{error}</Notice>}
+      <button type="button" className="link mt-5 text-sm" onClick={() => setUseApp(true)}>Use an authenticator app instead</button>
+      <button type="button" className="link mt-3 text-sm" onClick={onCancel}>Not now</button>
     </div>
   )
 }
@@ -218,10 +219,10 @@ function TotpEnroll({ onDone, onCancel }: { onDone: () => void; onCancel: () => 
       <form onSubmit={submit} className="mt-5 space-y-3">
         <label className="label" htmlFor="enroll-code">Then enter the 6-digit code it shows</label>
         <CodeInput value={code} onChange={setCode} autoFocus={false} />
-        {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        {error && <Notice tone="error">{error}</Notice>}
         <button className="btn-primary w-full" disabled={busy || !factor || code.length !== 6}>{busy ? 'Checking…' : 'Turn on'}</button>
       </form>
-      <button type="button" className="mt-5 text-sm text-slate-600 underline" onClick={onCancel}>Back</button>
+      <button type="button" className="link mt-5 text-sm" onClick={onCancel}>Back</button>
     </div>
   )
 }

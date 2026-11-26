@@ -46,7 +46,7 @@ export const TERMS: LegalDoc = {
     ] },
     { heading: '5. Account suspension and closure', body: [
       'We may sign out, suspend or archive an account that breaks these Terms, puts a child at risk, or threatens the security of the service. Archived accounts can\'t sign in or see their data; we can restore them.',
-      `You can delete a learner profile at any time (Account → Delete a learner), and ask us to delete your whole account by emailing ${CONTACT_EMAIL}.`,
+      `You can delete a learner profile at any time (Account → Delete a learner), and delete your whole account at any time (Account → Delete my account) or by emailing ${CONTACT_EMAIL}.`,
       'Accounts with no activity for 90 days are archived automatically for safety. Nothing is deleted; the account holder can reopen it by confirming their identity (emailed sign-in link, Face ID or authenticator code).',
     ] },
     { heading: '6. Changes', body: [
@@ -100,7 +100,7 @@ export const PRIVACY: LegalDoc = {
     ] },
     { heading: 'Parental consent and rights (COPPA)', body: [
       'Only an adult account holder can add a child\'s profile, and adding one requires two-step sign-in (Face ID / passkey or an authenticator code). By adding a child, the parent gives consent to the collection described here.',
-      `Parents can review a child's information (Progress and Account screens), change it (Edit), download it (Account → backup), delete a child's profile (Account → Delete a learner), or refuse further collection by deleting the profile. To have the whole account deleted, email ${CONTACT_EMAIL}; we'll delete it within 30 days.`,
+      `Parents can review a child's information (Progress and Account screens), change it (Edit), download it (Account → backup), delete a child's profile (Account → Delete a learner), or refuse further collection by deleting the profile. To delete the whole account, use Account → Delete my account (it's removed right away), or email ${CONTACT_EMAIL} and we'll delete it within 30 days.`,
       'We won\'t require a child to give more information than needed to use the app.',
     ] },
     { heading: 'Learner devices', body: [
@@ -118,3 +118,29 @@ export const PRIVACY: LegalDoc = {
     ] },
   ],
 }
+
+/** Public support page (#/support): how to get help, for the website and the App Store listing. */
+export const SUPPORT: LegalDoc = {
+  title: 'Support',
+  updated: TERMS_VERSION,
+  intro: `Need help with ${APP_NAME}? Email ${CONTACT_EMAIL} and we'll get back to you, usually within 2 business days. Please include the device (for example iPhone 14) and the version number from Account or Help.`,
+  sections: [
+    { heading: 'The microphone isn\'t working', body: [
+      'Tap the 🎤 button, then choose Allow when your device asks for the microphone.',
+      'iPhone or iPad: Settings → Safari → Microphone → Ask or Allow (or Settings → Language Stars if you added it to the Home Screen). Then reopen the app.',
+      'Read in a quiet room, close to the device. The microphone turns off whenever the app leaves the screen; tap 🎤 to continue.',
+    ] },
+    { heading: 'Install it like an app', body: [
+      'iPhone or iPad (Safari): Share → Add to Home Screen. Android (Chrome): menu → Install app.',
+    ] },
+    { heading: 'Accounts and children\'s profiles', body: [
+      'Children\'s profiles are protected by Face ID or a two-step code on the parent\'s account.',
+      'Forgot your password? Use "Forgot password?" on the sign-in screen.',
+      'Delete a learner: Account → Delete a learner. Delete everything: Account → Delete my account.',
+    ] },
+    { heading: 'Privacy', body: [
+      `See the Privacy Policy (#/privacy) for what we collect from children and how parents can review or delete it. Questions: ${CONTACT_EMAIL}.`,
+    ] },
+  ],
+}
+

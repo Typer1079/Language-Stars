@@ -1,40 +1,37 @@
-# Read Aloud Stars
+# Language Stars
 
-A family web app (installable PWA) for **kids' reading practice** (Levels 1–5, phonics tiles) and
-**English → Spanish speaking practice** (Levels ES1–ES6), with stars, a sticker shop and a sticker
-canvas. Same stack as Contact Capture: React + TypeScript + Vite, Supabase (database + sign-in),
-GitHub Pages.
+A family learning web app (installable PWA) with three subjects, all practiced by reading aloud:
+**Reading** (levels 1–100, from first words to doctorate-level vocabulary), **Spanish** (English →
+Spanish speaking, starting with travel phrases) and **Spelling Bee** (hear a word, spell it out loud).
+Stars, a sticker shop, ranks, progress graphs, and a parent-controlled account. React + TypeScript +
+Vite, Supabase (database + sign-in), GitHub Pages.
 
-Live site: `https://typer1079.github.io/Language-Stars/`
+Live site: `https://typer1079.github.io/Language-Stars/` · Public pages: `#/privacy`, `#/terms`, `#/support`
 
-**What's in this version (v1.0)**
-- Installable app (PWA): add it to the Home Screen; it opens full screen, works offline for
-  practice screens, and loads new versions automatically.
-- Sign in with **Face ID** (passkey) or email + password (Supabase Auth). New accounts need a
-  confirmed email. Kids' profiles need a strong sign-in: **Face ID** (one tap) is the default; an
-  authenticator app is an optional backup that can be removed in ⚙️ Account.
-- **Two-step sign-in** (authenticator app, e.g. Apple Passwords) is required for any account with
-  kids' profiles. The database itself refuses to show or change a child's profile unless the
-  session passed the second step.
-- **Readers** under each account: a parent adds their kids; an adult (e.g. Olivia) has her own
-  account with her own Spanish-practice profile. Only a first name or nickname and an age group are
-  stored.
-- Progress (stars, levels, mastered words, stickers and their positions) saves to the database
-  automatically and follows the reader to any device.
-- **100 levels in each mode**, growing from single words (Levels 1–15) to phrases and then full
-  sentences. A reader moves up by mastering every item in their level (bonus `level × 5` stars the
-  first time they reach a new level) and moves down one level after a rough round (fewer than 4 of
-  10 said without help). Stars are never taken away.
-- Reading mode: letter tiles with phonics hints for words, word tiles for phrases and sentences,
-  speech recognition with sound-alike tolerance, Iris, the reading helper (sound it out / read it together; tap **💬 Ask Iris**).
-- Spanish mode: English prompt, Spanish answer hidden until **Shift** (or the coach); listens until
-  the phrase is said correctly or **Next** is pressed; Iris speaks only when asked.
-- Sticker shop: packs by age group and style, drag stickers anywhere, grow (+1⭐, +2⭐, +3⭐ …),
-  sell back for everything spent.
-- Keyboard: **Return/Enter** = listen, **Space** = Ask Iris, **Shift** = reveal Spanish word.
-- **Account** screen: two-step sign-in on/off, download a backup file, activity log (star, level and
-  sticker changes), delete a reader, sign out everywhere.
-- Import a backup from the old single-page app (its ⬇️ Save file) or from this app.
+Current version: see `version` in `package.json` and [CHANGELOG.md](CHANGELOG.md).
+
+## Glossary (use these words in screens, code and the database)
+| Word | Meaning |
+|---|---|
+| **Account** | the adult who signs in (a parent, or an adult learner) |
+| **Learner** | a profile under an account: a *child* (protected by Face ID / two-step) or *self* |
+| **Subject** | Reading, Spanish or Spelling Bee (called `mode` in the code and database today) |
+| **Level** | 1–100 within a subject |
+| **Round** | a set of about 10 items; **Item** is one word, phrase or sentence |
+| **Iris** | the coach voice that helps when a learner is stuck |
+| **Admin** | the site owner (set in the database only, needs a Face ID / two-step sign-in) |
+
+## Highlights
+- Sign in with **Face ID** (passkey) or email + password. Children's profiles need a strong sign-in;
+  the database refuses to show or change them otherwise.
+- Progress (stars, levels, mastered items, stickers) saves automatically and follows the learner to
+  any device. A parent can link a child's own device without an email or password.
+- Speech recognition tuned for iPhone: sound-alike words, numbers, plurals, split long words,
+  background noise. The microphone turns off whenever the app leaves the screen.
+- Parents and learners see graphs and ranks (codenames only); the admin sees site-wide numbers,
+  every account, and a **Problems** list (errors, stuck learners, mic trouble) to copy and analyze.
+- **Account** screen: Face ID / two-step, appearance (light/dark), backup download, activity log,
+  delete a learner, **delete my account**, sign out everywhere.
 
 ---
 
@@ -42,7 +39,7 @@ Live site: `https://typer1079.github.io/Language-Stars/`
 
 | Concern | What this app does |
 |---|---|
-| Who can see data | Postgres **row-level security**: each account can only read and change its own readers, enforced by the database. |
+| Who can see data | Postgres **row-level security**: each account can only read and change its own learners, enforced by the database. |
 | Kids' profiles | Children's rows also require a **two-step (aal2) session**. A stolen password alone can't open them. |
 | Keys in the browser | Only Supabase's *publishable/anon* key is in the app. It's designed to be public; row-level security protects the data. The `service_role` key is never used. |
 | Data kept | First name / nickname, age group, sticker style, progress. No last names, birthdays, photos, email addresses of kids, or voice recordings. |
@@ -64,7 +61,7 @@ The control-by-control mapping to NIST SP 800-53 Rev. 5 is in [`SECURITY.md`](SE
 Node.js 22 LTS, Git, GitHub Desktop, VS Code.
 
 ### 2. Create a new Supabase project (separate from Contact Capture)
-1. At https://supabase.com → **New project**. Name it `read-aloud-stars`, region *East US*, a strong
+1. At https://supabase.com → **New project**. Name it `language-stars`, region *East US*, a strong
    database password saved in your password manager.
 2. **SQL Editor → New query** → paste all of `supabase/migrations/001_learners.sql` → **Run**.
    You should see "Success. No rows returned."
@@ -98,7 +95,7 @@ Node.js 22 LTS, Git, GitHub Desktop, VS Code.
 
 ### 4. Create the accounts, then close sign-ups
 1. On the live site: **Create account** with your email, confirm the email, sign in.
-2. **+ Add reader** or **📂 Import backup** → choose `read-aloud-stars-import.json` (in
+2. **+ Add learner** or **📂 Import backup** → choose your backup `.json` file (in
    `Documents/GitHub`, outside the repo) and import **Ethan** as *My child*. You'll be asked to set
    up two-step sign-in first: scan the QR code with Apple Passwords (or any authenticator app) and
    enter the code.
@@ -107,7 +104,7 @@ Node.js 22 LTS, Git, GitHub Desktop, VS Code.
 4. Supabase → **Authentication → Sign In / Providers** → turn **off** "Allow new users to sign up".
    Add anyone later from **Authentication → Users → Invite** (they then use *Forgot password?* to
    set a password).
-5. Delete `read-aloud-stars-import.json` once both are imported (it contains the kids' names).
+5. Delete the backup file once both are imported (it contains the kids' names).
 
 ### 5. Install on phones and tablets
 - iPhone/iPad (Safari): Share → *Add to Home Screen*
@@ -143,26 +140,44 @@ npm run dev                     # http://localhost:5173
 ## Project layout
 ```
 src/
-  App.tsx                 sign-in flow, two-step check, saving, idle sign-out, screens
-  components/
-    Auth.tsx              sign in / create account / reset / new password
-    Mfa.tsx               authenticator setup (QR) and code check
-    LearnerPicker.tsx     "Who's reading?", add reader, import backup
-    Practice.tsx          the reading / Spanish practice screen
-    Stickers.tsx          sticker canvas (drag), shop (buy/grow/sell), confetti
-    Account.tsx           two-step settings, backup, activity log, delete reader, sign out
+  main.tsx, Root.tsx      start-up; public pages (#/privacy, #/terms, #/support) vs. the app
+  App.tsx                 sign-in flow, two-step check, terms, saving, idle sign-out, screens
+  components/             screens: Auth, LearnerPicker, Practice, Progress, Ranks, Stickers,
+                          Account, Admin (+ AdminUsers, AdminProblems), HelpGuide, Legal, PublicPage
   lib/
-    practiceEngine.ts     listening + AI Coach turn logic
-    speech.ts             browser speech recognition and voices
-    match.ts              "did they say the word?" (sound-alikes, accents, small slips)
-    progress.ts           stars, mastery, level-ups, rounds
-    stickers.ts           costs, refunds, packs
+    practiceEngine.ts     listening + Iris turn logic
+    speech.ts, mic.ts     speech recognition, voices, microphone
+    match.ts, spelling.ts "did they say it?" (sound-alikes, numbers, slips), spelling letters
+    curriculum.ts, readingAdvanced.ts, spellingWords.ts, wordBanks.ts   what's practiced at each level
+    progress.ts, stats.ts, ranks.ts, stickers.ts                       stars, levels, graphs, ranks
+    learnersApi.ts, problems.ts                                        database reads/writes
+    storage.ts            every on-device setting (one key prefix: `language-stars.`)
+    legal.ts              Terms, Privacy Policy, Support text and TERMS_VERSION
     validate.ts           cleans everything read from files (SI-10)
-    learnersApi.ts        database reads/writes
-    wordBanks.ts          reading and Spanish word lists
-supabase/migrations/      database schema, row-level security, audit log, practice history, admin dashboard
+supabase/migrations/      numbered database updates; run each new one once, in order
 .github/workflows/        audit + lint + test + build + deploy
 ```
+
+## Database updates
+Run each file once, in order, in Supabase → SQL Editor. All are safe to run again.
+
+| # | What it adds |
+|---|---|
+| 001–004 | learners, row-level security, audit log, levels to 100, Face ID counts as two-step |
+| 005 | practice history, admin role and dashboard |
+| 006 | profile characters (avatars) |
+| 007 | ranks and leaderboards (codenames) |
+| 008 | Spelling Bee |
+| 009 | account archive, Terms acceptance, admin user list |
+| 010 | linked learner devices, 90-day inactivity archive |
+| 011 | guard for linked (anonymous) device sign-ins |
+| 012 | problem reports for the admin |
+| 013 | delete my account |
+
+## Versions
+Bump `version` in `package.json` for each release (major.minor.patch) and add a line to
+CHANGELOG.md. The app shows `version (build N · commit · date)` in Account and Help, and sends it
+with problem reports. The build number is the GitHub Actions run number.
 
 ## Known limits
 - GitHub Pages can't send HTTP security headers, so the Content Security Policy is a `<meta>` tag
@@ -176,7 +191,7 @@ supabase/migrations/      database schema, row-level security, audit log, practi
 ## Progress graphs and the admin dashboard
 
 Migration `005_activity_and_admin.sql` stores one row per finished round (counts and times only: no audio,
-no answers) so readers and parents can see graphs (📈 Progress on the reader list, or ⋯ → My progress
+no answers) so learners and parents can see graphs (📈 Progress on the learner list, or ⋯ → My progress
 while practicing). Kids' history follows the same two-step / Face ID rule as their profiles.
 
 To make an account the super admin, run this in the SQL Editor (use the email you sign in with):
@@ -187,7 +202,7 @@ select id from auth.users where lower(email) = lower('you@example.com')
 on conflict do nothing;
 ```
 
-Sign in with Face ID or your authenticator code and a **📊 Admin** button appears on the reader list.
+Sign in with Face ID or your authenticator code and a **📊 Admin** button appears on the learner list.
 The dashboard only receives site-wide totals (no names or emails), and each visit is written to the audit log.
 To remove an admin: `delete from public.app_admins where user_id = '…';`
 
@@ -199,7 +214,7 @@ minutes this week, days practiced, biggest sticker and sticker count. Names are 
 appears under a fixed made-up codename (like "Brave Otter 47"), and only your own row shows your name, on
 your own device. The admin sees codenames too.
 
-## Spelling bee
+## Spelling Bee
 
 Migration `008_spelling_bee.sql` adds the 🐝 Spelling path (Levels 1-100, from first words to Scripps
 championship words). Iris acts as the pronouncer: she says the word, and the speller spells it out loud

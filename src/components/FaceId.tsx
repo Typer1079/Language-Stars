@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { Notice } from './ui/Notice'
 import {
   dismissOffer,
   faceIdMessage,
@@ -11,6 +12,7 @@ import {
   wasCancelled,
   type PasskeyItem,
 } from '../lib/faceid'
+import { formatDate } from '../lib/format'
 
 type Msg = { kind: 'error' | 'info'; text: string } | null
 
@@ -21,7 +23,7 @@ function resultMessage(r: Awaited<ReturnType<typeof setUpFaceId>>): Msg {
   return null
 }
 
-/** Reader-list card: "Sign in with Face ID next time?" Shown until set up or dismissed. */
+/** Learner-list card: "Sign in with Face ID next time?" Shown until set up or dismissed. */
 export function FaceIdOffer() {
   const [show, setShow] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -61,7 +63,7 @@ export function FaceIdOffer() {
   )
 }
 
-const when = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '')
+const when = (iso?: string) => (iso ? formatDate(iso) : '')
 
 interface FactorRow {
   id: string
@@ -145,7 +147,7 @@ export function SignInMethods({ verified, signedInWith, onAddApp, onSetUp, onVer
         <h2 className="font-semibold">Sign-in &amp; kids’ profile protection</h2>
         <p className="text-xs text-slate-500">This time you signed in with: {describeSignIn(signedInWith)}{verified ? ' ✓' : ''}</p>
       </div>
-      {message && <p role="status" className={`rounded-xl px-3 py-2 text-sm ${message.kind === 'error' ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-800'}`}>{message.text}</p>}
+      {message && <Notice tone={message.kind === 'error' ? 'error' : 'success'}>{message.text}</Notice>}
 
       <div className="space-y-2 rounded-2xl border border-slate-200 p-3">
         <div className="flex items-center justify-between gap-2">
@@ -186,7 +188,7 @@ export function SignInMethods({ verified, signedInWith, onAddApp, onSetUp, onVer
           </div>
         ))}
         {appFactors.length === 0 && <button type="button" className="btn-secondary w-full" disabled={!verified && factors.length > 0} onClick={onAddApp}>Add as backup</button>}
-        {!verified && factors.length > 0 && <p className="text-xs text-amber-700">Verify first to change these. <button type="button" className="underline" onClick={onVerify}>Verify now</button></p>}
+        {!verified && factors.length > 0 && <p className="text-xs text-amber-700">Verify first to change these. <button type="button" className="link" onClick={onVerify}>Verify now</button></p>}
       </div>
     </section>
   )

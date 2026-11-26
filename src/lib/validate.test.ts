@@ -34,6 +34,6 @@ describe('parseSaveFile', () => {
   })
   it('rejects non-JSON and empty files', () => {
     expect(() => parseSaveFile('nope')).toThrow(/not JSON/)
-    expect(() => parseSaveFile('{"profiles": []}')).toThrow(/No reader profiles/)
+    expect(() => parseSaveFile('{"profiles": []}')).toThrow(/No learner profiles/)
   })
 })

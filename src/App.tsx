@@ -12,6 +12,7 @@ import { Revalidate, DeviceHome } from './components/Revalidate'
 import { LinkThisDevice } from './components/Devices'
 import { TERMS_VERSION } from './lib/legal'
 import { primeVoices } from './lib/speech'
+import { KEYS, local } from './lib/storage'
 import { isConfigured, supabase } from './lib/supabase'
 import type { Learner, LearnerDraft } from './lib/types'
 
@@ -35,7 +36,7 @@ export default function App() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
   const [notice, setNotice] = useState('')
-  // Readers chosen before two-step sign-in was set up; added as soon as it succeeds.
+  // Learners chosen before two-step sign-in was set up; added as soon as it succeeds.
   const [pendingAdd, setPendingAdd] = useState<LearnerDraft[] | null>(null)
   // Super admin (set only in the database, and only with a two-step / Face ID session).
   const [isAdmin, setIsAdmin] = useState(false)
@@ -150,10 +151,10 @@ export default function App() {
       if (st.terms_version === TERMS_VERSION) return setTermsOk(true)
       // Agreed while creating the account (before the email was confirmed): record it now.
       try {
-        const pendingTerms = JSON.parse(localStorage.getItem('ras.pendingTerms') ?? 'null') as { email: string; version: string; adult: boolean; guardian: boolean } | null
+        const pendingTerms = local.getJson<{ email: string; version: string; adult: boolean; guardian: boolean }>(KEYS.pendingTerms)
         if (pendingTerms && pendingTerms.email === statusEmail && pendingTerms.version === TERMS_VERSION && pendingTerms.adult) {
           await acceptTerms(TERMS_VERSION, true, pendingTerms.guardian)
-          localStorage.removeItem('ras.pendingTerms')
+          local.remove(KEYS.pendingTerms)
           if (live) setTermsOk(true)
           return
         }

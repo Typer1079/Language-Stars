@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { beeRequest, extractLetters, judgeSpelling, wantsRestart } from './spelling'
 import { SPELLING_LEVELS, stageName } from './curriculum'
 
-describe('spelling bee listening', () => {
+describe('Spelling Bee listening', () => {
   it('reads letters however the recognizer writes them', () => {
     expect(extractLetters('C A T', 'cat')).toEqual(['c', 'a', 't'])
     expect(extractLetters('cat see ay tee cat', 'cat')).toEqual(['c', 'a', 't'])

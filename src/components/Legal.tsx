@@ -1,5 +1,24 @@
 import { useEffect, useState } from 'react'
 import { PRIVACY, TERMS, TERMS_VERSION, type LegalDoc } from '../lib/legal'
+import { Notice } from './ui/Notice'
+
+/** The text of a legal or support page (shared by the pop-up and the public pages). */
+export function LegalBody({ doc: d }: { doc: LegalDoc }) {
+  return (
+    <>
+      <p className="text-xs text-slate-500">Last updated {d.updated}</p>
+      <p className="mt-3 text-sm leading-relaxed text-slate-700">{d.intro}</p>
+      {d.sections.map((s) => (
+        <section key={s.heading} className="mt-4">
+          <h3 className="font-bold text-slate-900">{s.heading}</h3>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm leading-relaxed text-slate-700">
+            {s.body.map((b) => <li key={b}>{b}</li>)}
+          </ul>
+        </section>
+      ))}
+    </>
+  )
+}
 
 /** Full text of the Terms of Use or Privacy Policy. */
 export function LegalModal({ doc, onClose }: { doc: 'terms' | 'privacy'; onClose: () => void }) {
@@ -15,18 +34,9 @@ export function LegalModal({ doc, onClose }: { doc: 'terms' | 'privacy'; onClose
       <article className="mx-auto w-full max-w-2xl rounded-3xl bg-white p-5 shadow-2xl sm:p-7">
         <div className="mb-2 flex items-start justify-between gap-3">
           <h2 id="legal-title" className="font-kids text-2xl font-bold">{d.title}</h2>
-          <button type="button" className="btn-secondary shrink-0 px-3 py-1.5 text-sm" onClick={onClose}>Close</button>
+          <button type="button" className="btn-secondary shrink-0 btn-sm" onClick={onClose}>Close</button>
         </div>
-        <p className="text-xs text-slate-500">Last updated {d.updated}</p>
-        <p className="mt-3 text-sm leading-relaxed text-slate-700">{d.intro}</p>
-        {d.sections.map((s) => (
-          <section key={s.heading} className="mt-4">
-            <h3 className="font-bold text-slate-900">{s.heading}</h3>
-            <ul className="mt-1 list-disc space-y-1 pl-5 text-sm leading-relaxed text-slate-700">
-              {s.body.map((b) => <li key={b}>{b}</li>)}
-            </ul>
-          </section>
-        ))}
+        <LegalBody doc={d} />
       </article>
     </div>
   )
@@ -37,9 +47,9 @@ export function LegalLinks({ className = '' }: { className?: string }) {
   const [open, setOpen] = useState<'terms' | 'privacy' | null>(null)
   return (
     <span className={className}>
-      <button type="button" className="underline" onClick={() => setOpen('terms')}>Terms of Use</button>
+      <button type="button" className="link" onClick={() => setOpen('terms')}>Terms of Use</button>
       {' · '}
-      <button type="button" className="underline" onClick={() => setOpen('privacy')}>Privacy Policy</button>
+      <button type="button" className="link" onClick={() => setOpen('privacy')}>Privacy Policy</button>
       {open && <LegalModal doc={open} onClose={() => setOpen(null)} />}
     </span>
   )
@@ -80,7 +90,7 @@ export function AcceptTerms({ onAccept, onDecline }: { onAccept: (adult: boolean
       <h1 className="font-kids text-2xl font-bold">Before you continue</h1>
       <p className="mt-1 text-sm text-slate-600">Please review and accept our Terms of Use and Privacy Policy (version {TERMS_VERSION}). They explain how Language Stars protects children’s information: no ads, no tracking, and names are never shown to other families.</p>
       <div className="mt-5"><AgreementChecks {...v} onChange={setV} /></div>
-      {error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+      {error && <Notice tone="error" className="mt-3">{error}</Notice>}
       <button type="button" className="btn-primary mt-5 w-full" disabled={busy || !v.adult || !v.agree}
         onClick={async () => {
           setBusy(true); setError('')
@@ -88,7 +98,7 @@ export function AcceptTerms({ onAccept, onDecline }: { onAccept: (adult: boolean
         }}>
         {busy ? 'Saving…' : 'I agree, continue'}
       </button>
-      <button type="button" className="mt-3 text-sm text-slate-600 underline" onClick={onDecline}>I don’t agree (sign out)</button>
+      <button type="button" className="link mt-3 text-sm" onClick={onDecline}>I don’t agree (sign out)</button>
     </div>
   )
 }

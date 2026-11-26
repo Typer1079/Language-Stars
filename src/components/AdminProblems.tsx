@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { dbMessage } from '../lib/learnersApi'
 import { fetchProblems, kindLabel, problemsToText, resolveProblems, type ProblemKind, type ProblemReport } from '../lib/problems'
+import { Notice } from './ui/Notice'
+import { formatDateTime } from '../lib/format'
 
 const PERIODS = [
   { days: 1, label: 'Last 24 hours' },
@@ -17,7 +19,7 @@ const KINDS: { kind: ProblemKind; icon: string; short: string; tone: string }[] 
 ]
 const kindInfo = (k: string) => KINDS.find((x) => x.kind === k) ?? KINDS[0]
 const modeIcon = (m: string | null) => (m === 'spanish' ? '🇪🇸' : m === 'spelling' ? '🐝' : m === 'reading' ? '📖' : '')
-const when = (d: string) => new Date(d).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+const when = (d: string) => formatDateTime(d)
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -105,7 +107,7 @@ export function AdminProblems() {
   const toggle = (id: string) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
 
   return (
-    <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3" id="problems">
+    <div className="mt-4 panel" id="problems">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="text-xs font-bold text-slate-700">🛠️ Problems ({list ? `${list.filter((p) => !p.resolved_at).length} open` : '…'}) <span className="font-normal text-slate-500">· errors, stuck learners, mic trouble · kept 90 days</span></div>
         <div className="flex flex-wrap items-center gap-2">
@@ -127,8 +129,8 @@ export function AdminProblems() {
         ))}
       </div>
 
-      {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
-      {note && <p role="status" className="mb-2 rounded-xl bg-indigo-50 px-3 py-2 text-sm text-indigo-900">{note}</p>}
+      {error && <Notice tone="error">{error}</Notice>}
+      {note && <Notice tone="info" className="mb-2">{note}</Notice>}
       {!list && !error && <p className="py-4 text-center text-sm text-slate-500">Loading…</p>}
       {list && shown.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No problems in this period 🎉</p>}
 
