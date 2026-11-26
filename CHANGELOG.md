@@ -2,6 +2,27 @@
 
 Versions follow major.minor.patch. The version shown in the app comes from `package.json`.
 
+## 1.8.3 — 2026-11-26
+- **Fix: levels in the newer languages weren't saved.** The app saves levels to `learner_subjects` with an
+  upsert, which updates every column; update 015 only allowed updating `level` and `best`, so every
+  save was refused and the app quietly fell back to the old learner columns. Reading, Spanish and Spelling
+  Bee were fine (they have columns); French, Portuguese, Tagalog, Japanese, Korean, Mandarin and Farsi
+  levels were lost, and after the first refused save the languages vanished from the subject list for the
+  rest of the visit (the "picked Tagalog, the button didn't change" report).
+  - **Database update 019**: allows that update (the guard trigger still stops a row moving to another
+    learner or subject), adds a Level 1 row for learners on a subject without one, and extends
+    `admin_subject_levels(days)` with practice per subject.
+  - The app now sends only the subjects that changed, and on a database without 019 it adds missing
+    rows and updates levels separately, so saves work either way. Languages no longer disappear when a
+    save fails.
+- **Learner cards**: Reading and Spelling Bee on one row, and a full-width 🌍 language bar below with the
+  current language, its level, "Practicing now", the flags of the other languages and "8 languages ▾".
+- **Progress for every subject**: a subject filter (All subjects or one), level charts split by scale
+  (Reading/Spelling to 100, languages to 30), a "By subject" table (level of max, rounds, words, on
+  their own, stars, time) and recent rounds for the chosen subject.
+- **Admin**: "Practice by subject" table (learners, rounds, words, on their own, minutes, stars) for the
+  chosen time range; the levels table and accounts list pick up every language once levels save.
+
 ## 1.8.2 — 2026-11-26
 - **Language list**: the third subject tile is now a 🌍 Languages tile ("8 languages ▾") that opens a
   list of every language with its level and Beta tag; tap one to switch. Escape or a tap outside closes

@@ -38,6 +38,8 @@ export interface MockState {
   /** Level saves to learner_subjects (database update 015). Set `levelRowsTable: false` to act like an older database. */
   levelUpserts: number
   levelRowsTable: boolean
+  /** Act like the database before update 019: "insert or update" on learner_subjects is refused. */
+  upsertDenied?: boolean
   /** Rows in the subjects table (all subjects after update 017; none before 015). */
   subjects: string[]
   /** Levels for subjects that have no learner column (the newer languages), per learner. */
@@ -127,15 +129,34 @@ export async function mockSupabase(page: Page, init: Partial<MockState> = {}): P
     }
     if (path === '/rest/v1/learner_subjects') {
       if (!state.levelRowsTable) return json({ code: '42501', message: 'permission denied for table learner_subjects' }, 403)
+      const prefer = req.headers()['prefer'] ?? ''
+      if (state.upsertDenied && method === 'POST' && prefer.includes('merge-duplicates')) return json({ code: '42501', message: 'permission denied for table learner_subjects' }, 403)
+      if (method === 'PATCH') {
+        const lid = (url.searchParams.get('learner_id') ?? '').replace('eq.', '')
+        const subj = (url.searchParams.get('subject') ?? '').replace('eq.', '') as 'reading' | 'spanish' | 'spelling'
+        const l = state.learners.find((x) => x.id === lid)
+        if (l && !(['reading', 'spanish', 'spelling'] as string[]).includes(subj)) {
+          const prev = state.extraLevels[lid]?.[subj]
+          if (prev) state.extraLevels[lid][subj] = { level: body.level, best: Math.max(prev.best, body.best, body.level) }
+        } else if (l) {
+          l[`${subj}_level`] = body.level
+          l[`${subj}_best`] = Math.max(l[`${subj}_best`], body.best, body.level)
+        }
+        state.levelUpserts += 1
+        return route.fulfill({ status: 204 })
+      }
+      const ignore = prefer.includes('ignore-duplicates')
       for (const r of (Array.isArray(body) ? body : [body]) as { learner_id: string; subject: 'reading' | 'spanish' | 'spelling'; level: number; best: number }[]) {
         const l = state.learners.find((x) => x.id === r.learner_id)
         if (!l) return json({ message: 'new row violates row-level security policy' }, 403)
         if (!state.subjects.includes(r.subject)) return json({ code: '23503', message: 'violates foreign key constraint "learner_subjects_subject_fkey"' }, 409)
         if (!['reading', 'spanish', 'spelling'].includes(r.subject)) {
           const prev = state.extraLevels[l.id]?.[r.subject]
+          if (ignore && prev) continue
           state.extraLevels[l.id] = { ...state.extraLevels[l.id], [r.subject]: { level: r.level, best: Math.max(prev?.best ?? 1, r.best, r.level) } }
           continue
         }
+        if (ignore) continue
         l[`${r.subject}_level`] = r.level
         l[`${r.subject}_best`] = Math.max(l[`${r.subject}_best`], r.best, r.level)
       }
@@ -184,7 +205,13 @@ export async function mockSupabase(page: Page, init: Partial<MockState> = {}): P
             ...state.learners.flatMap((l) => (['reading', 'spanish', 'spelling'] as const).map((s) => ({ subject: s, band: Math.floor((l[`${s}_level`] - 1) / 10), n: 1 }))),
             ...Object.values(state.extraLevels).flatMap((m) => Object.entries(m).map(([subject, v]) => ({ subject, band: Math.floor((v.level - 1) / 10), n: 1 }))),
           ]
-          return json({ modes, bands })
+          const practice = Object.values(state.rounds.reduce<Record<string, { subject: string; rounds: number; items: number; clean: number; minutes: number; stars: number; learners: number }>>((m, r) => {
+            const k = String(r.mode)
+            const p = (m[k] ??= { subject: k, rounds: 0, items: 0, clean: 0, minutes: 0, stars: 0, learners: 1 })
+            p.rounds += 1; p.items += Number(r.items ?? 0); p.clean += Number(r.clean ?? 0); p.stars += Number(r.stars ?? 0); p.minutes += Math.round(Number(r.seconds ?? 0) / 60)
+            return m
+          }, {}))
+          return json({ modes, bands, practice })
         }
         case 'admin_kpis': {
           const day = (i: number) => new Date(Date.now() - i * 86400000).toISOString().slice(0, 10)

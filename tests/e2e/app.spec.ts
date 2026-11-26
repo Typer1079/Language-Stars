@@ -383,13 +383,56 @@ test('asking Iris again and again gives more pronunciation help', async ({ page 
   const ask = page.getByRole('button', { name: /Ask Iris|Slower|Piece by piece/ })
   await ask.click()
   await expect(ask).toContainText('Slower, please')
+  await page.waitForTimeout(800) // presses closer than 0.7 s apart count as one
   await ask.click()
   await expect(page.getByText(/🐢 Sounds like:/)).toBeVisible()
   await expect(ask).toContainText('Piece by piece')
+  await page.waitForTimeout(800)
   await ask.click()
   await expect(page.getByRole('status').filter({ hasText: 'Piece by piece' })).toBeVisible()
   const said = await page.evaluate(() => (window as unknown as { __said: string[] }).__said)
   // Slow Japanese, and single pieces (kana beats) said on their own.
   expect(said.some((x) => x.startsWith('ja-JP|0.6'))).toBe(true)
   expect(said.filter((x) => x.startsWith('ja-JP|0.60|')).some((x) => [...x.split('|')[2]].length <= 2)).toBe(true)
+})
+
+test('progress handles every language: subject filter, level charts per scale, and a table by subject', async ({ page }) => {
+  const state = await mockSupabase(page, { learners: [learner({ id: 'l1', display_name: 'Olivia', mode: 'korean', reading_level: 12, reading_best: 12 })] })
+  state.extraLevels.l1 = { korean: { level: 3, best: 3 }, french: { level: 2, best: 2 } }
+  const at = (d: number) => new Date(Date.now() - d * 86400000).toISOString()
+  const round = (mode: string, d: number, level: number) => ({ learner_id: 'l1', mode, level, level_after: level, items: 10, clean: 8, coached: 1, skipped: 1, questions: 0, questions_right: 0, stars: 8, seconds: 240, created_at: at(d) })
+  state.rounds.push(round('reading', 5, 12), round('korean', 3, 2), round('korean', 1, 3), round('french', 2, 2))
+  await signIn(page)
+  await page.getByRole('button', { name: "Olivia's progress" }).click()
+  const dialog = page.getByRole('dialog', { name: /Olivia’s progress/ })
+  const filter = dialog.getByRole('group', { name: 'Show subject' })
+  await expect(filter.getByRole('button')).toHaveText(['🌈 All subjects', '📖 Reading', '🇫🇷 French', '🇰🇷 Korean'])
+  await expect(dialog.getByText('Language level', { exact: true })).toBeVisible()
+  const table = dialog.locator('table').filter({ hasText: 'By subject' })
+  await expect(table).toContainText('Korean')
+  await expect(table.locator('tr', { hasText: 'Korean' })).toContainText('3 / 30')
+  await filter.getByRole('button', { name: '🇰🇷 Korean' }).click()
+  await expect(dialog.locator('table').filter({ hasText: 'Recent rounds' }).locator('tbody tr')).toHaveCount(2)
+  await expect(table).toHaveCount(0)
+})
+
+test('admin shows practice by subject', async ({ page }) => {
+  const state = await mockSupabase(page, { admin: true, learners: [learner({ id: 'l1', display_name: 'Ethan', mode: 'tagalog' })] })
+  state.rounds.push({ learner_id: 'l1', mode: 'tagalog', level: 1, level_after: 1, items: 10, clean: 6, stars: 6, seconds: 300, created_at: new Date().toISOString() })
+  await signIn(page, 'admin@example.com')
+  await page.getByRole('button', { name: /Admin/ }).click()
+  const t = page.locator('table').filter({ hasText: 'Practice by subject' })
+  await expect(t.locator('tr', { hasText: 'Tagalog' })).toContainText('60%')
+})
+
+test('language levels still save on a database that refuses "insert or update" (before update 019)', async ({ page }) => {
+  const state = await mockSupabase(page, { upsertDenied: true, learners: [learner({ id: 'l1', display_name: 'Daniel', mode: 'tagalog' })] })
+  await signIn(page)
+  await page.getByRole('button', { name: 'Edit Daniel' }).click()
+  await page.getByRole('button', { name: '🇵🇭 Tagalog level up' }).click()
+  await page.getByRole('button', { name: 'Save changes' }).click()
+  await expect.poll(() => state.extraLevels.l1?.tagalog?.level).toBe(2)
+  // The language is still offered afterwards.
+  await page.getByRole('group', { name: 'What Daniel practices today' }).getByRole('button', { name: /Languages: Tagalog/ }).click()
+  await expect(page.getByRole('group', { name: 'Choose a language' }).getByRole('button', { name: /Level/ })).toHaveCount(8)
 })

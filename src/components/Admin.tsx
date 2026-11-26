@@ -48,7 +48,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
   const [sync, setSync] = useState<{ rows: number; mismatched: number } | null | undefined>(undefined)
   useEffect(() => { void subjectsInSync().then(setSync) }, [])
   const [subj, setSubj] = useState<SubjectLevels | null>(null)
-  useEffect(() => { void adminSubjectLevels().then(setSubj) }, [])
+  useEffect(() => { void adminSubjectLevels(days).then(setSubj) }, [days])
 
   useEffect(() => {
     let live = true
@@ -123,6 +123,7 @@ export default function Admin({ onBack }: { onBack: () => void }) {
             <Tile label="Stars earned" value={k.totals.stars} />
             <Tile label="Meaning questions" value={pct(k.totals.questions_right, k.totals.questions)} sub={`${k.totals.questions} answered`} />
           </div>
+          {subj?.practice && subj.practice.length > 0 && <PracticeBySubject rows={subj.practice} />}
 
           <div id="sec-trends" className="mt-4 grid gap-3 sm:grid-cols-2">
             <LineChart title="Active accounts per day" days={labels}
@@ -198,6 +199,33 @@ function LevelTable({ rows }: { rows: LevelRow[] }) {
                   </td>
                 )
               })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** Rounds, words, accuracy, time and learners per subject in the time range (database update 019). */
+function PracticeBySubject({ rows }: { rows: NonNullable<SubjectLevels['practice']> }) {
+  return (
+    <div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <table className="w-full min-w-[520px] text-left text-xs">
+        <caption className="px-3 pt-3 text-left text-xs font-bold text-slate-700">Practice by subject</caption>
+        <thead className="text-[11px] uppercase tracking-wide text-slate-500">
+          <tr><th className="px-3 py-2">Subject</th><th className="px-2 py-2">Learners</th><th className="px-2 py-2">Rounds</th><th className="px-2 py-2">Words</th><th className="px-2 py-2">On their own</th><th className="px-2 py-2">Minutes</th><th className="px-2 py-2">Stars</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.subject} className="border-t border-slate-100">
+              <td className="px-3 py-1.5 font-semibold whitespace-nowrap">{subject(r.subject).icon} {subject(r.subject).label}</td>
+              <td className="px-2 py-1.5">{r.learners}</td>
+              <td className="px-2 py-1.5">{r.rounds}</td>
+              <td className="px-2 py-1.5">{r.items}</td>
+              <td className="px-2 py-1.5">{r.items ? `${Math.round((r.clean / r.items) * 100)}%` : '–'}</td>
+              <td className="px-2 py-1.5">{r.minutes}</td>
+              <td className="px-2 py-1.5">{r.stars}</td>
             </tr>
           ))}
         </tbody>

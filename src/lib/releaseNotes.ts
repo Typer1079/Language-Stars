@@ -12,6 +12,16 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.8.3',
+    date: '2026-11-26',
+    title: 'Languages everywhere: cards, progress and saving',
+    items: [
+      'Fixed: levels in French, Portuguese, Tagalog, Japanese, Korean, Mandarin and Farsi weren\'t being saved, so they started over at Level 1 and the language could disappear from the list. They now save like Reading and Spanish.',
+      'Learner cards have a full-width 🌍 language bar showing the language, its level and the flags of all eight languages, so it\'s easy to see they\'re there.',
+      'Progress shows every subject a learner uses: pick one subject or all of them, see languages on their own Level chart (they go to 30), and compare subjects in a "By subject" table.',
+    ],
+  },
+  {
     version: '1.8.2',
     date: '2026-11-26',
     title: 'Easier language choice and more help saying words',

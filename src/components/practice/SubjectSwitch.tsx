@@ -53,32 +53,57 @@ export function SubjectSwitch({ learner, subjects, onSwitch, variant, label }: {
     </>
   )
 
+  const langButton = current && (
+    <button type="button" aria-expanded={open} aria-controls={panelId} aria-pressed={onLang}
+      aria-label={`Languages: ${current.label}${onLang ? ' (practicing now)' : ''}. Choose a language`}
+      onClick={() => setOpen((o) => !o)}
+      className={tabs ? tile(onLang || open, current.activeClass)
+        : `mt-1 flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left transition ${onLang ? 'bg-white shadow ring-2 ring-indigo-200' : 'bg-white/60 hover:bg-white'}`}>
+      {tabs ? (
+        <>
+          <span className="text-lg">{current.icon}</span>{current.shortLabel}
+          <span className={`rounded-full px-1.5 text-[10px] ${onLang ? 'bg-white/25' : 'bg-slate-100'}`}>🌍 {open ? '▴' : '▾'}</span>
+        </>
+      ) : (
+        <>
+          <span className="text-xl" aria-hidden="true">{current.icon}</span>
+          <span className="min-w-0 shrink-0 text-[12px] font-bold leading-tight text-slate-900">
+            {current.shortLabel} <span className="font-semibold text-slate-500">L{levelOf(learner, current.id)}</span>
+            <span className="block text-[10px] font-semibold text-slate-500">{onLang ? 'Practicing now' : 'Language'}</span>
+          </span>
+          {langs.length > 1 && (
+            <span className="min-w-0 flex-1 truncate text-right text-sm tracking-tight" aria-hidden="true" title={langs.map((x) => x.label).join(', ')}>
+              {langs.filter((x) => x.id !== current.id).map((x) => x.icon).join('')}
+            </span>
+          )}
+          <span className="shrink-0 rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-bold text-white">🌍 {langs.length > 1 ? `${langs.length} languages` : 'Language'} {open ? '▴' : '▾'}</span>
+        </>
+      )}
+    </button>
+  )
+
   return (
     <div ref={wrap} className={tabs ? 'w-full max-w-2xl' : 'mt-3'}>
-      <div role="group" aria-label={label}
-        className={tabs ? 'grid grid-cols-3 gap-1.5 rounded-2xl border border-slate-200 bg-white/90 p-1.5 shadow-sm' : 'grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 p-1'}>
-        {others.map((s) => (
-          <button key={s.id} type="button" aria-pressed={learner.mode === s.id} onClick={() => choose(s.id)} className={tile(learner.mode === s.id, s.activeClass)}>{body(s)}</button>
-        ))}
-        {current && (
-          <button type="button" aria-expanded={open} aria-controls={panelId} aria-pressed={onLang}
-            aria-label={`Languages: ${current.label}${onLang ? ' (practicing now)' : ''}. Choose a language`}
-            onClick={() => setOpen((o) => !o)} className={tile(onLang || open, current.activeClass)}>
-            {tabs ? (
-              <>
-                <span className="text-lg">{current.icon}</span>{current.shortLabel}
-                <span className={`rounded-full px-1.5 text-[10px] ${onLang ? 'bg-white/25' : 'bg-slate-100'}`}>🌍 {open ? '▴' : '▾'}</span>
-              </>
-            ) : (
-              <>
-                <span className="text-base">{current.icon}</span>
-                <span>{current.shortLabel} <span className="font-semibold opacity-70">L{levelOf(learner, current.id)}</span></span>
-                <span className="mt-0.5 rounded-full bg-indigo-100 px-1.5 text-[9px] font-bold text-indigo-700">🌍 {langs.length > 1 ? `${langs.length} languages ${open ? '▴' : '▾'}` : 'Language'}</span>
-              </>
-            )}
-          </button>
-        )}
-      </div>
+      {tabs ? (
+        <div role="group" aria-label={label} className="grid grid-cols-3 gap-1.5 rounded-2xl border border-slate-200 bg-white/90 p-1.5 shadow-sm">
+          {others.map((s) => (
+            <button key={s.id} type="button" aria-pressed={learner.mode === s.id} onClick={() => choose(s.id)} className={tile(learner.mode === s.id, s.activeClass)}>{body(s)}</button>
+          ))}
+          {langButton}
+        </div>
+      ) : (
+        <div role="group" aria-label={label} className="rounded-2xl bg-slate-100 p-1">
+          <div className="grid grid-cols-2 gap-1">
+            {others.map((s) => (
+              <button key={s.id} type="button" aria-pressed={learner.mode === s.id} onClick={() => choose(s.id)}
+                className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-1.5 text-[12px] font-bold transition ${learner.mode === s.id ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:bg-white/60'}`}>
+                <span className="text-base">{s.icon}</span>{s.shortLabel} <span className="font-semibold opacity-70">L{levelOf(learner, s.id)}</span>
+              </button>
+            ))}
+          </div>
+          {langButton}
+        </div>
+      )}
       {open && (
         <div id={panelId} role="group" aria-label="Choose a language"
           className="mt-1.5 rounded-2xl border border-indigo-200 bg-white p-2 shadow-lg">

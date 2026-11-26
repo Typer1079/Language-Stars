@@ -69,7 +69,7 @@ async function loadSubjects() {
 export const availableSubjects = () => SUBJECTS.filter((s) => {
   if (s.id === 'spelling') return spellingAvailable()
   if (s.levelColumn) return true
-  return Boolean(dbSubjects?.has(s.id)) && levelRowsWritable !== false && !missing.has('levels')
+  return Boolean(dbSubjects?.has(s.id)) && !missing.has('levels')
 })
 
 type LevelRow = { subject: string; level: number; best: number }
@@ -82,6 +82,7 @@ function fromRow(row: Record<string, unknown>): Learner {
   const levels: NonNullable<Learner['levels']> = {}
   const cols: Record<string, number> = {}
   for (const r of rows) {
+    savedRows.set(`${l.id}/${r.subject}`, `${r.level}/${r.best}`)
     const s = SUBJECTS.find((x) => x.id === r.subject)
     if (!s) continue
     levels[s.id] = { level: r.level, best: Math.max(r.best, r.level) }
@@ -104,15 +105,34 @@ export async function createLearner(d: LearnerDraft): Promise<Learner> {
   return fromRow(data as unknown as Record<string, unknown>)
 }
 
-/** Saves each subject's level to learner_subjects. False if that isn't possible yet (before update 015). */
+// What each learner_subjects row held when last loaded or saved ("level/best"), so a save only sends
+// the subjects that changed.
+const savedRows = new Map<string, string>()
+
+/**
+ * Saves each subject's level to learner_subjects (only rows that changed). False if that isn't
+ * possible (before update 015). Before update 019 the database refused "insert or update", so then
+ * rows are added if missing and their level updated separately.
+ */
 async function saveLevelRows(l: Learner): Promise<boolean> {
   if (levelRowsWritable === false) return false
   const ids = availableSubjects().map((s) => s.id)
-  const { error } = await supabase.from('learner_subjects').upsert(levelRows(l, ids), { onConflict: 'learner_id,subject' })
+  const rows = levelRows(l, ids).filter((r) => savedRows.get(`${r.learner_id}/${r.subject}`) !== `${r.level}/${r.best}`)
+  if (rows.length === 0) return true
+  const table = () => supabase.from('learner_subjects')
+  let { error } = await table().upsert(rows, { onConflict: 'learner_id,subject' })
+  if (error && /permission denied/i.test(error.message ?? '')) {
+    ;({ error } = await table().upsert(rows, { onConflict: 'learner_id,subject', ignoreDuplicates: true }))
+    for (const r of rows) {
+      if (error) break
+      ;({ error } = await table().update({ level: r.level, best: r.best }).eq('learner_id', r.learner_id).eq('subject', r.subject))
+    }
+  }
   if (error) {
     levelRowsWritable = false
     return false
   }
+  for (const r of rows) savedRows.set(`${r.learner_id}/${r.subject}`, `${r.level}/${r.best}`)
   levelRowsWritable = true
   return true
 }
@@ -274,9 +294,16 @@ export async function adminKpis(days = 30): Promise<AdminKpis> {
 }
 
 /** Learners per subject (current choice) and per 10-level band (database update 018); null before it. */
-export interface SubjectLevels { modes: Record<string, number>; bands: { subject: string; band: number; n: number }[] }
-export async function adminSubjectLevels(): Promise<SubjectLevels | null> {
-  const { data, error } = await supabase.rpc('admin_subject_levels')
+export interface SubjectLevels {
+  modes: Record<string, number>
+  bands: { subject: string; band: number; n: number }[]
+  /** Practice per subject in the time range (update 019). */
+  practice?: { subject: string; rounds: number; items: number; clean: number; minutes: number; stars: number; learners: number }[]
+}
+export async function adminSubjectLevels(days = 30): Promise<SubjectLevels | null> {
+  // Update 019 takes a time range (and adds practice per subject); 018 takes none.
+  let { data, error } = await supabase.rpc('admin_subject_levels', { days })
+  if (error) ({ data, error } = await supabase.rpc('admin_subject_levels'))
   if (error) return null
   return data as SubjectLevels
 }
